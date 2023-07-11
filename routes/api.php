@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\CRM\DepartmentController as CRMDepartmentController;
+use App\Http\Controllers\CRM\UserController as CRMUserController;
 use App\Http\Controllers\InstallController;
 use App\Http\Controllers\ManagerGroupController;
 use App\Http\Controllers\ParticipantController;
@@ -24,19 +26,22 @@ Route::post('/install', [InstallController::class, 'install']);
 // });
 
 Route::prefix('bx')->group(function () {
-    Route::get('/users', [\App\Http\Controllers\CRM\UserController::class, 'search']);
+    Route::get('/users', [CRMUserController::class, 'search']);
+    Route::get('/departments', [CRMDepartmentController::class, 'search']);
 });
 
 Route::apiResources([
-    'tickets' => \App\Http\Controllers\TicketController::class,
     'reasons' => \App\Http\Controllers\ReasonController::class,
-    'roles' => \App\Http\Controllers\RoleController::class,
     'groups' => \App\Http\Controllers\GroupController::class,
     'messages' => \App\Http\Controllers\MessageController::class,
     'users' => \App\Http\Controllers\UserController::class,
     'template_messages' => \App\Http\Controllers\TemplateMessageController::class,
 ], [
     'except' => 'show'
+]);
+
+Route::apiResource('tickets', \App\Http\Controllers\TicketController::class)->only([
+    'index', 'store', 'update'
 ]);
 
 Route::apiResource('manager_groups', ManagerGroupController::class)->only([
@@ -46,3 +51,5 @@ Route::apiResource('manager_groups', ManagerGroupController::class)->only([
 Route::apiResource('participants', ParticipantController::class)->only([
     'store'
 ]);
+
+Route::get('/roles', [\App\Http\Controllers\RoleController::class, 'index']);

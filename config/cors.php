@@ -15,7 +15,7 @@ return [
     |
     */
 
-    'paths' => ['api/*'],
+    'paths' => ['api/*', 'https://aiwprtonshop.site/support/api/*'],
 
     'allowed_methods' => ['*'],
 

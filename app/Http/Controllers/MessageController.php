@@ -34,7 +34,25 @@ class MessageController extends Controller
      */
     public function store(StoreMessageRequest $request)
     {
-        $data = Message::create($request->validated());
+        $validated = $request->validated();
+        $ticket = \App\Models\Ticket::whereId($validated['ticket_id'])
+            ->whereActive(true)->first();
+
+        return response()->json([
+            'status' => true,
+            'data' => $ticket,
+            // 'message' => $ticket,
+        ]);
+
+        if ($ticket == null) {
+            return response()->json([
+                'status' => false,
+                'data' => $ticket,
+                'message' => 'Тикет уже завершён',
+            ]);
+        }
+
+        $data = Message::create($validated);
         return response()->json([
             'status' => true,
             'data' => MessageResource::make($data)
