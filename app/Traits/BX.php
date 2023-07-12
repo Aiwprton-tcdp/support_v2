@@ -311,7 +311,7 @@ trait BX
     $review_request_first = static::call($method, $params);
 
     if (array_key_exists('total', $review_request_first) and $review_request_first['total'] >= 50) {
-      if ($show && $method != 'department.get') Log::build([
+      if ($show && !in_array($method, ['department.get', 'users.search'])) Log::build([
         'driver' => 'single',
         'path' => storage_path('logs/CRest.log')
       ])->info($method . " Всего: " . $review_request_first['total']);
@@ -381,7 +381,7 @@ trait BX
           $start += 50;
         }
 
-        if ($show && $method != 'department.get') Log::build([
+        if ($show && !in_array($method, ['department.get', 'users.search'])) Log::build([
           'driver' => 'single',
           'path' => storage_path('logs/CRest.log')
         ])->info($start);
@@ -416,19 +416,20 @@ trait BX
         }
       }
     } else {
-      if ($show && in_array($method, ['department.get', 'users.search'])) Log::build([
+      dd($review_request_first);
+      if ($show && !in_array($method, ['department.get', 'users.search'])) Log::build([
         'driver' => 'single',
         'path' => storage_path('logs/CRest.log')
-      ])->info("Всего: " . count($review_request_first['result']));
+      ])->info("Всего: " . count($review_request_first['result'] ?? $review_request_first));
 
       if ($method == 'tasks.task.list') {
         if (!empty($review_request_first['result']['tasks'])) {
           $review_request_first = $review_request_first['result']['tasks'];
         } else {
-          return $review_request_first['result'];
+          return $review_request_first['result'] ?? $review_request_first;
         }
       } else {
-        return $review_request_first['result'];
+        return $review_request_first['result'] ?? $review_request_first;
       }
       foreach ($review_request_first as $stat) {
         if (array_key_exists('ID', $stat)) {

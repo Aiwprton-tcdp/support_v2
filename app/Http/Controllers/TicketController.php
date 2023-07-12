@@ -47,6 +47,11 @@ class TicketController extends Controller
     $reason_id = 1;
     $validated['reason_id'] = $reason_id;
 
+    return response()->json([
+      'status' => true,
+      'data' => ['name' => 'Менеджер тикета'],
+      'message' => '(Тест) тикет успешно создан'
+    ]);
 
 
     // Тестовые данные

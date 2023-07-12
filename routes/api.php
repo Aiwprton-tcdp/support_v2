@@ -1,8 +1,9 @@
 <?php
 
 use App\Http\Controllers\CRM\DepartmentController as CRMDepartmentController;
+use App\Http\Controllers\CRM\IndexAPIController;
 use App\Http\Controllers\CRM\UserController as CRMUserController;
-use App\Http\Controllers\InstallController;
+use App\Http\Controllers\CRM\InstallController;
 use App\Http\Controllers\ManagerGroupController;
 use App\Http\Controllers\ParticipantController;
 use Illuminate\Http\Request;
@@ -20,6 +21,7 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::post('/install', [InstallController::class, 'install']);
+Route::post('/index', [IndexAPIController::class, '__invoke']);
 
 // Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 //     return $request->user();
