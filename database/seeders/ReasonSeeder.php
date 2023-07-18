@@ -12,6 +12,10 @@ class ReasonSeeder extends Seeder
      */
     public function run(): void
     {
-        \App\Models\Reason::factory()->count(15)->create();
+        \App\Models\Reason::create([
+            'name' => 'Неопределёная тема',
+            'weight' => 1,
+            'group_id' => 1,
+        ]);
     }
 }

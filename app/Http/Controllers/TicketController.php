@@ -2,12 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\CRM\UserController;
 use App\Http\Requests\StoreTicketRequest;
 use App\Http\Requests\UpdateTicketRequest;
+use App\Http\Resources\MessageResource;
 use App\Http\Resources\TicketResource;
 use App\Models\Message;
 use App\Models\Ticket;
 use App\Traits\TicketTrait;
+use App\Traits\UserTrait;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 class TicketController extends Controller
@@ -23,13 +27,28 @@ class TicketController extends Controller
     $is_active = boolval($active);
 
     $data = \Illuminate\Support\Facades\DB::table('tickets')
+      ->join('reasons', 'reasons.id', 'tickets.reason_id')
       ->when(!empty($active), function ($q) use ($is_active) {
         $q->whereActive($is_active);
       })
       ->when(!empty($id), function ($q) use ($id) {
         $q->whereId($id);
       })
+      ->select('tickets.*', 'reasons.name AS reason')
       ->paginate($limit < 1 ? 100 : $limit);
+
+    $search = UserTrait::search();
+    $users_collection = array();
+
+    foreach ($search->data as $user) {
+      $users_collection[$user->crm_id] = $user;
+    }
+    unset($search);
+
+    foreach ($data as $ticket) {
+      $ticket->user = $users_collection[$ticket->user_id];
+      $ticket->manager = $users_collection[$ticket->manager_id];
+    }
 
     return response()->json([
       'status' => true,
@@ -42,66 +61,65 @@ class TicketController extends Controller
    */
   public function store(StoreTicketRequest $request)
   {
-    $validated = $request->validated();
+    // Сделать проверку на наличие тем и ответственных (с группами)
 
+
+
+
+    $data = $request->validated();
+    $reason = TicketTrait::GetReason($data['message']);
+
+
+
+
+    // Определить reason_id по reason
+    // Для этого надо синхронизировать названия тем
     $reason_id = 1;
-    $validated['reason_id'] = $reason_id;
 
-    return response()->json([
-      'status' => true,
-      'data' => ['name' => 'Менеджер тикета'],
-      'message' => '(Тест) тикет успешно создан'
+
+
+
+    $data['reason_id'] = $reason_id;
+    $managers = TicketTrait::GetManagersForReason($reason_id);
+
+    if (count($managers) > 1) {
+      $manager_id = TicketTrait::SelectResponsive($managers);
+      $current_manager = $managers->where('id', $manager_id)->first();
+    } else {
+      $current_manager = $managers->first();
+    }
+
+    $data['manager_id'] = $current_manager->crm_id;
+    $data['weight'] = $current_manager->weight;
+    // $reason = 'Новый тикет';//$reason;
+    // TicketTrait::SendNotification(5 ?? $current_manager->crm_id, $data['name']);
+
+    $user_id = Auth::user()->crm_id;
+    $data['user_id'] = $user_id;
+    $result = Ticket::create($data);
+    $message = Message::create([
+      'content' => $data['message'],
+      'user_id' => $user_id,
+      'ticket_id' => $result->id,
     ]);
+    $result->reason = $reason;
 
 
-    // Тестовые данные
-    // $validated['reason_id'] = $reason_id;
-    // $validated['weight'] = 5;
-    // $validated['manager_id'] = 2;
-    // $data = Ticket::create($validated);
-    // $message = Message::create([
-    //     'content' => $validated['message'],
-    //     'user_id' => 2,
-    //     'ticket_id' => $data ->id,
-    // ]);
+    $search = UserTrait::search();
+    $users_collection = array();
 
-    // return response()->json([
-    //     'status' => true,
-    //     'data' => TicketResource::make($data),
-    //     'message' => $message,
-    // ]);
-    // Тестовые данные
+    foreach ($search->data as $u) {
+      $users_collection[$u->crm_id] = $u;
+    }
+    unset($search);
 
-
-
-    $managers = \App\Models\Reason::join('groups', 'groups.id', 'reasons.group_id')
-      ->join('manager_groups', 'manager_groups.group_id', 'groups.id')
-      ->join('users', 'users.id', 'manager_groups.user_id')
-      ->where('reasons.id', $reason_id)
-      ->select('users.id', 'users.name', 'reasons.weight', 'reasons.name AS reason')
-      ->groupBy('reasons.id', 'groups.id', 'manager_groups.id', 'users.id')->get();
-
-    $manager_id = count($managers) > 1
-      ? TicketTrait::selectResponsive($managers)
-      : $managers[0]->id;
-    
-    $validated['manager_id'] = $manager_id;
-    $weight = $managers->where('id', $manager_id)->first()->weight;
-    $validated['weight'] = $weight;
+    $result['user'] = $users_collection[$user_id];
+    $result['manager'] = $users_collection[$current_manager->crm_id];
 
     return response()->json([
       'status' => true,
-      'data' => $manager_id,
-      'message' => '(Тест) тикет успешно создан'
-    ]);
-
-    $user_id = 1; // Айди сотрудника из CRM
-    $validated['user_id'] = $user_id;
-    $data = Ticket::create($validated);
-
-    return response()->json([
-      'status' => true,
-      'data' => TicketResource::make($data),
+      'data' => TicketResource::make($result),
+      'new_message' => MessageResource::make($message),
       'message' => 'Тикет успешно создан'
     ]);
   }

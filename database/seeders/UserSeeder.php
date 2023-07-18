@@ -15,7 +15,6 @@ class UserSeeder extends Seeder
         \App\Models\User::create([
             'name' => 'Система',
             'crm_id' => 0,
-            'role_id' => 1,
         ]);
     }
 }

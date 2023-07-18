@@ -22,6 +22,9 @@ class TicketResource extends JsonResource
             'weight' => $this->weight,
             'mark' => $this->mark,
             'created_at' => $this->created_at,
+            'reason' => $this->reason,
+            'user' => $this->user,
+            'manager' => $this->manager,
         ];
         // return parent::toArray($request);
     }

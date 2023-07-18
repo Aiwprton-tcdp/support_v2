@@ -11,14 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Schema::create('managers', function (Blueprint $table) {
-        //     $table->id();
-        //     $table->string('name', 150);
-        //     $table->foreignId('role_id')->constrained();
-        //     $table->unsignedInteger('crm_id');
-        //     $table->timestamps();
-        //     $table->softDeletes();
-        // });
+        Schema::create('managers', function (Blueprint $table) {
+            $table->id();
+            // $table->string('name');
+            $table->unsignedInteger('crm_id');
+            $table->foreignId('role_id')->constrained();
+            $table->timestamps();
+            $table->softDeletes();
+        });
     }
 
     /**

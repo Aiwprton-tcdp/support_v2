@@ -25,7 +25,7 @@ use Illuminate\Validation\ValidationException;
 trait BX
 {
   static $VERSION = 'Alexander support';
-  static $BATCH_COUNT    = 50; //count batch 1 query
+  static $BATCH_COUNT = 50; //count batch 1 query
   static $TYPE_TRANSPORT = 'json'; // json or xml
 
   // static $C_REST_CURRENT_ENCODING = 'unicode'; //set current encoding site if encoding unequal UTF-8 to use iconv()
@@ -34,17 +34,17 @@ trait BX
   static $C_REST_LOG_TYPE_DUMP = true; //logs save var_export for viewing convenience
   static $C_REST_IGNORE_SSL = false; //turn off validate ssl by curl
 
-  static $C_REST_WEB_HOOK_URL = '';  //url on creat Webhook
+  static $C_REST_WEB_HOOK_URL = ''; //url on creat Webhook
   // or
-  static $C_REST_CLIENT_ID = 'local.64a501c39246d2.04327063'; //Application ID
-  static $C_REST_CLIENT_SECRET = 'QWY2UwyczHMENv9LIw7jfGlldGP6mJih1SCTJ6XdNf2j4zGlXg'; //Application key
+  static $C_REST_CLIENT_ID = 'local.64b11124926226.36764587'; //Application ID
+  static $C_REST_CLIENT_SECRET = 'QlDlj2ymAbuAd3Osh2EMMb8swTTQES4CZXrZIT4firJlvMEKkv'; //Application key
 
   protected static $dataExt = [
-    'access_token'         => '',
-    'domain'             => '',
-    'refresh_token'     => '',
+    'access_token' => '',
+    'domain' => '',
+    'refresh_token' => '',
     'application_token' => '',
-    'client_endpoint'     => ''
+    'client_endpoint' => ''
   ];
 
   /**
@@ -94,7 +94,7 @@ trait BX
   {
     if (!function_exists('curl_init')) {
       return [
-        'error'             => 'error_php_lib_curl',
+        'error' => 'error_php_lib_curl',
         'error_information' => 'need install curl lib'
       ];
     }
@@ -126,7 +126,7 @@ trait BX
           $obCurl,
           CURLOPT_FOLLOWLOCATION,
           (isset($arParams['followlocation']))
-            ? $arParams['followlocation'] : 1
+          ? $arParams['followlocation'] : 1
         );
         if (defined("C_REST_IGNORE_SSL") && static::$C_REST_IGNORE_SSL === true) {
           curl_setopt($obCurl, CURLOPT_SSL_VERIFYPEER, false);
@@ -152,14 +152,14 @@ trait BX
             $result = static::GetNewAuth($arParams);
           } else {
             $arErrorInform = [
-              'expired_token'          => 'expired token, cant get new auth? Check access oauth server.',
-              'invalid_token'          => 'invalid token, need reinstall application',
-              'invalid_grant'          => 'invalid grant, check out define C_REST_CLIENT_SECRET or C_REST_CLIENT_ID',
-              'invalid_client'         => 'invalid client, check out define C_REST_CLIENT_SECRET or C_REST_CLIENT_ID',
-              'QUERY_LIMIT_EXCEEDED'   => 'Too many requests, maximum 2 query by second',
+              'expired_token' => 'expired token, cant get new auth? Check access oauth server.',
+              'invalid_token' => 'invalid token, need reinstall application',
+              'invalid_grant' => 'invalid grant, check out define C_REST_CLIENT_SECRET or C_REST_CLIENT_ID',
+              'invalid_client' => 'invalid client, check out define C_REST_CLIENT_SECRET or C_REST_CLIENT_ID',
+              'QUERY_LIMIT_EXCEEDED' => 'Too many requests, maximum 2 query by second',
               'ERROR_METHOD_NOT_FOUND' => 'Method not found! You can see the permissions of the application: CRest::call(\'scope\')',
-              'NO_AUTH_FOUND'          => 'Some setup error b24, check in table "b_module_to_module" event "OnRestCheckAuth"',
-              'INTERNAL_SERVER_ERROR'  => 'Server down, try later'
+              'NO_AUTH_FOUND' => 'Some setup error b24, check in table "b_module_to_module" event "OnRestCheckAuth"',
+              'INTERNAL_SERVER_ERROR' => 'Server down, try later'
             ];
             if (!empty($arErrorInform[$result['error']])) {
               $result['error_information'] = $arErrorInform[$result['error']];
@@ -173,8 +173,8 @@ trait BX
 
         static::setLog(
           [
-            'url'    => $url,
-            'info'   => $info,
+            'url' => $url,
+            'info' => $info,
             'params' => $arParams,
             'result' => $result
           ],
@@ -209,7 +209,7 @@ trait BX
     }
 
     return [
-      'error'             => 'no_install_app',
+      'error' => 'no_install_app',
       'error_information' => 'error install app, pls install local application '
     ];
   }
@@ -311,15 +311,17 @@ trait BX
     $review_request_first = static::call($method, $params);
 
     if (array_key_exists('total', $review_request_first) and $review_request_first['total'] >= 50) {
-      if ($show && !in_array($method, ['department.get', 'users.search'])) Log::build([
-        'driver' => 'single',
-        'path' => storage_path('logs/CRest.log')
-      ])->info($method . " Всего: " . $review_request_first['total']);
+      if ($show && !in_array($method, ['department.get', 'users.search']))
+        Log::build([
+          'driver' => 'single',
+          'path' => storage_path('logs/CRest.log')
+        ])->info($method . " Всего: " . $review_request_first['total']);
 
       if ($review_request_first['total'] > 2500) {
         for ($mass = 0; $mass < ceil($review_request_first['total'] / 2500); $mass++) {
           for ($i = 0; $i < ceil(($review_request_first['total'] - $mass * 2500) / 50); $i++) {
-            if ($i >= 50) break;
+            if ($i >= 50)
+              break;
 
             $arParams['statistic_' . ($i + 1)] = [
               'method' => $method,
@@ -329,10 +331,11 @@ trait BX
             $start += 50;
           }
 
-          if ($show) Log::build([
-            'driver' => 'single',
-            'path' => storage_path('logs/CRest.log')
-          ])->info($start);
+          if ($show)
+            Log::build([
+              'driver' => 'single',
+              'path' => storage_path('logs/CRest.log')
+            ])->info($start);
 
           $review_request = static::callBatch($arParams);
 
@@ -358,7 +361,8 @@ trait BX
                       'driver' => 'single',
                       'path' => storage_path('logs/CRest.log')
                     ])->info('$review_request error', [$stat]);
-                  };
+                  }
+                  ;
                 }
               }
             }
@@ -381,10 +385,11 @@ trait BX
           $start += 50;
         }
 
-        if ($show && !in_array($method, ['department.get', 'users.search'])) Log::build([
-          'driver' => 'single',
-          'path' => storage_path('logs/CRest.log')
-        ])->info($start);
+        if ($show && !in_array($method, ['department.get', 'users.search']))
+          Log::build([
+            'driver' => 'single',
+            'path' => storage_path('logs/CRest.log')
+          ])->info($start);
 
         $review_request = static::callBatch($arParams);
 
@@ -416,11 +421,12 @@ trait BX
         }
       }
     } else {
-      dd($review_request_first);
-      if ($show && !in_array($method, ['department.get', 'users.search'])) Log::build([
-        'driver' => 'single',
-        'path' => storage_path('logs/CRest.log')
-      ])->info("Всего: " . count($review_request_first['result'] ?? $review_request_first));
+      // dd($review_request_first);
+      if ($show && !in_array($method, ['department.get', 'users.search']))
+        Log::build([
+          'driver' => 'single',
+          'path' => storage_path('logs/CRest.log')
+        ])->info("Всего: " . count($review_request_first['result'] ?? $review_request_first));
 
       if ($method == 'tasks.task.list') {
         if (!empty($review_request_first['result']['tasks'])) {
@@ -438,9 +444,11 @@ trait BX
           $return_data[$stat['id']] = $stat;
         } elseif (array_key_exists('ANCHOR_ID', $stat)) {
           $return_data[$stat['ANCHOR_ID'] . '_' . $stat['TYPE_ID'] . '_' . $stat['ENTITY_TYPE_ID'] . '_' . $stat['ENTITY_TYPE_ID']] = $stat;
-        };
+        }
+        ;
       }
-    };
+    }
+    ;
     return $array_values ? array_values($return_data) : $return_data;
   }
 
@@ -452,10 +460,10 @@ trait BX
     if ($arSettings !== false) {
       $arParamsAuth = [
         'this_auth' => 'Y',
-        'params'    =>
+        'params' =>
         [
-          'client_id'     => $arSettings['C_REST_CLIENT_ID'],
-          'grant_type'    => 'refresh_token',
+          'client_id' => $arSettings['C_REST_CLIENT_ID'],
+          'grant_type' => 'refresh_token',
           'client_secret' => $arSettings['C_REST_CLIENT_SECRET'],
           'refresh_token' => $arSettings["refresh_token"],
         ]
@@ -507,7 +515,7 @@ trait BX
     if (isset(static::$C_REST_WEB_HOOK_URL) && !empty(static::$C_REST_WEB_HOOK_URL)) {
       $arData = [
         'client_endpoint' => static::$C_REST_WEB_HOOK_URL,
-        'is_web_hook'     => 'Y'
+        'is_web_hook' => 'Y'
       ];
       $isCurrData = true;
     } else {
@@ -539,10 +547,10 @@ trait BX
     $return = [];
     if (!empty(static::$dataExt['access_token'])) {
       $return = [
-        'access_token'         => static::$dataExt['access_token'],
-        'domain'             => static::$dataExt['domain'],
-        'client_endpoint'     => static::$dataExt['client_endpoint'],
-        'refresh_token'     => static::$dataExt['refresh_token'],
+        'access_token' => static::$dataExt['access_token'],
+        'domain' => static::$dataExt['domain'],
+        'client_endpoint' => static::$dataExt['client_endpoint'],
+        'refresh_token' => static::$dataExt['refresh_token'],
         'application_token' => static::$dataExt['application_token']
       ];
     } else if (file_exists(__DIR__ . '/settings.json')) {
@@ -633,7 +641,7 @@ trait BX
 
   protected static function setSettingData($arSettings)
   {
-    return  (bool)file_put_contents(__DIR__ . '/settings.json', static::wrapData($arSettings));
+    return (bool) file_put_contents(__DIR__ . '/settings.json', static::wrapData($arSettings));
   }
 
   /**
@@ -723,11 +731,22 @@ trait BX
   public static function setDataExt($request)
   {
     static::$dataExt = [
-      'access_token'         => $request->get("auth")["ACCESS_TOKEN"],
-      'domain'             => $request->get("auth")["DOMAIN"],
-      'refresh_token'     => $request->get("auth")["REFRESH_TOKEN"],
+      'access_token' => $request->get("auth")["ACCESS_TOKEN"],
+      'domain' => $request->get("auth")["DOMAIN"],
+      'refresh_token' => $request->get("auth")["REFRESH_TOKEN"],
       'application_token' => $request->get("sid")["APP_SID"],
-      'client_endpoint'     => 'https://' . htmlspecialchars($request->get("auth")["DOMAIN"]) . '/rest/'
+      'client_endpoint' => 'https://' . htmlspecialchars($request->get("auth")["DOMAIN"]) . '/rest/'
+    ];
+  }
+
+  public static function resetDataExt($request)
+  {
+    static::$dataExt = [
+      'access_token' => $request->get("auth")["access_token"],
+      'domain' => $request->get("auth")["domain"],
+      'refresh_token' => $request->get("auth")["refresh_token"],
+      'application_token' => $request->get("sid")["APP_SID"],
+      'client_endpoint' => 'https://' . htmlspecialchars($request->get("auth")["domain"]) . '/rest/'
     ];
   }
 
@@ -742,11 +761,12 @@ trait BX
       // 'client_endpoint' => 'https://' . htmlspecialchars($_REQUEST['DOMAIN']) . '/rest/',
 
 
-      'access_token'         => $request["AUTH_ID"],
-      'domain'             => $request["DOMAIN"],
-      'refresh_token'     => $request["REFRESH_ID"],
+      'access_token' => $request["AUTH_ID"],
+      'domain' => $request["DOMAIN"],
+      'refresh_token' => $request["REFRESH_ID"],
       'application_token' => $request["APP_SID"],
-      'client_endpoint'     => 'https://' . htmlspecialchars($request["DOMAIN"]) . '/rest/'
+      'client_endpoint' => 'https://' . htmlspecialchars($request["DOMAIN"]) . '/rest/'
     ];
+    return static::$dataExt;
   }
 }

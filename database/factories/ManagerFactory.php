@@ -17,8 +17,9 @@ class ManagerFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->name(),
-            'crm_id' => fake()->randomDigitNotNull(),
+            'name' => fake()->firstName(),
+            'crm_id' => fake()->unique()->numberBetween(1,5000),
+            'role_id' => fake()->numberBetween(1, 3),
         ];
     }
 }

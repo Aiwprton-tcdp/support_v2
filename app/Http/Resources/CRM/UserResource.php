@@ -17,10 +17,10 @@ class UserResource extends JsonResource
         return [
             'crm_id' => $this['ID'],
             'name' => trim($this['LAST_NAME'] . " " . $this['NAME'] . " " . $this['SECOND_NAME']),
-            'avatar' => $this['PERSONAL_PHOTO'],
-            'post' => trim($this['WORK_POSITION']),
-            'departments' => $this['UF_DEPARTMENT'],
-            'inner_phone' => $this['UF_PHONE_INNER'],
+            'avatar' => $this['PERSONAL_PHOTO'] ?? null,
+            'post' => trim($this['WORK_POSITION'] ?? null),
+            'departments' => $this['UF_DEPARTMENT'] ?? 0,
+            'inner_phone' => $this['UF_PHONE_INNER'] ?? 0,
         ];
     }
 }

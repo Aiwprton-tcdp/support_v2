@@ -6,6 +6,7 @@ use App\Http\Requests\StoreMessageRequest;
 use App\Http\Requests\UpdateMessageRequest;
 use App\Http\Resources\MessageResource;
 use App\Models\Message;
+use Illuminate\Support\Facades\Auth;
 
 class MessageController extends Controller
 {
@@ -21,6 +22,8 @@ class MessageController extends Controller
             ->when(!empty($ticket), function ($q) use ($ticket) {
                 $q->whereTicketId($ticket);
             })
+            // ->where('user_id', Auth::user()->crm_id)
+            // ->orWhere('manager_id', Auth::user()->crm_id)
             ->paginate($limit < 1 ? 50 : $limit);
 
         return response()->json([
@@ -35,14 +38,15 @@ class MessageController extends Controller
     public function store(StoreMessageRequest $request)
     {
         $validated = $request->validated();
+        $validated['user_id'] = Auth::user()->crm_id;
         $ticket = \App\Models\Ticket::whereId($validated['ticket_id'])
             ->whereActive(true)->first();
 
-        return response()->json([
-            'status' => true,
-            'data' => $ticket,
-            // 'message' => $ticket,
-        ]);
+        // return response()->json([
+        //     'status' => true,
+        //     'data' => $ticket,
+        //     // 'message' => $ticket,
+        // ]);
 
         if ($ticket == null) {
             return response()->json([

@@ -22,7 +22,6 @@ class StoreTicketRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'user_id' => 'required|numeric|min:1',
             'message' => 'required|string',
         ];
     }

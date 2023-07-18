@@ -21,37 +21,39 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::post('/install', [InstallController::class, 'install']);
+// Route::get('/index', [IndexAPIController::class, '__invoke']);
 Route::post('/index', [IndexAPIController::class, '__invoke']);
+Route::post('/auth/check', [CRMUserController::class, 'check']);
 
-// Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-//     return $request->user();
-// });
+Route::group(['middleware' => 'auth:sanctum'], function() {
 
-Route::prefix('bx')->group(function () {
-    Route::get('/users', [CRMUserController::class, 'search']);
-    Route::get('/departments', [CRMDepartmentController::class, 'search']);
+    Route::prefix('bx')->group(function () {
+        Route::get('/users', [CRMUserController::class, 'search']);
+        Route::get('/departments', [CRMDepartmentController::class, 'search']);
+    });
+
+    Route::apiResources([
+        'reasons' => \App\Http\Controllers\ReasonController::class,
+        'groups' => \App\Http\Controllers\GroupController::class,
+        'messages' => \App\Http\Controllers\MessageController::class,
+        'users' => \App\Http\Controllers\UserController::class,
+        'managers' => \App\Http\Controllers\ManagerController::class,
+        'template_messages' => \App\Http\Controllers\TemplateMessageController::class,
+    ], [
+        'except' => 'show'
+    ]);
+
+    Route::apiResource('tickets', \App\Http\Controllers\TicketController::class)->only([
+        'index', 'store', 'update'
+    ]);
+
+    Route::apiResource('manager_groups', ManagerGroupController::class)->only([
+        'index', 'store', 'destroy'
+    ]);
+
+    Route::apiResource('participants', ParticipantController::class)->only([
+        'store'
+    ]);
+
+    Route::get('/roles', [\App\Http\Controllers\RoleController::class, 'index']);
 });
-
-Route::apiResources([
-    'reasons' => \App\Http\Controllers\ReasonController::class,
-    'groups' => \App\Http\Controllers\GroupController::class,
-    'messages' => \App\Http\Controllers\MessageController::class,
-    'users' => \App\Http\Controllers\UserController::class,
-    'template_messages' => \App\Http\Controllers\TemplateMessageController::class,
-], [
-    'except' => 'show'
-]);
-
-Route::apiResource('tickets', \App\Http\Controllers\TicketController::class)->only([
-    'index', 'store', 'update'
-]);
-
-Route::apiResource('manager_groups', ManagerGroupController::class)->only([
-    'index', 'store', 'destroy'
-]);
-
-Route::apiResource('participants', ParticipantController::class)->only([
-    'store'
-]);
-
-Route::get('/roles', [\App\Http\Controllers\RoleController::class, 'index']);

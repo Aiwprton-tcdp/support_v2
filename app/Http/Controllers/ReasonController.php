@@ -6,6 +6,7 @@ use App\Http\Requests\StoreReasonRequest;
 use App\Http\Requests\UpdateReasonRequest;
 use App\Http\Resources\ReasonResource;
 use App\Models\Reason;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 
@@ -20,15 +21,24 @@ class ReasonController extends Controller
         $id = intval(htmlspecialchars(trim(request('id'))));
         $limit = intval(htmlspecialchars(trim(request('limit'))));
 
+        if (Cache::store('file')->has('reasons')) {
+            return response()->json([
+                'status' => true,
+                'data' => Cache::store('file')->get('reasons')
+            ]);
+        }
+
         $data = \Illuminate\Support\Facades\DB::table('reasons')
             ->when(!empty($id) || !empty($name), function ($q) use ($id, $name) {
                 $q->whereId($id)->orWhereRaw('LOWER(name) LIKE ?', ["%{$name}%"]);
             })
             ->paginate($limit < 1 ? 10 : $limit);
+        $resource = ReasonResource::collection($data)->response()->getData();
+        Cache::store('file')->forever('reasons', $resource);
 
         return response()->json([
             'status' => true,
-            'data' => ReasonResource::collection($data)->response()->getData()
+            'data' => $resource
         ]);
     }
 
@@ -47,6 +57,7 @@ class ReasonController extends Controller
         if (!$is_old) {
             Log::info($message);
             $reason->save();
+            Cache::store('file')->forget('reasons');
         }
 
         return response()->json([

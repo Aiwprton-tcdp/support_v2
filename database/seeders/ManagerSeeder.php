@@ -12,6 +12,9 @@ class ManagerSeeder extends Seeder
      */
     public function run(): void
     {
-        \App\Models\Manager::factory()->count(20)->create();
+        \App\Models\Manager::create([
+            'crm_id' => 0,
+            'role_id' => 1,
+        ]);
     }
 }

@@ -10,8 +10,8 @@ class Manager extends Model
     use HasFactory;
 
     protected $fillable = [
-        'name',
         'crm_id',
+        'role_id',
     ];
 
     protected $hidden = [
@@ -27,4 +27,9 @@ class Manager extends Model
     ];
     
     protected $table = 'managers';
+    
+    public function user()
+    {
+        return $this->hasOne(User::class, 'crm_id', 'crm_id');
+    }
 }

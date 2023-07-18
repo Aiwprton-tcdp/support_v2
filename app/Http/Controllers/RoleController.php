@@ -16,18 +16,17 @@ class RoleController extends Controller
      */
     public function index()
     {
-        // if (Cache::store('file')->has('roles')) {
-        //     $data = Cache::store('file')->get('roles');
-        //     return response()->json([
-        //         'status' => true,
-        //         'data' => $data
-        //     ]);
-        // }
+        if (Cache::store('file')->has('roles')) {
+            return response()->json([
+                'status' => true,
+                'data' => Cache::store('file')->get('roles')
+            ]);
+        }
 
         $data = \Illuminate\Support\Facades\DB::table('roles')
             ->whereNot('id', 1)->get();
-        $resource = RoleResource::collection($data);//->response()->getData();
-        // Cache::store('file')->forever('roles', $resource);
+        $resource = RoleResource::collection($data);
+        Cache::store('file')->forever('roles', $resource);
 
         return response()->json([
             'status' => true,
@@ -41,13 +40,15 @@ class RoleController extends Controller
     public function store(StoreRoleRequest $request)
     {
         $data = Role::create($request->validated());
+        $message = 'Создана роль `' . $data->name . '`';
 
-        Log::info("Role `" . $data->name . "` has been created");
-        // Cache::store('file')->forget('roles');
+        Log::info($message);
+        Cache::store('file')->forget('roles');
 
         return response()->json([
             'status' => true,
-            'data' => RoleResource::make($data)
+            'data' => RoleResource::make($data),
+            'message' => $message
         ]);
     }
 
@@ -68,13 +69,15 @@ class RoleController extends Controller
         $name = $data->name;
         $data->fill($request->validated());
         $data->save();
+        $message = 'Название роли `' . $name . '` изменено на `' . $data->name . '`';
 
-        Log::info("Role `" . $name . "` has been updated");
+        Log::info($message);
         Cache::store('file')->forget('roles');
 
         return response()->json([
             'status' => true,
-            'data' => RoleResource::make($data)
+            'data' => RoleResource::make($data),
+            'message' => $message
         ]);
     }
 
@@ -87,13 +90,15 @@ class RoleController extends Controller
         $data = Role::findOrFail($id);
         $name = $data->name;
         $result = $data->delete();
-
-        Log::info("Role `" . $name . "` has been deleted");
+        $message = 'Удалена роль `' . $name . '`';
+        
+        Log::info($message);
         Cache::store('file')->forget('roles');
 
         return response()->json([
             'status' => true,
-            'data' => $result
+            'data' => $result,
+            'message' => $message
         ]);
     }
 }

@@ -10,7 +10,7 @@ class ManagerGroup extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
+        'manager_id',
         'group_id',
         'created_at',
     ];

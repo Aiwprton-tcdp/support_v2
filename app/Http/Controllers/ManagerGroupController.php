@@ -31,7 +31,7 @@ class ManagerGroupController extends Controller
     public function store(StoreManagerGroupRequest $request)
     {
         $validated = $request->validated();
-        $user = \App\Models\User::findOrFail($validated['user_id']);
+        $user = \App\Models\Manager::with(['user:id,name'])->findOrFail($validated['manager_id']);
         
         if ($user->role_id != 2) {
             return response()->json([
@@ -101,7 +101,7 @@ class ManagerGroupController extends Controller
             ]);
         }
 
-        $user = \App\Models\User::findOrFail($data->user_id);
+        $user = \App\Models\Manager::with(['user:id,name'])->findOrFail($data->manager_id);
         $group = \App\Models\Group::findOrFail($data->group_id);
         $message = '`' . $user->name . '` удалён из группы `' . $group->name . '`';
         Log::info($message);
