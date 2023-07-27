@@ -5,15 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Message extends Model
+class Attachment extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'content',
-        'user_crm_id',
-        'ticket_id',
-        // 'has_attachments',
+        'message_id',
+        'name',
+        'link',
         'created_at',
         'updated_at',
     ];
@@ -28,10 +27,5 @@ class Message extends Model
         'deleted_at' => 'datetime',
     ];
     
-    protected $table = 'messages';
-
-    public function attachments()
-    {
-        return $this->hasMany(Attachment::class);
-    }
+    protected $table = 'attachments';
 }

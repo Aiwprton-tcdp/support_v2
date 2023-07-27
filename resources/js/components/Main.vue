@@ -1,18 +1,15 @@
 <script>
 import { provide, ref } from 'vue'
 import { toast } from 'vue3-toastify'
-// import Emitter from 'tiny-emitter'
+import Emitter from 'tiny-emitter'
 import Header from '@temps/Header.vue'
 
 export default {
   components: { Header },
   setup() {
     const UserData = ref(window.user)
-    // const UnreadMessagesCount = ref(Number())
-    // const UnreadMessages = ref(Array())
-    // const emitter = ref(new Emitter())
+    const emitter = ref(new Emitter())
 
-    // const toast = Vue3Toastify()
     const createToast = (text, type) => {
       switch (type) {
         case 'error':
@@ -31,31 +28,18 @@ export default {
       }
     }
 
-    // const NewMessage = function(data) {
-    //   UnreadMessagesCount.value++
-    //   this.emitter.emit('NewUnreadMessage', data)
-    // }
-
     provide('UserData', UserData)
-    // provide('UnreadMessages', UnreadMessages)
-    // provide('UnreadMessagesCount', UnreadMessagesCount)
     provide('createToast', createToast)
-    // provide('NewMessage', NewMessage)
-    // provide('emitter', emitter)
+    provide('emitter', emitter)
 
     return {
       UserData,
-      // UnreadMessages,
-      // UnreadMessagesCount,
       createToast,
-      // NewMessage,
-      // emitter,
+      emitter,
     }
   },
   mounted() {
     BX24.init(() => {
-      // console.log('this.UserData')
-      console.log(this.UserData)
       const auth = BX24.getAuth()
 
       let Parameters = {}
@@ -87,7 +71,7 @@ export default {
         this.createToast(e.response.data.message, 'error')
       })
     })
-  }
+  },
 }
 </script>
 

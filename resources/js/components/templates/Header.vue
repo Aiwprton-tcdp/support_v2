@@ -35,7 +35,7 @@ export default {
   },
   methods: {
     ChangeRoute() {
-      console.log('ChangeRoute')
+      // console.log('ChangeRoute')
       this.$router.push({ name: this.ActiveTab })
     }
   },
@@ -50,14 +50,14 @@ export default {
 </script>
 
 <template>
-<Tabs variant="underline" v-model="ActiveTab" @click:pane="ChangeRoute()" class="p-1">
-  <Tab name="tickets" title="Тикеты" />
-  <Tab name="details" title="Детализация" />
-  <Tab name="dashboard" title="Статистика" />
-  <Tab name="coupons" title="Купоны" />
-  <Tab name="reasons" title="Темы" />
-  <Tab name="users" title="Пользователи" />
-  <Tab name="groups" title="Группы" />
-  <Tab name="roles" title="Роли" />
-</Tabs>
+  <Tabs variant="underline" v-model="ActiveTab" @click:pane="ChangeRoute()">
+    <Tab name="tickets" title="Тикеты" />
+    <Tab name="details" title="Детализация" />
+    <Tab name="dashboard" title="Статистика" />
+    <Tab name="coupons" title="Купоны" />
+    <Tab name="reasons" title="Темы" />
+    <Tab name="users" title="Пользователи" />
+    <Tab name="groups" title="Группы" />
+    <!-- <Tab name="roles" title="Роли" /> -->
+  </Tabs>
 </template>

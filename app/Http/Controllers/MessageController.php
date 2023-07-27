@@ -6,7 +6,9 @@ use App\Http\Requests\StoreMessageRequest;
 use App\Http\Requests\UpdateMessageRequest;
 use App\Http\Resources\MessageResource;
 use App\Models\Message;
+use App\Traits\TicketTrait;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class MessageController extends Controller
 {
@@ -18,13 +20,11 @@ class MessageController extends Controller
         $ticket = intval(htmlspecialchars(trim(request('ticket'))));
         $limit = intval(htmlspecialchars(trim(request('limit'))));
 
-        $data = \Illuminate\Support\Facades\DB::table('messages')
+        $data = Message::with('attachments')
             ->when(!empty($ticket), function ($q) use ($ticket) {
                 $q->whereTicketId($ticket);
             })
-            // ->where('user_id', Auth::user()->crm_id)
-            // ->orWhere('manager_id', Auth::user()->crm_id)
-            ->paginate($limit < 1 ? 50 : $limit);
+            ->paginate($limit < 1 ? 100 : $limit);
 
         return response()->json([
             'status' => true,
@@ -37,18 +37,22 @@ class MessageController extends Controller
      */
     public function store(StoreMessageRequest $request)
     {
+        if (count($_FILES) > 5) {
+            return [
+                'status' => 'error',
+                'data' => null,
+                'message' => 'Файлов больше 5!',
+            ];
+        }
+
         $validated = $request->validated();
-        $validated['user_id'] = Auth::user()->crm_id;
+        $validated['content'] = '';
+        $validated['user_crm_id'] = Auth::user()->crm_id;
+        // $validated['has_attachments'] = count($_FILES) > 0;
         $ticket = \App\Models\Ticket::whereId($validated['ticket_id'])
-            ->whereActive(true)->first();
-
-        // return response()->json([
-        //     'status' => true,
-        //     'data' => $ticket,
-        //     // 'message' => $ticket,
-        // ]);
-
-        if ($ticket == null) {
+        ->whereActive(true)->first();
+        
+        if (empty($ticket)) {
             return response()->json([
                 'status' => false,
                 'data' => $ticket,
@@ -57,6 +61,30 @@ class MessageController extends Controller
         }
 
         $data = Message::create($validated);
+
+        $attachments = [];
+        foreach ($_FILES as $file) {
+            $attachment_path = TicketTrait::SaveAttachment($data->id, $file);
+            array_push($attachments, $attachment_path);
+        }
+
+        // $channel_id = '#support.' . md5($data->user_id) . md5(env('CENTRIFUGE_SALT'));
+        $recipient_id = $ticket->user_id == $data->user_crm_id ? $ticket->manager_id : $ticket->user_id;
+        $channel_id = '#support.' . $recipient_id;
+        $client = new \phpcent\Client(
+            env('CENTRIFUGE_URL') . '/api',
+            '8ffaffac-8c9e-4a9c-88ce-54658097096e',
+            'ee93146a-0607-4ea3-aa4a-02c59980647e'
+        );
+        $client->setSafety(false);
+
+        $data['attachments'] = collect($attachments);
+        $client->publish($channel_id, [
+            'message' => MessageResource::make($data),
+        ]);
+
+        TicketTrait::SendNotification($recipient_id, $data['content'], $ticket->id);
+
         return response()->json([
             'status' => true,
             'data' => MessageResource::make($data)

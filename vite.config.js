@@ -51,7 +51,9 @@ export default defineConfig({
       { find: '@comps', replacement: generateAlias('/components') },
       { find: '@pages', replacement: generateAlias('/components/pages') },
       { find: '@temps', replacement: generateAlias('/components/templates') },
+      { find: '@states', replacement: generateAlias('/components/templates/states') },
       { find: '@utils', replacement: generateAlias('/utils') },
+      { find: '@assets', replacement: generateAlias('/assets') },
     ],
   },
   build: {

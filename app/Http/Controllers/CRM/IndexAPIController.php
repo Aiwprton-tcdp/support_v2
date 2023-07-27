@@ -15,11 +15,14 @@ class IndexAPIController extends Controller
   public function __invoke()
   {
     try {
+      $ticket_id = isset($_REQUEST['PLACEMENT_OPTIONS']) && isset(json_decode($_REQUEST['PLACEMENT_OPTIONS'])->id)
+        ? intval(json_decode($_REQUEST['PLACEMENT_OPTIONS'])->id)
+        : 0;
+      // dd($ticket_id);
       // dd(\Illuminate\Support\Facades\Auth::id());
       $token = '';
       $user_id = 0;
-      $check = BX::setDataE($_REQUEST); // получает авторизацию битрикса
-      // $user = UserTrait::current(); // получает конкретного пользователя по авторизации
+      $check = BX::setDataE($_REQUEST);
       $data = BX::call('user.current')['result'];
       $user = [
         'crm_id' => $data['ID'],
@@ -40,11 +43,11 @@ class IndexAPIController extends Controller
         $token = $auth->createToken("auth")->plainTextToken;
       } else {
         // dd(Auth::id());
-        $user_id = Auth::id();
+        // $user_id = Auth::user()->crm_id;
       }
 
       $data = $_REQUEST;
-      return view('welcome', compact('user', 'data', 'token', 'user_id'));
+      return view('welcome', compact('user', 'data', 'token', 'user_id', 'ticket_id'));
     } catch (\Exception $er) {
       return $er->getMessage();
     }

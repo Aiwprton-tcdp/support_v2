@@ -769,4 +769,9 @@ trait BX
     ];
     return static::$dataExt;
   }
+
+  public static function getDataE()
+  {
+    return static::$dataExt;
+  }
 }

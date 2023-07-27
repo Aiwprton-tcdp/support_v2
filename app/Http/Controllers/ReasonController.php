@@ -6,6 +6,7 @@ use App\Http\Requests\StoreReasonRequest;
 use App\Http\Requests\UpdateReasonRequest;
 use App\Http\Resources\ReasonResource;
 use App\Models\Reason;
+use App\Traits\ReasonTrait;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
@@ -21,9 +22,12 @@ class ReasonController extends Controller
         $id = intval(htmlspecialchars(trim(request('id'))));
         $limit = intval(htmlspecialchars(trim(request('limit'))));
 
+        $checksum = ReasonTrait::Checksum();
+
         if (Cache::store('file')->has('reasons')) {
             return response()->json([
                 'status' => true,
+                'checksum' => $checksum,
                 'data' => Cache::store('file')->get('reasons')
             ]);
         }
@@ -32,12 +36,13 @@ class ReasonController extends Controller
             ->when(!empty($id) || !empty($name), function ($q) use ($id, $name) {
                 $q->whereId($id)->orWhereRaw('LOWER(name) LIKE ?', ["%{$name}%"]);
             })
-            ->paginate($limit < 1 ? 10 : $limit);
+            ->paginate($limit < 1 ? 100 : $limit);
         $resource = ReasonResource::collection($data)->response()->getData();
         Cache::store('file')->forever('reasons', $resource);
-
+        
         return response()->json([
-            'status' => true,
+            'status' => count($checksum) == 0,
+            'checksum' => $checksum,
             'data' => $resource
         ]);
     }
@@ -48,20 +53,14 @@ class ReasonController extends Controller
     public function store(StoreReasonRequest $request)
     {
         $validated = $request->validated();
-        $reason = Reason::firstOrNew(['name' => $validated['name']], $validated);
-        $is_old = $reason->exists;
+        $reason = Reason::firstOrCreate(['name' => $validated['name']], $validated);
 
-        $message = 'Тема `' . $reason->name .
-            ($is_old ? '` уже существует' : '` успешно создана');
-        
-        if (!$is_old) {
-            Log::info($message);
-            $reason->save();
-            Cache::store('file')->forget('reasons');
-        }
+        $message = 'Тема `' . $reason->name .'` успешно создана';
+        Log::info($message);
+        Cache::store('file')->forget('reasons');
 
         return response()->json([
-            'status' => !$is_old,
+            'status' => true,
             'data' => ReasonResource::make($reason),
             'message' => $message
         ]);
@@ -80,27 +79,21 @@ class ReasonController extends Controller
      */
     public function update(UpdateReasonRequest $request, $id)
     {
-        $validated = $request->validated();
         $reason = Reason::findOrFail($id);
         $message = 'Тема `' . $reason->name . '` успешно изменена';
-
-        $exists_with_names = Reason::whereName($validated['name'])
-            ->whereNot('id', $id)->exists();
-        if ($exists_with_names) {
-            return response()->json([
-                'status' => false,
-                'data' => null,
-                'message' => 'Тема с таким названием уже существует'
-            ]);
-        }
         
-        $reason->fill($validated);
+        $reason->fill($request->validated());
         $reason->save();
+        $data = Reason::findOrFail($id);
         Log::info($message);
+        Cache::store('file')->forget('reasons');
+
+        $checksum = ReasonTrait::Checksum();
 
         return response()->json([
             'status' => true,
-            'data' => ReasonResource::make($reason),
+            'data' => ReasonResource::make($data),
+            'checksum' => $checksum,
             'message' => $message
         ]);
     }
@@ -111,14 +104,28 @@ class ReasonController extends Controller
     public function destroy($id)
     {
         $reason = Reason::findOrFail($id);
-        $message = 'Тема `' . $reason->name . '` успешно удалена';
 
+        $has_active_tickets = \App\Models\Ticket::whereActive(true)
+            ->whereReasonId($id)->exists();
+        if ($has_active_tickets) {
+            return response()->json([
+                'status' => false,
+                'data' => null,
+                'message' => 'С данной темой есть открытые тикеты'
+            ]);
+        }
+        
         $result = $reason->delete();
+        $message = 'Тема `' . $reason->name . '` успешно удалена';
         Log::info($message);
+        Cache::store('file')->forget('reasons');
+
+        $checksum = ReasonTrait::Checksum();
 
         return response()->json([
             'status' => true,
             'data' => $result,
+            'checksum' => $checksum,
             'message' => $message
         ]);
     }

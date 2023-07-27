@@ -5,12 +5,17 @@ const routes = [{
   path: '/',
   name: 'tickets',
   component: defineAsyncComponent(() => import('@pages/Tickets.vue')),
+  props: route => ({ id: route.query.id }),
   alias: ['/tickets'],
   children: [{
     path: ':id',
     name: 'ticket',
     props: true,
     component: defineAsyncComponent(() => import('@pages/Ticket.vue'))
+  }, {
+    path: '/new',
+    name: 'new_ticket',
+    component: defineAsyncComponent(() => import('@temps/NewTicket.vue'))
   }]
 }, {
   path: '/details',
@@ -28,10 +33,10 @@ const routes = [{
   path: '/groups',
   name: 'groups',
   component: defineAsyncComponent(() => import('@pages/Groups.vue'))
-}, {
-  path: '/roles',
-  name: 'roles',
-  component: defineAsyncComponent(() => import('@pages/Roles.vue'))
+// }, {
+//   path: '/roles',
+//   name: 'roles',
+//   component: defineAsyncComponent(() => import('@pages/Roles.vue'))
 }, {
   path: '/reasons',
   name: 'reasons',

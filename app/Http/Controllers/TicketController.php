@@ -9,6 +9,7 @@ use App\Http\Resources\MessageResource;
 use App\Http\Resources\TicketResource;
 use App\Models\Message;
 use App\Models\Ticket;
+use App\Traits\BX;
 use App\Traits\TicketTrait;
 use App\Traits\UserTrait;
 use Illuminate\Support\Facades\Auth;
@@ -24,12 +25,19 @@ class TicketController extends Controller
     $id = intval(htmlspecialchars(trim(request('id'))));
     $limit = intval(htmlspecialchars(trim(request('limit'))));
     $active = htmlspecialchars(trim(request('active')));
+    $show_all = htmlspecialchars(trim(request('show_all')));
     $is_active = boolval($active);
+    $is_show_all = boolval($show_all);
 
+    // dd($active, $show_all, $is_active, $is_show_all);
     $data = \Illuminate\Support\Facades\DB::table('tickets')
       ->join('reasons', 'reasons.id', 'tickets.reason_id')
       ->when(!empty($active), function ($q) use ($is_active) {
         $q->whereActive($is_active);
+      })
+      ->when(empty($show_all) || !$is_show_all, function ($q) {
+        $q->whereManagerId(Auth::user()->crm_id)
+          ->orWhere('user_id', Auth::user()->crm_id);
       })
       ->when(!empty($id), function ($q) use ($id) {
         $q->whereId($id);
@@ -50,9 +58,18 @@ class TicketController extends Controller
       $ticket->manager = $users_collection[$ticket->manager_id];
     }
 
+    $checksum = \App\Traits\ReasonTrait::Checksum();
+    BX::getDataE();
+    $is_admin = BX::call('user.admin')['result'];
+    $message = \App\Models\Manager::whereCrmId(Auth::user())->exists() || $is_admin
+      ? 'Не созданы некоторые темы. Перейдите во вкладку "Темы" и заполните недостающие темы'
+      : 'В настройке приложения допущены критические ошибки, обратитесь к администратору';
+
     return response()->json([
-      'status' => true,
-      'data' => TicketResource::collection($data)->response()->getData()
+      'status' => count($checksum) == 0,
+      'checksum' => $checksum,
+      'data' => TicketResource::collection($data)->response()->getData(),
+      'message' => $message
     ]);
   }
 
@@ -61,24 +78,19 @@ class TicketController extends Controller
    */
   public function store(StoreTicketRequest $request)
   {
-    // Сделать проверку на наличие тем и ответственных (с группами)
-
-
-
-
     $data = $request->validated();
-    $reason = TicketTrait::GetReason($data['message']);
+    $reason = TicketTrait::GetReason($data['message'])
+      ?? \App\Models\Reason::first();
 
+    if ($reason == null) {
+      return response()->json([
+        'status' => false,
+        'data' => $reason,
+        'message' => 'В настройке приложения допущены критические ошибки, обратитесь к администратору',
+      ]);
+    }
 
-
-
-    // Определить reason_id по reason
-    // Для этого надо синхронизировать названия тем
-    $reason_id = 1;
-
-
-
-
+    $reason_id = $reason->id;
     $data['reason_id'] = $reason_id;
     $managers = TicketTrait::GetManagersForReason($reason_id);
 
@@ -91,19 +103,15 @@ class TicketController extends Controller
 
     $data['manager_id'] = $current_manager->crm_id;
     $data['weight'] = $current_manager->weight;
-    // $reason = 'Новый тикет';//$reason;
-    // TicketTrait::SendNotification(5 ?? $current_manager->crm_id, $data['name']);
+    $user_crm_id = Auth::user()->crm_id;
+    $data['user_id'] = $user_crm_id;
 
-    $user_id = Auth::user()->crm_id;
-    $data['user_id'] = $user_id;
     $result = Ticket::create($data);
-    $message = Message::create([
+    Message::create([
       'content' => $data['message'],
-      'user_id' => $user_id,
+      'user_crm_id' => $user_crm_id,
       'ticket_id' => $result->id,
     ]);
-    $result->reason = $reason;
-
 
     $search = UserTrait::search();
     $users_collection = array();
@@ -113,13 +121,15 @@ class TicketController extends Controller
     }
     unset($search);
 
-    $result['user'] = $users_collection[$user_id];
+    $result['reason'] = $reason->name;
+    $result['user'] = $users_collection[$user_crm_id];
     $result['manager'] = $users_collection[$current_manager->crm_id];
+
+    // TicketTrait::SendNotification(5 ?? $current_manager->crm_id, $data['message']);
 
     return response()->json([
       'status' => true,
       'data' => TicketResource::make($result),
-      'new_message' => MessageResource::make($message),
       'message' => 'Тикет успешно создан'
     ]);
   }

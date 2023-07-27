@@ -18,7 +18,7 @@ class MessageFactory extends Factory
     {
         return [
             'content' => fake()->words(10, true),
-            'user_id' => fake()->randomDigitNotNull(),
+            'user_crm_id' => fake()->randomDigitNotNull(),
             'ticket_id' => fake()->randomDigitNotNull(),
         ];
     }

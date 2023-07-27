@@ -14,10 +14,10 @@ return new class extends Migration
         Schema::create('messages', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->text('content');
-            $table->unsignedInteger('user_id');
+            $table->unsignedInteger('user_crm_id');
             // $table->foreignId('user_id')->constrained('managers');
             $table->foreignId('ticket_id')->constrained();
-            $table->boolean('has_attachments')->default(false)->invisible();
+            // $table->boolean('has_attachments')->default(false)->invisible();
             $table->timestamps();
             $table->softDeletes();
         });

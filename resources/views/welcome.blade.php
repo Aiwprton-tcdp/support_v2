@@ -18,6 +18,8 @@
     // console.log(window.user)
     // console.log(localStorage.getItem('support_access'))
     const token = @json($token);
+    const ticket_id = @json($ticket_id);
+    window.ticket_id = ticket_id
     // const token = '1|0kuajODW8Wtth1blM49QhcWmneo4wK5gtImtn08Q'
     // console.log('token - '+ token)
     if (token != '') {

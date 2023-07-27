@@ -2,6 +2,8 @@
 
 namespace App\Traits;
 
+use Illuminate\Support\Facades\Storage;
+
 trait TicketTrait
 {
   private static $C_REST_WEB_HOOK_URL = '';
@@ -40,13 +42,13 @@ trait TicketTrait
       )
       ->where('tickets.active', true)
       ->whereIn('tickets.manager_id', $m)
-      ->whereNotIn('messages.user_id', $m)
+      ->whereNotIn('messages.user_crm_id', $m)
       ->select(
         'tickets.id',
         'tickets.weight',
         'tickets.manager_id',
         'messages.id',
-        'messages.user_id AS last_message_user_id'
+        'messages.user_crm_id AS last_message_user_id'
       )
       ->get()->toArray();
 
@@ -74,28 +76,59 @@ trait TicketTrait
   public static function GetReason($message)
   {
     $client = new \GuzzleHttp\Client();
-    $res = $client->post('http://reasons_determiner.node.sms19.ru:3052', ['form_params' => ['message' => $message]])->getBody()->getContents();
+    $res = $client->post(env('NLP_URL'), ['form_params' => ['message' => $message]])->getBody()->getContents();
     // echo $res->getStatusCode(); // 200
-    return $res;
+    // dd($name);
+    $name = json_decode($res, true);
+    $reason = \App\Models\Reason::whereName($name)->first();
+    // dd($name, $reason);
+    return $reason;
 
 
     // $response = \Illuminate\Support\Facades\Http::acceptJson()
-    //   ->post('http://reasons_determiner.node.sms19.ru:3052', [
+    //   ->post(env('NLP_URL'), [
     //   'message' => $message,
     // ])->throw()->json();
 
     // return $response;
   }
 
-  public static function SendNotification($user_id, $message)
+  public static function SaveAttachment($message_id, $content)
+  {
+    $attachments_path = 'public/attachments/' . $message_id;
+    if (!Storage::disk('local')->exists($attachments_path)) {
+      Storage::makeDirectory($attachments_path);
+    }
+
+    $path = $attachments_path . '/' . $content['name'];
+    $file = file_get_contents($content["tmp_name"]);
+
+    Storage::disk('local')->put($path, $file);
+
+    $new_data = [
+      'message_id' => $message_id,
+      'name' => $content['name'],
+      'link' => Storage::url($path),
+    ];
+    $attachment = \App\Models\Attachment::create($new_data);
+
+    return \App\Http\Resources\AttachmentResource::make($attachment);
+  }
+
+  public static function SendNotification($recipient_id, $message, $ticket_id)
   {
     static::$C_REST_WEB_HOOK_URL = 'https://xn--24-9kc.xn--b1aaiaj6cd.xn--p1ai/rest/10/86v5bz5tbr1c9xhq/';
-    static::$DOMAIN = 'https://xn--24-9kc.xn--b1aaiaj6cd.xn--p1ai/';
-    $result = BX::call('im.message.add', array(
-      'USER_ID' => $user_id,
-      'MESSAGE' => $message . "\r\n[URL=/marketplace/app/2/]Перейти[/URL]",
-      'URL_PREVIEW' => "Y",
-    )
+    static::$DOMAIN = env('CRM_URL');
+
+    $content = "{$message}\r\n[URL=/marketplace/app/2/?id={$ticket_id}]Перейти[/URL]";
+
+    $result = BX::call(
+      'im.message.add',
+      array(
+        'USER_ID' => $recipient_id,
+        'MESSAGE' => $content,
+        'URL_PREVIEW' => "Y",
+      )
     );
     static::$C_REST_WEB_HOOK_URL = '';
   }

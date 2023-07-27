@@ -1,11 +1,13 @@
 <?php
 
+use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\CRM\DepartmentController as CRMDepartmentController;
 use App\Http\Controllers\CRM\IndexAPIController;
 use App\Http\Controllers\CRM\UserController as CRMUserController;
 use App\Http\Controllers\CRM\InstallController;
 use App\Http\Controllers\ManagerGroupController;
 use App\Http\Controllers\ParticipantController;
+use App\Http\Controllers\SocketController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -50,10 +52,20 @@ Route::group(['middleware' => 'auth:sanctum'], function() {
     Route::apiResource('manager_groups', ManagerGroupController::class)->only([
         'index', 'store', 'destroy'
     ]);
+    Route::apiResource('attachments', AttachmentController::class)->only([
+        'index', 'store', 'update'
+    ]);
 
     Route::apiResource('participants', ParticipantController::class)->only([
         'store'
     ]);
 
     Route::get('/roles', [\App\Http\Controllers\RoleController::class, 'index']);
+    
+    // Route::post('send_message', [SocketController::class, 'MesageUpload']);
+
+    //Работа с сокетом
+    Route::any('/websocket/subscribe', [SocketController::class, 'Subscribe']);
+    Route::any('/websocket/refresh', [SocketController::class, 'Refresh']);
+
 });
