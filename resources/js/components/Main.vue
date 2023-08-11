@@ -9,6 +9,7 @@ export default {
   setup() {
     const UserData = ref(window.user)
     const emitter = ref(new Emitter())
+    const ActiveTab = ref('tickets')
 
     const createToast = (text, type) => {
       switch (type) {
@@ -31,11 +32,13 @@ export default {
     provide('UserData', UserData)
     provide('createToast', createToast)
     provide('emitter', emitter)
+    provide('ActiveTab', ActiveTab)
 
     return {
       UserData,
       createToast,
       emitter,
+      ActiveTab,
     }
   },
   mounted() {

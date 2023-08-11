@@ -36,8 +36,8 @@ trait BX
 
   static $C_REST_WEB_HOOK_URL = ''; //url on creat Webhook
   // or
-  static $C_REST_CLIENT_ID = 'local.64b11124926226.36764587'; //Application ID
-  static $C_REST_CLIENT_SECRET = 'QlDlj2ymAbuAd3Osh2EMMb8swTTQES4CZXrZIT4firJlvMEKkv'; //Application key
+  static $C_REST_CLIENT_ID = 'local.64d333db0f40f0.64754122';//'local.64d335d95bffa6.27292576';
+  static $C_REST_CLIENT_SECRET = 'grQTqhGkhzYQhNYGEz8iCpvhucF471JJTA3OEihxW218wHu4RV';//'4451XwLEHTaRkD3nHpC4v6MY3nG0XxnZw9kbh1M4QFRxChHVQU';
 
   protected static $dataExt = [
     'access_token' => '',

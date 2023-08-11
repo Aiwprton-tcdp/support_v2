@@ -2,8 +2,10 @@
 
 namespace App\Traits;
 
+use App\Http\Resources\CRM\DepartmentResource;
 use App\Models\Group;
 use App\Models\ManagerGroup;
+use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 
 trait UserTrait
@@ -15,7 +17,45 @@ trait UserTrait
   {
     return \App\Http\Resources\CRM\UserResource::make(BX::call('user.current')['result']);
   }
-  
+
+  /**
+   * Method for trying to find user:
+   *    from CRM employers,
+   *    from all CRM employers,
+   *    from local `users` table;
+   * Else returns default data
+   * 
+   * @param integer $user_id
+   * @return object
+   */
+  public static function tryToDefineUserEverywhere($user_id): object
+  {
+    $search = self::search();
+    $managers = array_values(array_filter($search->data, fn($e) => $e->crm_id == $user_id));
+    unset($search);
+
+    $manager = !empty($managers) ? $managers[0] : null;
+
+    if (!isset($manager)) {
+      $withFired = self::withFired(true);
+      $managers = array_values(array_filter($withFired->data, fn($e) => $e->crm_id == $user_id));
+      unset($withFired);
+    }
+
+    $manager = !empty($managers)
+      ? $managers[0]
+      : User::whereCrmId($user_id)->first();
+
+    if (!isset($manager)) {
+      $manager = [
+        'crm_id' => $user_id,
+        'name' => 'Неопределённый пользователь',
+      ];
+    }
+
+    return (object)$manager;
+  }
+
   public static function search()
   {
     if (Cache::store('file')->has('crm_users')) {
@@ -29,6 +69,39 @@ trait UserTrait
     ]);
     $resource = \App\Http\Resources\CRM\UserResource::collection($data)->response()->getData();
     Cache::store('file')->put('crm_users', $resource, 10800);
+
+    return $resource;
+  }
+
+  public static function withFired($force = false)
+  {
+    if (!$force && Cache::store('file')->has('crm_all_users')) {
+      $data = Cache::store('file')->get('crm_all_users');
+      return $data;
+    }
+
+    $data = BX::firstBatch('user.get', [
+      'USER_TYPE' => 'employee',
+    ]);
+    $resource = \App\Http\Resources\CRM\UserResource::collection($data)->response()->getData();
+    Cache::store('file')->put('crm_all_users', $resource, 10800);
+
+    return $resource;
+  }
+
+  public static function departments()
+  {
+    if (Cache::store('file')->has('crm_departments')) {
+      $data = Cache::store('file')->get('crm_departments');
+      return response()->json([
+        'status' => true,
+        'data' => $data
+      ]);
+    }
+
+    $data = BX::firstBatch('department.get');
+    $resource = DepartmentResource::collection($data)->response()->getData();
+    Cache::store('file')->put('crm_departments', $resource, 10800);
 
     return $resource;
   }

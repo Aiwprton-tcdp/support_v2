@@ -11,7 +11,7 @@ class Participant extends Model
 
     protected $fillable = [
         'ticket_id',
-        'user_id',
+        'user_crm_id',
         'created_at',
     ];
 

@@ -13,8 +13,9 @@ return new class extends Migration
     {
         Schema::create('participants', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('ticket_id')->constrained();
-            $table->unsignedInteger('user_id');
+            // $table->foreignId('ticket_id')->constrained();
+            $table->unsignedInteger('ticket_id');
+            $table->unsignedInteger('user_crm_id');
             $table->timestamps();
         });
     }

@@ -3,16 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\CRM\UserController;
+use App\Http\Requests\DeleteTicketRequest;
 use App\Http\Requests\StoreTicketRequest;
 use App\Http\Requests\UpdateTicketRequest;
 use App\Http\Resources\MessageResource;
 use App\Http\Resources\TicketResource;
+use App\Jobs\TicketClosingJob;
+use App\Models\HiddenChatMessage;
 use App\Models\Message;
 use App\Models\Ticket;
 use App\Traits\BX;
 use App\Traits\TicketTrait;
 use App\Traits\UserTrait;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class TicketController extends Controller
@@ -22,28 +26,65 @@ class TicketController extends Controller
    */
   public function index()
   {
-    $id = intval(htmlspecialchars(trim(request('id'))));
+    $search = htmlspecialchars(trim(request('search')));
     $limit = intval(htmlspecialchars(trim(request('limit'))));
-    $active = htmlspecialchars(trim(request('active')));
+    // $active = htmlspecialchars(trim(request('active')));
     $show_all = htmlspecialchars(trim(request('show_all')));
-    $is_active = boolval($active);
+    // $is_active = boolval($active);
     $is_show_all = boolval($show_all);
 
-    // dd($active, $show_all, $is_active, $is_show_all);
-    $data = \Illuminate\Support\Facades\DB::table('tickets')
+    $user_crm_id = Auth::user()->crm_id;
+
+    $data = DB::table('tickets')
       ->join('reasons', 'reasons.id', 'tickets.reason_id')
-      ->when(!empty($active), function ($q) use ($is_active) {
-        $q->whereActive($is_active);
+      ->rightJoin('users AS u', 'u.crm_id', 'tickets.manager_id')
+      ->rightJoin('users AS m', 'm.crm_id', 'tickets.manager_id')
+      ->leftJoin('participants', function ($q) use ($user_crm_id) {
+        $q->on('participants.ticket_id', 'tickets.id')
+          ->where('participants.user_crm_id', $user_crm_id);
       })
-      ->when(empty($show_all) || !$is_show_all, function ($q) {
-        $q->whereManagerId(Auth::user()->crm_id)
-          ->orWhere('user_id', Auth::user()->crm_id);
+      // ->join('messages', 'messages.ticket_id', 'tickets.id')
+      // ->leftJoin('messages', fn ($q) => $q
+      //   ->on('messages.ticket_id', 'tickets.id')
+      //   ->whereRaw("messages.id IN (SELECT COUNT(m.id) FROM messages m JOIN tickets t ON t.id = m.ticket_id WHERE m.user_crm_id != {$user_crm_id} GROUP BY t.id)")
+      // )
+      ->leftJoin('messages', function ($q) {
+        $q->on('messages.ticket_id', 'tickets.id')
+          ->whereRaw('messages.id IN (SELECT MAX(m.id) FROM messages m join tickets t on t.id = m.ticket_id GROUP BY t.id)');
       })
-      ->when(!empty($id), function ($q) use ($id) {
-        $q->whereId($id);
+      // ->when(empty($show_all) || !$is_show_all, function ($q) use ($user_crm_id) {
+      // $q
+      ->where(function ($r) use ($user_crm_id) {
+        $r->whereManagerId($user_crm_id)->whereActive(true)
+          ->orWhere('user_id', $user_crm_id) //->whereActive($is_active)
+          ->orWhere('participants.user_crm_id', $user_crm_id)->whereActive(true);
+        // });
       })
-      ->select('tickets.*', 'reasons.name AS reason')
+      ->when(!empty($search), function ($q) use ($search) {
+        $id = intval(trim(preg_replace('/[^0-9]+/', '', $search)));
+        $name = mb_strtolower(trim(preg_replace('/[^А-яA-z ]+/iu', '', $search)));
+
+        $q->when($id > 0, fn($r) => $r->where('tickets.id', $id))->whereActive(true)
+          ->when(!empty($name), function ($y) use ($name) {
+            $y->orWhereRaw('LOWER(u.name) LIKE ?', ["%{$name}%"])->whereActive(true)
+              ->orWhereRaw('LOWER(m.name) LIKE ?', ["%{$name}%"])->whereActive(true);
+          });
+      })
+      ->select('tickets.*', 'tickets.id AS tid', 'reasons.name AS reason', 'messages.user_crm_id AS last_message_crm_id', 'messages.created_at AS last_message_date')
+
+      ->orderBy(DB::raw("CASE WHEN messages.user_crm_id != {$user_crm_id} THEN 1 WHEN messages.user_crm_id = {$user_crm_id} THEN 3 ELSE 2 END"))
+      ->orderByDesc('tickets.weight')
+      ->orderBy('last_message_date')
       ->paginate($limit < 1 ? 100 : $limit);
+
+    // Подсчёт количества новых сообщений
+
+    // ->select('tickets.*', 'tickets.id AS tid', 'reasons.name AS reason',// 'messages.content AS last_message',
+    //   DB::raw("SELECT COUNT(*)
+    //   FROM (SELECT m.id, (SELECT MAX(m1.id) FROM messages m1 WHERE m1.ticket_id = tid AND m1.user_crm_id = {$user_crm_id}) AS max_id
+    //   FROM messages m
+    //   WHERE m.ticket_id = tid AND m.user_crm_id != {$user_crm_id}
+    //   HAVING m.id > max_id) AS new_messages"))
 
     $search = UserTrait::search();
     $users_collection = array();
@@ -57,13 +98,17 @@ class TicketController extends Controller
       $ticket->user = $users_collection[$ticket->user_id];
       $ticket->manager = $users_collection[$ticket->manager_id];
     }
+    unset($users_collection);
 
-    $checksum = \App\Traits\ReasonTrait::Checksum();
-    BX::getDataE();
-    $is_admin = BX::call('user.admin')['result'];
-    $message = \App\Models\Manager::whereCrmId(Auth::user())->exists() || $is_admin
+    // BX::getDataE();
+    // $is_admin = BX::call('user.admin')['result'];
+    // dd($is_admin, BX::call('user.current')['result']);
+    // $message = 'Не созданы некоторые темы. Перейдите во вкладку "Темы" и заполните недостающие темы';
+    
+    $message = \App\Models\Manager::whereCrmId(Auth::user()->crm_id)->exists()// || $is_admin
       ? 'Не созданы некоторые темы. Перейдите во вкладку "Темы" и заполните недостающие темы'
       : 'В настройке приложения допущены критические ошибки, обратитесь к администратору';
+    $checksum = \App\Traits\ReasonTrait::Checksum();
 
     return response()->json([
       'status' => count($checksum) == 0,
@@ -95,41 +140,44 @@ class TicketController extends Controller
     $managers = TicketTrait::GetManagersForReason($reason_id);
 
     if (count($managers) > 1) {
-      $manager_id = TicketTrait::SelectResponsive($managers);
-      $current_manager = $managers->where('id', $manager_id)->first();
+      $id = TicketTrait::SelectResponsiveId($managers);
+      $current_manager = $managers->when($id > 0, fn($m) => $m->where('crm_id', $id))->first();
     } else {
       $current_manager = $managers->first();
     }
+    $manager_id = $current_manager->crm_id;
 
-    $data['manager_id'] = $current_manager->crm_id;
+    $data['manager_id'] = $manager_id;
     $data['weight'] = $current_manager->weight;
     $user_crm_id = Auth::user()->crm_id;
     $data['user_id'] = $user_crm_id;
 
-    $result = Ticket::create($data);
+    $ticket = Ticket::create($data);
     Message::create([
       'content' => $data['message'],
       'user_crm_id' => $user_crm_id,
-      'ticket_id' => $result->id,
+      'ticket_id' => $ticket->id,
     ]);
 
-    $search = UserTrait::search();
-    $users_collection = array();
+    $ticket->reason = $reason->name;
+    $ticket->user = UserTrait::tryToDefineUserEverywhere($user_crm_id);
+    $ticket->manager = UserTrait::tryToDefineUserEverywhere($manager_id);
 
-    foreach ($search->data as $u) {
-      $users_collection[$u->crm_id] = $u;
-    }
-    unset($search);
-
-    $result['reason'] = $reason->name;
-    $result['user'] = $users_collection[$user_crm_id];
-    $result['manager'] = $users_collection[$current_manager->crm_id];
-
-    // TicketTrait::SendNotification(5 ?? $current_manager->crm_id, $data['message']);
+    $resource = TicketResource::make($ticket);
+    TicketTrait::SendMessageToWebsocket("{$manager_id}.ticket", [
+      'ticket' => $resource,
+    ]);
+    $message = "Новый тикет\nТема: {$ticket->reason}\nОтветственный: {$ticket->manager->name}";
+    TicketTrait::SendNotification($manager_id, $message, $ticket->id);
+    HiddenChatMessage::create([
+      'content' => 'Тикет создан',
+      'user_crm_id' => 0,
+      'ticket_id' => $ticket->id,
+    ]);
 
     return response()->json([
       'status' => true,
-      'data' => TicketResource::make($result),
+      'data' => $resource,
       'message' => 'Тикет успешно создан'
     ]);
   }
@@ -137,9 +185,28 @@ class TicketController extends Controller
   /**
    * Display the specified resource.
    */
-  public function show(Ticket $ticket)
+  public function show($id)
   {
-    //
+    $ticket = Ticket::join('reasons', 'reasons.id', 'tickets.reason_id')
+      ->where('tickets.id', $id)
+      ->select('tickets.*', 'reasons.name AS reason')
+      ->first();
+
+    if (!isset($ticket)) {
+      return response()->json([
+        'status' => false,
+        'data' => null,
+        'message' => 'Тикет не найден'
+      ]);
+    }
+
+    $ticket->user = UserTrait::tryToDefineUserEverywhere($ticket->user_id);
+    $ticket->manager = UserTrait::tryToDefineUserEverywhere($ticket->manager_id);
+
+    return response()->json([
+      'status' => true,
+      'data' => TicketResource::make($ticket)->response()->getData()
+    ]);
   }
 
   /**
@@ -147,15 +214,112 @@ class TicketController extends Controller
    */
   public function update(UpdateTicketRequest $request, $id)
   {
-    $data = Ticket::findOrFail($id);
-    $data->fill($request->safe()->except(['id']));
-    $data->save();
+    $validated = $request->validated();
+    $ticket = Ticket::join('reasons', 'reasons.id', 'tickets.reason_id')
+      ->where('tickets.id', $id)
+      ->select('tickets.*', 'reasons.name AS reason')
+      ->first();
 
-    Log::info("Ticket #" . $id . " has been updated");
+    if (!isset($ticket)) {
+      return response()->json([
+        'status' => false,
+        'data' => $ticket,
+        'message' => 'Тикет уже завершён'
+      ]);
+    }
+
+    $user = UserTrait::tryToDefineUserEverywhere($ticket->user_id);
+    $manager = UserTrait::tryToDefineUserEverywhere($ticket->manager_id);
+
+    if (isset($validated['active'])) {
+      if ($validated['active'] == false) {
+        $user = UserTrait::tryToDefineUserEverywhere($ticket->manager_id);
+        HiddenChatMessage::create([
+          'content' => "{$user->name} пометил тикет как решённый",
+          'user_crm_id' => 0,
+          'ticket_id' => $ticket->id,
+        ]);
+
+        $message = "Тикет #{$id} был помечен менеджером как решённый\nПожалуйста, оцените работу менеджера";
+        TicketTrait::SendMessageToWebsocket("{$ticket->user_id}.ticket.delete", [
+          'id' => $ticket->id,
+          'message' => null,
+          'finished' => true,
+        ]);
+        TicketTrait::SendNotification($ticket->user_id, $message, $ticket->id);
+      } else {
+        $ticket_data = clone ($ticket);
+        $ticket_data->active = 1;
+        $ticket_data->user = $user;
+        $ticket_data->manager = $manager;
+        $message = "Тикет #{$id} был возвращён в работу";
+
+        TicketTrait::SendMessageToWebsocket("{$ticket_data->manager_id}.ticket", [
+          'ticket' => TicketResource::make($ticket_data),
+        ]);
+        TicketTrait::SendNotification($ticket_data->manager_id, $message, $ticket_data->id);
+        HiddenChatMessage::create([
+          'content' => 'Тикет возвращён в работу',
+          'user_crm_id' => 0,
+          'ticket_id' => $ticket_data->id,
+        ]);
+        unset($ticket_data);
+      }
+    }
+
+    if (isset($validated['reason_id'])) {
+      $reason = \App\Models\Reason::whereId($validated['reason_id'])->first();
+      $validated['weight'] = $reason->weight;
+    }
+
+    $ticket->fill($validated);
+    $ticket->save();
+
+    $ticket = Ticket::join('reasons', 'reasons.id', 'tickets.reason_id')
+      ->where('tickets.id', $id)
+      ->select('tickets.*', 'reasons.name AS reason')
+      ->first();
+    $ticket->user = $user;
+    $ticket->manager = $manager;
+
+    if (!isset($validated['active'])) {
+      $another_recipients = \App\Models\Participant::whereTicketId($ticket->id)
+        ->whereNot('user_crm_id', Auth::user()->crm_id)
+        ->get('user_crm_id');
+      foreach ($another_recipients as $rec) {
+        $id = $rec->user_crm_id;
+        TicketTrait::SendMessageToWebsocket("{$id}.ticket.patch", [
+          'ticket' => $ticket,
+        ]);
+      }
+      foreach ([$ticket->user_id, $ticket->manager_id] as $id) {
+        TicketTrait::SendMessageToWebsocket("{$id}.ticket.patch", [
+          'ticket' => $ticket,
+        ]);
+      }
+    }
+
+    if (isset($validated['reason_id'])) {
+      $name = Auth::user()->name;
+      HiddenChatMessage::create([
+        'content' => "{$name} изменил тему на {$ticket->reason}",
+        'user_crm_id' => 0,
+        'ticket_id' => $ticket->id,
+      ]);
+    }
+
+    $message = "Тикет #{$id} ";
+    if (isset($validated['active']) && $validated['active'] == true) {
+      $message .= "возобновлён";
+    } else {
+      $message .= "успешно изменён";
+    }
+    Log::info($message);
 
     return response()->json([
       'status' => true,
-      'data' => TicketResource::make($data)
+      'data' => TicketResource::make($ticket),
+      'message' => $message
     ]);
   }
 

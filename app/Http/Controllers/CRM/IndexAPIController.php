@@ -4,6 +4,7 @@ namespace App\Http\Controllers\CRM;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\CRM\UserResource;
+use App\Models\Manager;
 use App\Models\User;
 use App\Traits\BX;
 use App\Models\VerifiedUser;
@@ -18,10 +19,7 @@ class IndexAPIController extends Controller
       $ticket_id = isset($_REQUEST['PLACEMENT_OPTIONS']) && isset(json_decode($_REQUEST['PLACEMENT_OPTIONS'])->id)
         ? intval(json_decode($_REQUEST['PLACEMENT_OPTIONS'])->id)
         : 0;
-      // dd($ticket_id);
-      // dd(\Illuminate\Support\Facades\Auth::id());
       $token = '';
-      $user_id = 0;
       $check = BX::setDataE($_REQUEST);
       $data = BX::call('user.current')['result'];
       $user = [
@@ -32,7 +30,7 @@ class IndexAPIController extends Controller
         'departments' => $data['UF_DEPARTMENT'] ?? 0,
         'inner_phone' => $data['UF_PHONE_INNER'] ?? 0,
       ];
-      // dd(\Illuminate\Support\Facades\Auth::id());
+
       $auth = User::whereCrmId($user['crm_id'])->firstOrNew([
         'crm_id' => $user['crm_id'],
         'name' => $user['name'],
@@ -41,13 +39,16 @@ class IndexAPIController extends Controller
       if (!$auth->exists) {
         $auth->save();
         $token = $auth->createToken("auth")->plainTextToken;
-      } else {
-        // dd(Auth::id());
-        // $user_id = Auth::user()->crm_id;
       }
 
-      $data = $_REQUEST;
-      return view('welcome', compact('user', 'data', 'token', 'user_id', 'ticket_id'));
+      $user['is_admin'] = BX::call('user.admin')['result'];
+      $manager = Manager::whereCrmId($auth->crm_id)->first();
+      if (!empty($manager)) {
+        $user['role_id'] = $manager->role_id;
+      }
+
+      // $data = $_REQUEST;
+      return view('welcome', compact('user', 'token', 'ticket_id'));
     } catch (\Exception $er) {
       return $er->getMessage();
     }

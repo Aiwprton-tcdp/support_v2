@@ -22,7 +22,7 @@ class StoreManagerGroupRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'user_id' => 'required|numeric|min:1',
+            'manager_id' => 'required|numeric|min:1',
             'group_id' => 'required|numeric|min:1',
         ];
     }

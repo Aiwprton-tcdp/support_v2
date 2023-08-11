@@ -6,6 +6,7 @@ use App\Http\Requests\StoreMessageRequest;
 use App\Http\Requests\UpdateMessageRequest;
 use App\Http\Resources\MessageResource;
 use App\Models\Message;
+use App\Models\Participant;
 use App\Traits\TicketTrait;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -17,13 +18,11 @@ class MessageController extends Controller
      */
     public function index()
     {
-        $ticket = intval(htmlspecialchars(trim(request('ticket'))));
+        $ticket_id = intval(htmlspecialchars(trim(request('ticket'))));
         $limit = intval(htmlspecialchars(trim(request('limit'))));
 
         $data = Message::with('attachments')
-            ->when(!empty($ticket), function ($q) use ($ticket) {
-                $q->whereTicketId($ticket);
-            })
+            ->when(!empty($ticket_id), fn($q) => $q->whereTicketId($ticket_id))
             ->paginate($limit < 1 ? 100 : $limit);
 
         return response()->json([
@@ -46,12 +45,11 @@ class MessageController extends Controller
         }
 
         $validated = $request->validated();
-        $validated['content'] = '';
+        $validated['content'] ??= '';
         $validated['user_crm_id'] = Auth::user()->crm_id;
-        // $validated['has_attachments'] = count($_FILES) > 0;
         $ticket = \App\Models\Ticket::whereId($validated['ticket_id'])
-        ->whereActive(true)->first();
-        
+            ->whereActive(true)->first();
+
         if (empty($ticket)) {
             return response()->json([
                 'status' => false,
@@ -67,27 +65,39 @@ class MessageController extends Controller
             $attachment_path = TicketTrait::SaveAttachment($data->id, $file);
             array_push($attachments, $attachment_path);
         }
-
-        // $channel_id = '#support.' . md5($data->user_id) . md5(env('CENTRIFUGE_SALT'));
-        $recipient_id = $ticket->user_id == $data->user_crm_id ? $ticket->manager_id : $ticket->user_id;
-        $channel_id = '#support.' . $recipient_id;
-        $client = new \phpcent\Client(
-            env('CENTRIFUGE_URL') . '/api',
-            '8ffaffac-8c9e-4a9c-88ce-54658097096e',
-            'ee93146a-0607-4ea3-aa4a-02c59980647e'
-        );
-        $client->setSafety(false);
-
         $data['attachments'] = collect($attachments);
-        $client->publish($channel_id, [
-            'message' => MessageResource::make($data),
-        ]);
 
-        TicketTrait::SendNotification($recipient_id, $data['content'], $ticket->id);
+        $recipient_ids = [];
+        if (!in_array($data->user_crm_id, [$ticket->user_id, $ticket->manager_id])) {
+            $recipient_ids = [$ticket->user_id, $ticket->manager_id];
+        } else {
+            array_push($recipient_ids, $ticket->user_id == $data->user_crm_id ? $ticket->manager_id : $ticket->user_id);
+        }
+
+        $message = 'Новое сообщение в тикете';
+        $resource = MessageResource::make($data);
+
+        foreach ($recipient_ids as $id) {
+            TicketTrait::SendMessageToWebsocket("{$id}.message", [
+                'message' => $resource,
+            ]);
+            // TicketTrait::SendNotification($id, $message, $ticket->id);
+        }
+
+        $another_recipients = Participant::whereTicketId($ticket->id)
+            ->whereNot('user_crm_id', $data->user_crm_id)
+            ->get('user_crm_id');
+        foreach ($another_recipients as $rec) {
+            $id = $rec->user_crm_id;
+            TicketTrait::SendMessageToWebsocket("{$id}.message", [
+                'message' => $resource,
+            ]);
+            // TicketTrait::SendNotification($id, $message, $ticket->id);
+        }
 
         return response()->json([
             'status' => true,
-            'data' => MessageResource::make($data)
+            'data' => $resource
         ]);
     }
 

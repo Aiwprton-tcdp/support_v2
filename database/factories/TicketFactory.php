@@ -21,7 +21,6 @@ class TicketFactory extends Factory
             'manager_id' => fake()->numberBetween(1, 2),
             'reason_id' => fake()->randomDigitNotNull(),
             'weight' => fake()->randomDigitNotNull(),
-            'mark' => fake()->randomElements([1,2,3,4,5,6,7,8,9,10], null),
         ];
     }
 }

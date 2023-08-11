@@ -22,8 +22,8 @@ class UpdateGroupRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => 'required|string|min:3|max:150',
-            'collaborative' => 'sometimes|required|boolean',
+            'name' => 'sometimes|required|string|min:3|max:150',
+            'collaborative' => 'sometimes|required_if:alone,true|boolean',
         ];
     }
 }

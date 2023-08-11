@@ -58,7 +58,7 @@ class UserController extends Controller
             $group->alone = true;
             $group->save();
             ManagerGroup::firstOrCreate([
-                'user_id' => $user->id,
+                'manager_id' => $user->id,
                 'group_id' => $group->id,
             ]);
         }
@@ -93,7 +93,7 @@ class UserController extends Controller
             $group->alone = true;
             $group->save();
             ManagerGroup::firstOrCreate([
-                'user_id' => $user->id,
+                'manager_id' => $user->id,
                 'group_id' => $group->id,
             ]);
             $message .= ' стал менеджером';

@@ -36,6 +36,22 @@ class ManagerController extends Controller
             ->select('managers.*', 'users.name')
             ->paginate($limit < 1 ? 10 : $limit);
 
+        // $departments = UserTrait::departments();
+        // dd($departments);
+        //TODO доделать подразделения и отобразить список названий со ссылками
+        // $departments_collection = array();
+
+        // foreach ($departments->data as $d) {
+        //     $departments_collection[$d->crm_id] = $d;
+        // }
+        // unset($departments);
+
+        // foreach ($data as $manager) {
+        //     $manager->user = $departments_collection[$manager->user_id];
+        //     $manager->manager = $departments_collection[$manager->manager_id];
+        //   }
+        //   unset($departments_collection);
+
         return response()->json([
             'status' => true,
             'data' => ManagerResource::collection($data)->response()->getData()
@@ -60,7 +76,7 @@ class ManagerController extends Controller
             $manager->crm_id . ' добавлен с ролью `' .
             \App\Models\Role::findOrFail($manager->role_id)->name . '`';
         Log::info($message);
-        
+
         if ($manager->role_id == 2) {
             $group = Group::firstOrNew(['name' => $user->name]);
             $group->alone = true;
@@ -134,17 +150,17 @@ class ManagerController extends Controller
         $manager = Manager::join('users', 'users.crm_id', 'managers.crm_id')
             ->select('managers.*', 'users.name')
             ->findOrFail($id);
-        
+
         $data = UserTrait::destroy($id);
 
         if ($data != null) {
             return response()->json($data);
         }
-        
+
         $message = '`' . $manager->name . '` crm_id:' . $manager->crm_id . ' удалён';
         $result = $manager->delete();
         Log::info($message);
-        
+
         return response()->json([
             'status' => true,
             'data' => $result,

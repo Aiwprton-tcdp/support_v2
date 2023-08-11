@@ -31,9 +31,9 @@ class ManagerGroupController extends Controller
     public function store(StoreManagerGroupRequest $request)
     {
         $validated = $request->validated();
-        $user = \App\Models\Manager::with(['user:id,name'])->findOrFail($validated['manager_id']);
+        $manager = \App\Models\Manager::with(['user:crm_id,name'])->findOrFail($validated['manager_id']);
         
-        if ($user->role_id != 2) {
+        if ($manager->role_id != 2) {
             return response()->json([
                 'status' => false,
                 'data' => null,
@@ -45,7 +45,7 @@ class ManagerGroupController extends Controller
         $data = ManagerGroup::firstOrNew($validated);
         $is_old = $data->exists;
         
-        $message = 'Менеджер `' . $user->name . '`' .
+        $message = 'Менеджер `' . $manager->user->name . '`' .
             ($is_old ? ' уже' : '') .
             ' добавлен в группу `' . $group->name . '`';
         

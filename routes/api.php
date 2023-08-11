@@ -1,14 +1,17 @@
 <?php
 
-use App\Http\Controllers\AttachmentController;
+use App\Http\Controllers\CRM\InstallController as CRMInstallController;
+use App\Http\Controllers\CRM\IndexAPIController as CRMIndexController;
 use App\Http\Controllers\CRM\DepartmentController as CRMDepartmentController;
-use App\Http\Controllers\CRM\IndexAPIController;
 use App\Http\Controllers\CRM\UserController as CRMUserController;
-use App\Http\Controllers\CRM\InstallController;
+use App\Http\Controllers\AttachmentController;
+use App\Http\Controllers\DetalizationController;
+use App\Http\Controllers\HiddenChatMessageController;
 use App\Http\Controllers\ManagerGroupController;
 use App\Http\Controllers\ParticipantController;
+use App\Http\Controllers\ResolvedTicketController;
 use App\Http\Controllers\SocketController;
-use Illuminate\Http\Request;
+use App\Http\Controllers\TicketController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -22,50 +25,63 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::post('/install', [InstallController::class, 'install']);
-// Route::get('/index', [IndexAPIController::class, '__invoke']);
-Route::post('/index', [IndexAPIController::class, '__invoke']);
+Route::post('/install', [CRMInstallController::class, 'install']);
+Route::post('/index', [CRMIndexController::class, '__invoke']);
 Route::post('/auth/check', [CRMUserController::class, 'check']);
 
-Route::group(['middleware' => 'auth:sanctum'], function() {
+Route::group(['middleware' => 'auth:sanctum'], function () {
+  Route::prefix('bx')->group(function () {
+    Route::get('/users', [CRMUserController::class, 'search']);
+    Route::get('/departments', [CRMDepartmentController::class, 'search']);
+  });
 
-    Route::prefix('bx')->group(function () {
-        Route::get('/users', [CRMUserController::class, 'search']);
-        Route::get('/departments', [CRMDepartmentController::class, 'search']);
-    });
+  Route::apiResource('tickets', TicketController::class);
+  // ->except([
+  //   'destroy'
+  // ]);
+  // Route::delete('/tickets/{id}/{mark}', [TicketController::class, 'destroy']);
 
-    Route::apiResources([
-        'reasons' => \App\Http\Controllers\ReasonController::class,
-        'groups' => \App\Http\Controllers\GroupController::class,
-        'messages' => \App\Http\Controllers\MessageController::class,
-        'users' => \App\Http\Controllers\UserController::class,
-        'managers' => \App\Http\Controllers\ManagerController::class,
-        'template_messages' => \App\Http\Controllers\TemplateMessageController::class,
-    ], [
-        'except' => 'show'
-    ]);
+  Route::apiResources([
+    'reasons' => \App\Http\Controllers\ReasonController::class,
+    'groups' => \App\Http\Controllers\GroupController::class,
+    'messages' => \App\Http\Controllers\MessageController::class,
+    'users' => \App\Http\Controllers\UserController::class,
+    'managers' => \App\Http\Controllers\ManagerController::class,
+    'template_messages' => \App\Http\Controllers\TemplateMessageController::class,
+  ], [
+    'except' => 'show'
+  ]);
 
-    Route::apiResource('tickets', \App\Http\Controllers\TicketController::class)->only([
-        'index', 'store', 'update'
-    ]);
+  Route::apiResource('manager_groups', ManagerGroupController::class)->only([
+    'index',
+    'store',
+    'destroy'
+  ]);
+  Route::apiResource('attachments', AttachmentController::class)->only([
+    'index',
+    'store',
+    'update'
+  ]);
+  Route::apiResource('resolved_tickets', ResolvedTicketController::class)->only([
+    'index',
+    'store',
+    'show'
+  ]);
+  Route::apiResources([
+    'participants' => ParticipantController::class,
+    'hidden_chat_messages' => HiddenChatMessageController::class,
+  ], [
+    'only' => ['index', 'store']
+  ]);
 
-    Route::apiResource('manager_groups', ManagerGroupController::class)->only([
-        'index', 'store', 'destroy'
-    ]);
-    Route::apiResource('attachments', AttachmentController::class)->only([
-        'index', 'store', 'update'
-    ]);
+  Route::get('/roles', [\App\Http\Controllers\RoleController::class, 'index']);
 
-    Route::apiResource('participants', ParticipantController::class)->only([
-        'store'
-    ]);
+  // Route::post('send_message', [SocketController::class, 'MesageUpload']);
 
-    Route::get('/roles', [\App\Http\Controllers\RoleController::class, 'index']);
-    
-    // Route::post('send_message', [SocketController::class, 'MesageUpload']);
+  Route::any('/websocket/subscribe', [SocketController::class, 'Subscribe']);
+  Route::any('/websocket/refresh', [SocketController::class, 'Refresh']);
 
-    //Работа с сокетом
-    Route::any('/websocket/subscribe', [SocketController::class, 'Subscribe']);
-    Route::any('/websocket/refresh', [SocketController::class, 'Refresh']);
-
+  Route::prefix('detalization')->group(function () {
+    Route::get('/active_tickets', [DetalizationController::class, 'activeTickets']);
+  });
 });

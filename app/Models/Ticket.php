@@ -15,9 +15,7 @@ class Ticket extends Model
         'reason_id',
         'weight',
         'active',
-        'mark',
         'created_at',
-        'deleted_at',
     ];
 
     protected $hidden = [
@@ -27,7 +25,6 @@ class Ticket extends Model
     protected $casts = [
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
-        'deleted_at' => 'datetime',
     ];
     
     protected $table = 'tickets';

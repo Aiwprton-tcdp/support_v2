@@ -17,7 +17,7 @@ class ManagerGroupFactory extends Factory
     public function definition(): array
     {
         return [
-            'user_id' => fake()->randomDigitNotNull(),
+            'manager_id' => fake()->randomDigitNotNull(),
             'group_id' => fake()->randomDigitNotNull(),
         ];
     }

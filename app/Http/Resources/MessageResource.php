@@ -14,8 +14,12 @@ class MessageResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $at = array_filter($this->attachments->all(), fn($e) => get_headers(env('APP_URL').$e->link, 1)[0] == 'HTTP/1.1 200 OK');
-        
+        if (isset($this->attachments)) {
+            $at = array_filter($this->attachments->all(), fn($e) => get_headers(env('APP_URL') . $e->link, 1)[0] == 'HTTP/1.1 200 OK');
+        } else {
+            $at = [];
+        }
+
         return [
             'id' => $this->id,
             'content' => $this->content,

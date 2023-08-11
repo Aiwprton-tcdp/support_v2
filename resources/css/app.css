@@ -152,6 +152,10 @@ button:focus-visible {
   background-image: linear-gradient(rgb(141 174 241 / 20%), rgb(135 80 156 / 20%)), url(@assets/chat_bg.jpg)
 }
 
+.custom-chat-bg-stepan {
+  background-image: url(https://jdm-cars.github.io/galant3.jpg)
+}
+
 .custom-chat-bg span {
   font-family: Geneva, Verdana, sans-serif
 }

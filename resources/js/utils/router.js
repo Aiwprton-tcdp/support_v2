@@ -18,6 +18,16 @@ const routes = [{
     component: defineAsyncComponent(() => import('@temps/NewTicket.vue'))
   }]
 }, {
+  path: '/archive',
+  name: 'archive',
+  component: defineAsyncComponent(() => import('@pages/Archive.vue')),
+  children: [{
+    path: ':id',
+    name: 'archive_ticket',
+    props: true,
+    component: defineAsyncComponent(() => import('@pages/Ticket.vue'))
+  }]
+}, {
   path: '/details',
   name: 'details',
   component: defineAsyncComponent(() => import('@pages/Details.vue'))

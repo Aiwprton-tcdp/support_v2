@@ -13,14 +13,12 @@ return new class extends Migration
     {
         Schema::create('tickets', function (Blueprint $table) {
             $table->id();
-            $table->unsignedInteger('user_id');
-            $table->foreignId('manager_id');//->constrained('users');
+            $table->unsignedInteger('user_id')->constrained('users', 'crm_id');
+            $table->unsignedInteger('manager_id')->constrained('users', 'crm_id');
             $table->foreignId('reason_id')->constrained();
-            $table->unsignedInteger('weight')->default(1);
-            $table->boolean('active')->default(true)->invisible();
-            $table->unsignedInteger('mark')->nullable();
+            $table->unsignedTinyInteger('weight')->default(1);
+            $table->boolean('active')->default(true);
             $table->timestamps();
-            $table->softDeletes();
         });
     }
 

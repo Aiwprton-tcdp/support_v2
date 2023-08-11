@@ -42,7 +42,7 @@ class GroupController extends Controller
 
         $message = 'Группа `' . $group->name .
             ($is_old ? '` уже существует' : '` успешно создана');
-        
+
         if (!$is_old) {
             Log::info($message);
             $group->save();
@@ -73,13 +73,13 @@ class GroupController extends Controller
         $name = $data->name;
         $val_name = $validated['name'];
 
-        if ($name == $val_name) {
-            return response()->json([
-                'status' => false,
-                'data' => null,
-                'message' => 'Группа уже имеет такое же название'
-            ]);
-        }
+        // if ($name == $val_name) {
+        //     return response()->json([
+        //         'status' => false,
+        //         'data' => null,
+        //         'message' => 'Группа уже имеет такое же название'
+        //     ]);
+        // }
 
         $exists = Group::whereName($val_name)->whereNot('id', $id)->exists();
         if ($exists) {
@@ -93,7 +93,8 @@ class GroupController extends Controller
         $data->fill($validated);
         $data->save();
 
-        $message = 'Группа `' . $name . '` изменена на `' . $val_name . '`';
+        $message = 'Группа `' . $name . '` изменена' .
+            ($name == $val_name ? '' : ' на `' . $val_name . '`');
         Log::info($message);
 
         return response()->json([

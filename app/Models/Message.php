@@ -13,7 +13,6 @@ class Message extends Model
         'content',
         'user_crm_id',
         'ticket_id',
-        // 'has_attachments',
         'created_at',
         'updated_at',
     ];

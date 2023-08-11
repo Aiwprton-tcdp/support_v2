@@ -52,7 +52,7 @@ export default {
     GetManagers() {
       this.ax.get('managers').then(r => {
         this.AllUsersWithRoles = r.data.data.data
-        
+
         if (this.AllUsersWithRoles.length == 0) {
           this.toast('Пока что нет ни одного сотрудника с ролью')
           this.only_with_roles = false
@@ -69,7 +69,7 @@ export default {
     },
     GetRoles() {
       this.ax.get('roles').then(r => {
-        this.roles = [{id: 0, name: 'Не указана'}].concat(r.data.data)
+        this.roles = [{ id: 0, name: 'Не указана' }].concat(r.data.data)
         this.roles.forEach(r => r.value = r.id)
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
@@ -121,7 +121,7 @@ export default {
         }
         this.toast(r.data.message, 'success')
 
-        const index = this.AllUsersWithRoles.findIndex(({id}) => id == data.id)
+        const index = this.AllUsersWithRoles.findIndex(({ id }) => id == data.id)
         this.AllUsersWithRoles.splice(index, 1)
         this.users = this.AllUsersWithRoles
 
@@ -146,7 +146,7 @@ export default {
 
       const id = data.replaceAll(/[^0-9]+/g, '').trim()
       const text = data.replaceAll(/[^А-я ]+/g, '').trim().toLowerCase()
-      const expression = u => 
+      const expression = u =>
         id.length > 0 && u.crm_id.toString().includes(id)
         || text.length > 0
         && (u.name.toLowerCase().includes(text)
@@ -157,7 +157,7 @@ export default {
     ClearSearch() {
       this.search = ''
       // this.users = this.only_with_roles ? this.AllUsersWithRoles : this.AllUsers
-      
+
       this.users = this.only_with_roles
         ? this.AllUsersWithRoles.length == 0 ? this.GetManagers() : this.AllUsersWithRoles
         : this.AllUsers.length == 0 ? this.Get() : this.AllUsers
@@ -167,56 +167,70 @@ export default {
 </script>
 
 <template>
-<div v-if="!only_with_roles && AllUsers.length > 0 || only_with_roles && AllUsersWithRoles.length > 0" class="space-y-4">
-  <div class="flex flex-wrap space-x-4">
-    <div class="flex flex-wrap space-x-3 w-1/2">
-      <Input @keyup.enter="Search()" v-model="search" placeholder="Введите id, ФИО или должность" label="" class="flex-1">
-        <template #prefix>
-          <svg aria-hidden="true" class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-        </template>
-      </Input>
-      <Button v-if="search.length > 0" @click="Search()" color="default">Искать</Button>
-      <Button v-if="search.length > 0" @click="ClearSearch()" color="light">Сброс</Button>
+  <template v-if="!only_with_roles && AllUsers.length > 0 || only_with_roles && AllUsersWithRoles.length > 0">
+    <div class="fixed top-1 right-1 space-y-4">
+      <div class="flex flex-wrap space-x-4">
+        <button v-if="only_with_roles || !only_with_roles && this.AllUsersWithRoles.length > 0" @click="GetManagesOrAll()"
+          class="text-sm pb-1 no-underline hover:underline border-0 focus:outline-none bg-transparent decoration-dotted underline-offset-4">
+          <p v-if="!only_with_roles">показать только с ролями</p>
+          <p v-else>показать всех</p>
+        </button>
+
+        <div class="flex flex-row space-x-2">
+          <Input @keyup.enter="Search()" v-model="search" placeholder="Поиск по id, ФИО или должности" label=""
+            class="w-72">
+          <template #prefix v-if="search.length == 0">
+            <svg aria-hidden="true" class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor"
+              viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+          </template>
+          <template #suffix v-else>
+            <svg @click="ClearSearch()" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+              stroke-width="1.5" stroke="currentColor" class="text-black-800 w-5 h-5 cursor-pointer">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M12 9.75L14.25 12m0 0l2.25 2.25M14.25 12l2.25-2.25M14.25 12L12 14.25m-2.58 4.92l-6.375-6.375a1.125 1.125 0 010-1.59L9.42 4.83c.211-.211.498-.33.796-.33H19.5a2.25 2.25 0 012.25 2.25v10.5a2.25 2.25 0 01-2.25 2.25h-9.284c-.298 0-.585-.119-.796-.33z" />
+            </svg>
+          </template>
+          </Input>
+          <Button :disabled="search.length == 0" @click="Search()" color="default">Искать</Button>
+        </div>
+      </div>
     </div>
-    <button v-if="only_with_roles || !only_with_roles && this.AllUsersWithRoles.length > 0"
-      @click="GetManagesOrAll()"
-      class="text-sm pb-1 no-underline hover:underline border-0 focus:outline-none bg-transparent decoration-dotted underline-offset-4">
-      <p v-if="!only_with_roles">показать только с ролями</p>
-      <p v-else>показать всех</p>
-    </button>
-  </div>
 
-  <Table v-if="users.length > 0" hoverable>
-    <TableHead>
-      <TableHeadCell>Id</TableHeadCell>
-      <TableHeadCell>ФИО</TableHeadCell>
-      <TableHeadCell>Должность</TableHeadCell>
-      <TableHeadCell>Внутренний номер</TableHeadCell>
-      <TableHeadCell>Роль</TableHeadCell>
-    </TableHead>
+    <Table
+      class="max-h-[calc(100vh-54px)] overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch">
+      <TableHead>
+        <TableHeadCell>Crm_id</TableHeadCell>
+        <TableHeadCell>ФИО</TableHeadCell>
+        <TableHeadCell>Должность</TableHeadCell>
+        <TableHeadCell>Внутренний номер</TableHeadCell>
+        <TableHeadCell>Роль</TableHeadCell>
+      </TableHead>
 
-    <TableBody>
-      <TableRow v-for="u in users">
-        <TableCell>{{ u.crm_id }}</TableCell>
-        <TableCell>{{ u.name }}</TableCell>
-        <TableCell>{{ u.post }} {{ u.role_id }}</TableCell>
-        <TableCell>{{ u.inner_phone }}</TableCell>
-        <TableCell>
-          <div class="space-x-3">
-            <Select @change="Create(u)" v-model.number="u.new_role_id" :options="roles" placeholder="Выбрать роль" />
-          </div>
-        </TableCell>
-      </TableRow>
-    </TableBody>
-  </Table>
-</div>
+      <TableBody>
+        <TableRow v-for="u in users">
+          <TableCell>{{ u.crm_id }}</TableCell>
+          <TableCell>{{ u.name }}</TableCell>
+          <TableCell>{{ u.post }} {{ u.role_id }}</TableCell>
+          <TableCell>{{ u.inner_phone }}</TableCell>
+          <TableCell>
+            <div class="space-x-3">
+              <Select @change="Create(u)" v-model.number="u.new_role_id" :options="roles" placeholder="Выбрать роль" />
+            </div>
+          </TableCell>
+        </TableRow>
+      </TableBody>
+    </Table>
+  </template>
 
-<div v-else>
-  <div v-if="errored">
-    <p>Ошибка</p>
+  <div v-else-if="errored" class="flex flex-col gap-3 mt-3">
+    <p v-if="errored" class="mx-auto text-center text-gray-400 w-full lg:w-2/3">
+      Произошла непредвиденная ошибка
+    </p>
+    <p v-else-if="groups.length == 0" class="mx-auto text-center text-gray-400 w-full lg:w-2/3">
+      Загружаем данных
+    </p>
   </div>
-  <div v-else>
-    <p>Загрузка</p>
-  </div>
-</div>
 </template>

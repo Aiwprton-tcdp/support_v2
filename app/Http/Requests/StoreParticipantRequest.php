@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreParticipantRequest extends FormRequest
 {
@@ -23,7 +24,21 @@ class StoreParticipantRequest extends FormRequest
     {
         return [
             'ticket_id' => 'required|numeric|min:1',
-            'user_id' => 'required|numeric|min:1',
+            'user_crm_id' => 'required|numeric|min:1',
+            // 'user_crm_id' => [
+            //     'required',
+            //     'numeric',
+            //     'min:1',
+            //     Rule::unique('participants', 'user_crm_id')
+            //         ->where('ticket_id', $this->input('ticket_id')),
+            // ],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'user_crm_id.unique' => 'Данный менеджер уже добавлен в этом тикете',
         ];
     }
 }

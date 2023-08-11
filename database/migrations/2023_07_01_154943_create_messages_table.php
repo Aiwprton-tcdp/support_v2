@@ -15,9 +15,8 @@ return new class extends Migration
             $table->bigIncrements('id');
             $table->text('content');
             $table->unsignedInteger('user_crm_id');
-            // $table->foreignId('user_id')->constrained('managers');
-            $table->foreignId('ticket_id')->constrained();
-            // $table->boolean('has_attachments')->default(false)->invisible();
+            $table->unsignedInteger('ticket_id');
+            // $table->foreignId('ticket_id')->constrained();
             $table->timestamps();
             $table->softDeletes();
         });

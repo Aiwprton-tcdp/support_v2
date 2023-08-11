@@ -23,9 +23,8 @@ class UpdateTicketRequest extends FormRequest
     {
         return [
             'reason_id' => 'sometimes|required|numeric',
-            'weight' => 'sometimes|required|numeric',
+            // 'weight' => 'sometimes|required|numeric',
             'active' => 'sometimes|required|boolean',
-            'mark' => 'sometimes|required|numeric',
         ];
     }
 }

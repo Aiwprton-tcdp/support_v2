@@ -25,17 +25,28 @@ class StoreMessageRequest extends FormRequest
             'content' => 'required_without:0|string',
             // 'user_crm_id' => 'required|numeric|min:1',
             'ticket_id' => 'required|numeric|min:1',
-            '0' => 'required_without:content|mimes:jpeg,jpg,bmp,png,webp,heic,pdf,doc,docx,xls,xlsx|max:25000',
-            '1' => 'mimes:jpeg,jpg,bmp,png,webp,heic,pdf,doc,docx,xls,xlsx|max:25000',
-            '2' => 'mimes:jpeg,jpg,bmp,png,webp,heic,pdf,doc,docx,xls,xlsx|max:25000',
-            '3' => 'mimes:jpeg,jpg,bmp,png,webp,heic,pdf,doc,docx,xls,xlsx|max:25000',
-            '4' => 'mimes:jpeg,jpg,bmp,png,webp,heic,pdf,doc,docx,xls,xlsx|max:25000',
+            '0' => 'required_without:content|mimes:jpeg,jpg,bmp,png,webp,heic|max:25000',
+            '1' => 'mimes:jpeg,jpg,bmp,png,webp,heic|max:25000',
+            '2' => 'mimes:jpeg,jpg,bmp,png,webp,heic|max:25000',
+            '3' => 'mimes:jpeg,jpg,bmp,png,webp,heic|max:25000',
+            '4' => 'mimes:jpeg,jpg,bmp,png,webp,heic|max:25000',
             // '5' => 'mimes:jpeg,jpg,bmp,png,webp,heic,pdf,doc,docx,xls,xlsx|max:25000',
             // '6' => 'mimes:jpeg,jpg,bmp,png,webp,heic,pdf,doc,docx,xls,xlsx|max:25000',
             // '7' => 'mimes:jpeg,jpg,bmp,png,webp,heic,pdf,doc,docx,xls,xlsx|max:25000',
             // '8' => 'mimes:jpeg,jpg,bmp,png,webp,heic,pdf,doc,docx,xls,xlsx|max:25000',
             // '9' => 'mimes:jpeg,jpg,bmp,png,webp,heic,pdf,doc,docx,xls,xlsx|max:25000',
             // '10' => 'mimes:jpeg,jpg,bmp,png,webp,heic,pdf,doc,docx,xls,xlsx|max:25000',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            '0.mimes' => 'Допускаются только изображения',
+            '1.mimes' => 'Допускаются только изображения',
+            '2.mimes' => 'Допускаются только изображения',
+            '3.mimes' => 'Допускаются только изображения',
+            '4.mimes' => 'Допускаются только изображения',
         ];
     }
 }

@@ -22,7 +22,8 @@ class UpdateReasonRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => 'required|unique:reasons|string|min:2',
+            // 'name' => 'required|unique:reasons|string|min:2',
+            'name' => 'required|string|min:2',
             'weight' => 'required|numeric|min:1',
             'group_id' => 'required|numeric|min:1',
         ];
@@ -31,7 +32,7 @@ class UpdateReasonRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'name.unique' => 'Тема с таким названием уже существует',
+            // 'name.unique' => 'Тема с таким названием уже существует',
             'group_id.min' => 'Не указана группа',
             'weight.min' => 'Вес должен быть не менее 1',
         ];

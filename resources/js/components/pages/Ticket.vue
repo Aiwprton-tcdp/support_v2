@@ -5,7 +5,7 @@ import {
   TableRow, TableCell,
   Input, Button,
   Select, Avatar,
-  Modal
+  Modal, Tabs, Tab
 } from 'flowbite-vue'
 import { Swiper, SwiperSlide } from 'swiper/vue'
 import {
@@ -13,8 +13,11 @@ import {
   Keyboard, Pagination,
   Navigation, Virtual
 } from 'swiper/modules'
-import { StringVal, FormatLinks } from '@utils/validation.js'
+
+import { StringVal, FormatLinks, FormatDateTime } from '@utils/validation.js'
 import MessageAttachments from '@temps/MessageAttachments.vue'
+import Detalization from '@temps/Ticket/Detalization.vue'
+import SystemChat from '@temps/Ticket/SystemChat.vue'
 
 import 'swiper/css'
 import 'swiper/css/zoom'
@@ -29,8 +32,12 @@ export default {
     TableRow, TableCell,
     Input, Button,
     Select, Avatar,
-    Modal, Swiper,
-    SwiperSlide, MessageAttachments
+    Modal, Tabs,
+    Tab, Swiper,
+    SwiperSlide,
+    MessageAttachments,
+    Detalization,
+    SystemChat
   },
   props: {
     id: Number(),
@@ -39,18 +46,37 @@ export default {
   data() {
     return {
       messages: Array(),
+      participants_data: Array(),
+      participants: Array(),
       errored: Boolean(),
       files: Array(),
       CreatingMessage: String(),
-      CreatingMessageAttachments: Array(),
-      PatchingId: Number(),
-      PatchingMessage: String(),
-      PatchingMessageAttachments: Array(),
       search: String(),
+      ActiveTab: String('details'),
+      IsResolved: Boolean(),
       showModal: Boolean(),
+      waiting: Boolean(),
       AllFiles: Array(),
       CurrentAttachmentId: Number(),
       VITE_CRM_URL: String(import.meta.env.VITE_CRM_URL),
+      marking: Boolean(),
+      MarkIcons: Array({
+        value: 1,
+        name: 'bad',
+        img: new URL('@assets/reactions/bad.png', import.meta.url),
+        gif: new URL('@assets/reactions/bad.gif', import.meta.url),
+      }, {
+        value: 2,
+        name: 'neutral',
+        img: new URL('@assets/reactions/neutral.png', import.meta.url),
+        gif: new URL('@assets/reactions/neutral.gif', import.meta.url),
+      }, {
+        value: 3,
+        name: 'good',
+        img: new URL('@assets/reactions/good.png', import.meta.url),
+        gif: new URL('@assets/reactions/good.gif', import.meta.url),
+      }),
+      CurrentMark: Number(),
     }
   },
   setup() {
@@ -65,33 +91,66 @@ export default {
     }
   },
   mounted() {
-    this.Get()
+    this.IsResolved = this.ticket?.old_ticket_id > 0
+    this.GetParticipants()
     this.emitter.on('NewMessage', this.NewMessage)
+    this.emitter.on('NewParticipant', this.GetParticipants)
+
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Escape') return
+
+      if (this.showModal) {
+        this.showModal = false
+      // } else if (this.ticket?.active == 1) {
+      //   this.ticket.active = 2
+      }
+    })
   },
   methods: {
     Get() {
       this.ax.get(`messages?ticket=${this.$route.params.id}`).then(r => {
         this.messages = r.data.data.data
         this.messages.forEach(m => {
-          m.created_at = this.FormatDateTime(m.created_at)
+          m.created_at = FormatDateTime(m.created_at)
           m.content = FormatLinks(m.content)
         })
 
         this.AllFiles = this.messages.map(m => m.attachments).flat()
+        this.errored = false
         this.ScrollChat()
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
         this.errored = true
       })
     },
+    GetParticipants() {
+      this.ax.get(`participants?ticket_id=${this.ticket.id}`).then(r => {
+        this.participants_data = r.data.data
+        this.participants = this.PrepareParticipants([...this.participants_data])
+      }).catch(e => {
+        this.toast(e.response.data.message, 'error')
+      }).finally(this.Get)
+    },
+    PrepareParticipants(BusyManagers) {
+      let y = {}
+
+      BusyManagers.forEach(e => y[e.user_crm_id] = e)
+      y[this.ticket.user_id] = this.ticket.user
+      y[this.ticket.manager_id] = this.ticket.manager
+
+      return y
+    },
     Create() {
-      const message = this.CreatingMessage.trim() ?? ''
+      if (this.waiting) return
+      this.waiting = true
+
+      const message = this.CreatingMessage.trim()
 
       if (this.files.length == 0) {
         const data = StringVal(message, 1, 1000)
-        console.log(data)
         if (data.status) {
           this.toast(data.message, 'error')
+          this.waiting = false
           return
         }
       }
@@ -101,7 +160,6 @@ export default {
       if (message.length > 0) {
         form.append('content', message)
       }
-      // form.append('content', message.length > 0 ? message : '')
       form.append('ticket_id', this.ticket.id)
 
       this.ax.post('messages', form).then(r => {
@@ -113,7 +171,7 @@ export default {
           return
         }
 
-        r.data.data.created_at = this.FormatDateTime(r.data.data.created_at)
+        r.data.data.created_at = FormatDateTime(r.data.data.created_at)
         r.data.data.content = FormatLinks(r.data.data.content)
         this.messages.push(r.data.data)
         this.ScrollChat()
@@ -121,49 +179,68 @@ export default {
         document.getElementById("attachments_input").value = '';
         this.CreatingMessage = ''
         r.data.data.attachments.forEach(a => this.AllFiles.push(a))
+
+        const index = this.$parent.$parent.$parent.$data.AllTickets.findIndex(({ id }) => id == r.data.data.ticket_id)
+        this.$parent.$parent.$parent.$data.AllTickets[index].unread_messages = false
+        this.$parent.$parent.$parent.TicketsSorting()
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
-      })
+        this.messages.push({
+          content: message,
+          created_at: FormatDateTime(),
+        })
+      }).finally(() => this.waiting = false)
     },
     NewMessage(data) {
-      console.log(data)
-      data.created_at = this.FormatDateTime(data.created_at)
+      data.created_at = FormatDateTime(data.created_at)
       data.content = FormatLinks(data.content)
       this.messages.push(data)
       this.ScrollChat()
-      this.AllFiles.concat(data.attachments)
+      data.attachments.forEach(a => this.AllFiles.push(a))
     },
-    Patch(message_id) {
-      const message = this.PatchingMessage.trim()
-      if (StringVal(message, 1, 1000)) return
+    MarkShowing() {
+      this.marking = true
+      setTimeout(() => this.ScrollChat(), 150)
+    },
+    CloseTicket(value) {
+      if (this.waiting) return
+      this.waiting = true
 
-      this.ax.patch(`messages/${message_id}`, {
-        message: message
+      this.CurrentMark = value
+      this.ax.post('resolved_tickets', {
+        old_ticket_id: this.ticket.id,
+        mark: this.CurrentMark,
       }).then(r => {
         this.toast(r.data.message, r.data.status ? 'success' : 'error')
-        if (!r.data.status) return
-
-        const index = this.messages.findIndex(({ id }) => id == message_id)
-        r.data.data.content = FormatLinks(r.data.data.content)
-        this.messages[index] = r.data.data
-        this.PatchingId = 0
-        this.PatchingMessage = ''
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
-      })
+      }).finally(() => this.waiting = false)
     },
-    Delete(message_id) {
-      this.ax.delete(`messages/${message_id}`).then(r => {
-        this.toast(r.data.message, r.data.status ? 'success' : 'warning')
-        if (!r.data.status) return
+    ContinueTicket() {
+      if (this.waiting) return
+      this.waiting = true
 
-        const index = this.messages.findIndex(({ id }) => id == message_id)
-        this.messages.splice(index, 1)
+      this.ax.patch(`tickets/${this.ticket.id}`, {
+        active: true
+      }).then(r => {
+        if (!r.data.status) {
+          this.toast(r.data.message, 'warning')
+          return
+        }
+        this.ticket.active = 1
+        const index = this.$parent.$parent.$parent.$data.AllTickets.findIndex(({ id }) => id == this.ticket.id)
+        if (index == -1) return
+        this.$parent.$parent.$parent.$data.AllTickets[index].marked_as_deleted = false
+        this.$parent.$parent.$parent.$data.AllTickets[index].unread_messages = false
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
-      })
+      }).finally(() => this.waiting = false)
     },
     AddAttachments(event) {
+      // console.log(event)
+      // console.log(event.clipboardData)
+      // console.log(window)
+      // return
       Array.from(event.target.files).forEach(f => {
         if (this.files.length == 5) {
           this.toast('За раз Вы можете отправить не более 5 файлов', 'warning')
@@ -183,27 +260,9 @@ export default {
       const el = document.getElementById('messages')
       setTimeout(() => {
         el.scrollTop = el.scrollHeight
-      }, 1)
+      }, 10)
     },
-    PrepareForPatch(data = null) {
-      this.PatchingId = data?.id ?? 0
-      this.PatchingMessage = data?.name
-    },
-    FormatDateTime(date) {
-      let tyu = new Date(new Date(date).toDateString()) < new Date(new Date().toDateString())
-      const options = tyu ? {
-        month: '2-digit',
-        year: '2-digit',
-        day: '2-digit',
-        hour: 'numeric',
-        minute: 'numeric',
-      } : {
-        hour: 'numeric',
-        minute: 'numeric',
-      }
-      return new Date(date).toLocaleTimeString('az-Cyrl-AZ', options)
-    },
-    slideTo(swiper) {
+    SlideTo(swiper) {
       const index = this.AllFiles.findIndex(({ id }) => id == this.CurrentAttachmentId)
       swiper.slideTo(index + 1, 0)
     }
@@ -212,128 +271,193 @@ export default {
 </script>
 
 <template>
-  <div id="messages"
-    class="custom-chat-bg flex flex-col gap-1 h-full content-end py-1 px-2 overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch">
-    <template v-for="m in messages">
-      <div v-if="m.user_id != UserData.crm_id" class="chat-message">
-        <div class="flex items-end">
-          <div class="flex flex-col space-y-2 text-sm max-w-md mx-2 order-2 items-start text-left opacity-90">
-            <span
-              class="flex flex-col px-4 py-2 rounded-lg inline-block rounded-bl-none bg-gray-50 whitespace-pre-wrap dark:text-gray-900 dark:bg-gray-300">
-              <MessageAttachments v-if="m.attachments.length > 0" :files="m.attachments" :message_id="m.id" />
-              <span v-html="m?.content"></span>
-              <span class="text-xs font-light tracking-tighter text-gray-400 dark:text-gray-500">{{ m.created_at }}</span>
-            </span>
-          </div>
-          <div class="order-1">
-            <a :href="VITE_CRM_URL + 'company/personal/user/' + (m.user_id == ticket.user_id ? ticket.user.crm_id : ticket.manager.crm_id) + '/'"
-              target="_blank">
-              <Avatar rounded size="sm" alt="avatar"
-                :title="m.user_id == ticket.manager_id ? ticket.manager.name : ticket.user.name"
-                :img="(m.user_id == ticket.manager_id ? ticket.manager.avatar : ticket.user.avatar) ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
-            </a>
-          </div>
-        </div>
-      </div>
-      <div v-else class="chat-message">
-        <div class="flex items-end justify-end">
-          <div class="flex flex-col space-y-2 text-sm max-w-md mx-2 order-1 items-end text-right opacity-90">
-            <span
-              class="flex flex-col px-4 py-2 rounded-lg inline-block rounded-br-none bg-indigo-300 whitespace-pre-wrap dark:text-gray-900 dark:bg-indigo-200">
-              <MessageAttachments v-if="m.attachments.length > 0" :files="m.attachments" :message_id="m.id" />
-              <span v-html="m?.content"></span>
-              <span class="text-xs font-light tracking-tighter text-gray-500 dark:text-gray-600">{{ m.created_at }}</span>
-            </span>
-          </div>
-          <div class="order-1">
-            <a :href="VITE_CRM_URL + 'company/personal/user/' + ticket.user.crm_id + '/'" target="_blank">
-              <Avatar rounded size="sm" :title="m.user_id == ticket.manager_id ? ticket.manager.name : ticket.user.name"
-                alt="avatar"
-                :img="(m.user_id == ticket.manager_id ? ticket.manager.avatar : ticket.user.avatar) ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
-            </a>
-          </div>
-        </div>
-      </div>
-    </template>
+  <div class="h-[calc(100vh-55px)] w-full grid grid-cols-4">
+    <!-- <div class="h-full" :class="[UserData.is_admin || UserData.role_id == 2 ? 'col-span-3' : 'col-span-4']"> -->
+    <div class="h-[calc(100vh-55px)] flex flex-col"
+      :class="[UserData.is_admin || UserData.role_id == 2 ? 'col-span-3' : 'col-span-4']">
+      <!-- Messaging block -->
+      <div id="messages"
+        class="flex flex-col h-full gap-1 content-end py-1 px-2 overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch"
+        :class="[['3', '53083'].includes(UserData.crm_id) ? 'custom-chat-bg-stepan bg-cover' : 'custom-chat-bg',
+          // ticket.active == 0 || IsResolved ? 'row-span-8' : 'row-span-6',
 
-    <!-- Error handler -->
-    <template v-if="errored">
-      <div class="chat-message">
-        <div class="flex items-end">
-          <div class="text-sm mx-2 order-2 items-start text-left">
-            <span class="px-4 py-2 rounded-lg inline-block rounded-bl-none bg-red-500">
-              Не удалось загрузить сообщения
-            </span>
+        ]">
+        <template v-for="m in messages">
+          <div v-if="m.user_id != UserData.crm_id" class="chat-message">
+            <div class="flex items-end">
+              <div
+                class="flex flex-col space-y-2 text-sm max-w-sm xl:max-w-md 2xl:max-w-lg mx-2 order-2 items-start text-left opacity-90">
+                <span
+                  class="flex flex-col w-full px-4 py-2 rounded-lg inline-block rounded-bl-none bg-gray-50 whitespace-pre-wrap dark:text-gray-900 dark:bg-gray-300">
+                  <MessageAttachments v-if="m.attachments.length > 0" :files="m.attachments" :message_id="m.id" />
+                  <span v-html="m?.content" class="break-words"></span>
+                  <span class="text-xs font-light tracking-tighter text-gray-400 dark:text-gray-500">
+                    {{ m.created_at }}
+                  </span>
+                </span>
+              </div>
+              <div class="order-1">
+                <a :href="`${VITE_CRM_URL}company/personal/user/${m.user_id}/`" target="_blank">
+                  <Avatar rounded size="sm" alt="avatar" :title="participants[m.user_id]?.name"
+                    :img="participants[m.user_id]?.avatar ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
+                </a>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-      <div class="chat-message">
-        <div class="flex items-end">
-          <div class="text-sm mx-2 order-2 items-start text-left">
-            <span @click="Get()"
-              class="px-4 py-2 rounded-lg inline-block rounded-bl-none bg-red-500 cursor-pointer no-underline hover:underline border-0 focus:outline-none decoration-dotted underline-offset-4">
-              Нажмите, чтобы перезагрузить
-            </span>
+          <div v-else class="chat-message">
+            <div class="flex items-end justify-end">
+              <div
+                class="flex flex-col space-y-2 text-sm max-w-sm xl:max-w-md 2xl:max-w-lg mx-2 order-1 items-end text-right opacity-90">
+                <span
+                  class="flex flex-col w-full px-4 py-2 rounded-lg inline-block rounded-br-none bg-indigo-300 whitespace-pre-wrap dark:text-gray-900 dark:bg-indigo-200">
+                  <MessageAttachments v-if="m.attachments.length > 0" :files="m.attachments" :message_id="m.id" />
+                  <span v-html="m?.content" class="break-words"></span>
+                  <span class="text-xs font-light tracking-tighter text-gray-500 dark:text-gray-600">
+                    {{ m.created_at }}
+                  </span>
+                </span>
+              </div>
+              <div class="order-1">
+                <a :href="`${VITE_CRM_URL}company/personal/user/${m.user_id}/`" target="_blank">
+                  <Avatar rounded size="sm" :title="participants[m.user_id]?.name" alt="avatar"
+                    :img="participants[m.user_id]?.avatar ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
+                </a>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-    </template>
-  </div>
+        </template>
 
-  <!-- Inputs -->
-  <div class="flex flex-col divide-y">
-    <!-- Attachments list -->
-    <div v-if="files.length > 0" class="flex flex-wrap gap-3 align-bottom p-2 bg-gray-50 dark:bg-gray-700">
-      <div v-for="(file, key) in files" :key="key" class="file-listing">
-        {{ file.name }}
-        <span @click="RemoveAttachment(key)" class="cursor-pointer text-red-500 hover:text-red-700"> ✖</span>
+        <!-- Mark Selecting -->
+        <template v-if="UserData.crm_id == ticket.user_id && (ticket?.active == 0 || marking)">
+          <div class="chat-message">
+            <div class="flex items-end">
+              <div class="flex text-sm max-w-sm xl:max-w-md 2xl:max-w-lg mx-2 items-start text-left opacity-90">
+                <span
+                  class="flex flex-col w-full px-4 py-2 rounded-lg inline-block rounded-bl-none bg-gray-50 whitespace-pre-wrap dark:text-gray-900 dark:bg-gray-300">
+                  <p>Для подтверждения завершения укажите оценку работы менеджер(а/ов) в рамках данного тикета</p>
+
+                  <div class="flex flex-row">
+                    <div v-for="icon in MarkIcons">
+                      <img :src="icon.hover ? icon.gif : icon.img" :alt="icon.name" @click="CloseTicket(icon.value)"
+                        @mouseover="icon.hover = true" @mouseleave="icon.hover = false" class="cursor-pointer opacity-100"
+                        :class="{ 'grayscale': !icon.hover && CurrentMark != icon.value }" />
+                    </div>
+                  </div>
+                </span>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- Error handling -->
+        <template v-if="errored">
+          <div class="chat-message">
+            <div class="flex items-end">
+              <div class="text-sm mx-2 order-2 items-start text-left">
+                <span class="px-4 py-2 rounded-lg inline-block rounded-bl-none bg-red-500">
+                  Не удалось загрузить сообщения
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="chat-message">
+            <div class="flex items-end">
+              <div class="text-sm mx-2 order-2 items-start text-left">
+                <span @click="Get()"
+                  class="px-4 py-2 rounded-lg inline-block rounded-bl-none bg-red-500 cursor-pointer no-underline hover:underline border-0 focus:outline-none decoration-dotted underline-offset-4">
+                  Нажмите, чтобы перезагрузить
+                </span>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Inputs -->
+      <div v-if="!IsResolved" class="h-[60px]">
+        <!-- </div> :class="UserData.is_admin || UserData.role_id == 2 ? 'col-span-3' : 'col-span-4'"> -->
+        <div v-if="ticket.active != 0 && !IsResolved" class="flex flex-col divide-y">
+          <!-- Attachments list -->
+          <div v-if="files.length > 0" class="flex flex-wrap gap-3 align-bottom p-2 bg-gray-50 dark:bg-gray-700">
+            <div v-for="(file, key) in files" :key="key" class="file-listing">
+              {{ file.name }}
+              <span @click="RemoveAttachment(key)" class="cursor-pointer text-red-500 hover:text-red-700"> ✖</span>
+            </div>
+          </div>
+
+          <div class="flex flex-row items-center gap-1 px-3 py-2 bg-gray-50 dark:bg-gray-700">
+            <!-- Attachments sending input -->
+            <div class="border-none bg-transparent cursor-pointer p-2 hover:border-none focus:border-none">
+              <input id="attachments_input" @change="AddAttachments($event)" ref="attachments" type="file" multiple
+                class="hide-file-input" />
+              <label for="attachments_input" class="cursor-pointer">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                  stroke="currentColor" for="attachments_input" class="text-black-800 w-6 h-6">
+                  <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+                </svg>
+              </label>
+            </div>
+
+            <!-- Message sending input -->
+            <div class="flex-1 relative px-1 rounded-t-lg">
+              <textarea v-model="CreatingMessage" @paste="AddAttachments" @keydown.ctrl.enter.exact="Create()" rows="1"
+                class="resize-none block overflow-hidden p-2.5 pr-4 w-full text-sm text-gray-900 bg-white rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                placeholder="Введите сообщение..." />
+              <div v-if="CreatingMessage.length > 0" @click="CreatingMessage = ''"
+                class="absolute right-3 inset-y-0 flex items-center mr-1 cursor-pointer">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                  stroke="currentColor" class="text-black-800 w-6 h-6">
+                  <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M12 9.75L14.25 12m0 0l2.25 2.25M14.25 12l2.25-2.25M14.25 12L12 14.25m-2.58 4.92l-6.375-6.375a1.125 1.125 0 010-1.59L9.42 4.83c.211-.211.498-.33.796-.33H19.5a2.25 2.25 0 012.25 2.25v10.5a2.25 2.25 0 01-2.25 2.25h-9.284c-.298 0-.585-.119-.796-.33z" />
+                </svg>
+              </div>
+            </div>
+
+            <Button v-if="CreatingMessage.length > 0 || files.length > 0" @click="Create()"
+              class="border-none hover:border-none focus:border-none" color="default">
+              Отправить
+            </Button>
+            <Button v-if="ticket.user_id == UserData.crm_id && !marking" @click="MarkShowing()"
+              class="border-none hover:border-none focus:border-none" color="red">
+              Завершить тикет
+            </Button>
+          </div>
+        </div>
+        <div v-else>
+          <button @click="ContinueTicket()" color="alternative" class="h-full w-full">
+            Продолжить обсуждение
+          </button>
+          <!-- </div> -->
+        </div>
       </div>
     </div>
 
-    <div class="flex flex-row items-center gap-1 px-3 py-2 bg-gray-50 dark:bg-gray-700">
-      <!-- Attachments sending input -->
-      <div class="border-none bg-transparent cursor-pointer p-2 hover:border-none focus:border-none">
-        <input id="attachments_input" @change="AddAttachments($event)" ref="attachments" type="file" multiple
-          class="hide-file-input" />
-        <label for="attachments_input" class="cursor-pointer">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
-            for="attachments_input" class="text-black-800 w-6 h-6">
-            <path stroke-linecap="round" stroke-linejoin="round"
-              d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
-          </svg>
-        </label>
+
+    <!-- Ticket info -->
+    <div v-if="UserData.is_admin || UserData.role_id == 2" class="h-[calc(100vh-55px)]">
+      <div class="tabs-nowrap truncate">
+        <Tabs variant="underline" v-model="ActiveTab">
+          <Tab name="details" title="Общее" />
+          <Tab name="system_chat" title="Системный чат" />
+        </Tabs>
       </div>
 
-      <!-- Message sending input -->
-      <div class="flex-1 relative px-1 rounded-t-lg">
-        <textarea v-model="CreatingMessage" @keydown.ctrl.enter.exact="Create()" rows="1"
-          class="resize-none block overflow-hidden p-2.5 pr-4 w-full text-sm text-gray-900 bg-white rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-          placeholder="Введите сообщение..." />
-        <div v-if="CreatingMessage.length > 0" @click="CreatingMessage = ''"
-          class="absolute right-3 inset-y-0 flex items-center mr-1 cursor-pointer">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
-            class="text-black-800 w-6 h-6">
-            <path stroke-linecap="round" stroke-linejoin="round"
-              d="M12 9.75L14.25 12m0 0l2.25 2.25M14.25 12l2.25-2.25M14.25 12L12 14.25m-2.58 4.92l-6.375-6.375a1.125 1.125 0 010-1.59L9.42 4.83c.211-.211.498-.33.796-.33H19.5a2.25 2.25 0 012.25 2.25v10.5a2.25 2.25 0 01-2.25 2.25h-9.284c-.298 0-.585-.119-.796-.33z" />
-          </svg>
-        </div>
-      </div>
-
-      <div v-if="CreatingMessage.length > 0 || files.length > 0">
-        <Button @click="Create()" class="border-none hover:border-none focus:border-none" color="default">
-          Отправить
-        </Button>
+      <div :class="ticket.active == 0 || IsResolved ? 'h-[calc(100%-55px)]' : 'h-[calc(100%-55px-43px)]'">
+        <Detalization :ticket="ticket" :participants="participants_data" :class="{ 'hidden': ActiveTab != 'details' }" />
+        <SystemChat v-if="ActiveTab == 'system_chat'" :ticket="ticket" />
       </div>
     </div>
   </div>
+
 
   <!-- Attachments slider modal -->
-  <div v-if="showModal" ref="carousel" @click.self="showModal = false" @keyup.esc.exact="showModal = false"
+  <div v-if="showModal" ref="carousel" @click.self="showModal = false"
     class="fixed left-0 top-0 flex h-screen w-full items-center justify-center bg-black bg-opacity-50 py-10 px-24">
-    <Swiper :slides-per-view="1" :space-between="50" :modules="modules" :loop="AllFiles.length > 0" @afterInit="slideTo"
+    <Swiper :slides-per-view="1" :space-between="50" :modules="modules" @afterInit="SlideTo" :loop="AllFiles.length > 0"
       :keyboard="{ enabled: true }" :pagination="{ clickable: true, type: 'fraction' }" grabCursor centeredSlides
       mousewheel zoom virtual navigation>
-      <SwiperSlide v-for="(file, key) in AllFiles" :key="key" :virtualIndex="key">
+      <SwiperSlide v-for="(file, key) in  AllFiles " :key="key" :virtualIndex="key">
         <div class="swiper-zoom-container">
           <img :src="file?.link" :alt="file?.name" class="object-contain">
         </div>
@@ -341,3 +465,9 @@ export default {
     </Swiper>
   </div>
 </template>
+
+<style>
+.tabs-nowrap ul {
+  flex-wrap: nowrap !important;
+}
+</style>

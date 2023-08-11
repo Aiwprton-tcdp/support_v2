@@ -79,10 +79,21 @@ class ReasonController extends Controller
      */
     public function update(UpdateReasonRequest $request, $id)
     {
+        $validated = $request->validated();
+
+        $SameName = Reason::whereName($validated['name'])->whereNot('id', $id)->exists();
+        if ($SameName) {
+            return response()->json([
+                'status' => false,
+                'data' => null,
+                'message' => 'Тема с таким названием уже существует'
+            ]);
+        }
+
         $reason = Reason::findOrFail($id);
         $message = 'Тема `' . $reason->name . '` успешно изменена';
         
-        $reason->fill($request->validated());
+        $reason->fill($validated);
         $reason->save();
         $data = Reason::findOrFail($id);
         Log::info($message);
