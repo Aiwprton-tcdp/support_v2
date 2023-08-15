@@ -22,8 +22,8 @@ class StoreResolvedTicketRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'old_ticket_id' => 'required|integer|min:1',
-            'mark' => 'required|integer|min:1',
+            'old_ticket_id' => 'required|int|min:1',
+            'mark' => 'required|int|min:1',
         ];
     }
 }

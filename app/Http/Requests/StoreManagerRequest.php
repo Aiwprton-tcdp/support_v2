@@ -23,8 +23,8 @@ class StoreManagerRequest extends FormRequest
     {
         return [
             'name' => 'required|string',
-            'crm_id' => 'required|numeric|min:1',
-            'role_id' => 'required|numeric|min:2',
+            'crm_id' => 'required|int|min:1',
+            'role_id' => 'required|int|min:2',
         ];
     }
 }

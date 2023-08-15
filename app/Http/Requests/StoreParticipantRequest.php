@@ -23,8 +23,8 @@ class StoreParticipantRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'ticket_id' => 'required|numeric|min:1',
-            'user_crm_id' => 'required|numeric|min:1',
+            'ticket_id' => 'required|int|min:1',
+            'user_crm_id' => 'required|int|min:1',
             // 'user_crm_id' => [
             //     'required',
             //     'numeric',

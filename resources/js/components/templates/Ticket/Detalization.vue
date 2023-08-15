@@ -63,26 +63,9 @@ export default {
 
     this.IsResolved = this.ticket?.old_ticket_id > 0
     this.BusyManagers = []
-    this.GetManagers()
+    this.GetDepartments()
   },
   methods: {
-    GetManagers() {
-      this.ax.get('managers?role=2').then(r => {
-        this.AllManagers = r.data.data.data
-        this.AllManagers.forEach(u => u.value = u.id)
-        this.Managers = this.AllManagers.filter(m => ![this.ticket.user_id, this.ticket.manager_id].includes(m.crm_id))
-
-        if (this.AllManagers.length == 0) {
-          this.toast('Нет ни одного менеджера', 'warning')
-          return
-        }
-      }).catch(e => {
-        this.toast(e.response.data.message, 'error')
-      }).finally(() => {
-        this.GetDepartments()
-        this.GetReasons()
-      })
-    },
     GetDepartments() {
       this.ax.get('bx/departments').then(r => {
         this.Departments = r.data.data.data
@@ -90,10 +73,36 @@ export default {
         this.toast(e.response.data.message, 'error')
       })
     },
+    GetManagers() {
+      if (this.EditParticipants) {
+        this.EditParticipants = false
+        return
+      }
+
+      this.ax.get('managers?role=2').then(r => {
+        this.AllManagers = r.data.data.data
+        this.AllManagers.forEach(u => u.value = u.id)
+        this.Managers = this.AllManagers.filter(m => ![this.ticket.user_id, this.ticket.manager_id].includes(m.crm_id))
+        this.EditParticipants = true
+
+        if (this.AllManagers.length == 0) {
+          this.toast('Нет ни одного менеджера', 'warning')
+          return
+        }
+      }).catch(e => {
+        this.toast(e.response.data.message, 'error')
+      })
+    },
     GetReasons() {
+      if (this.EditReason) {
+        this.EditReason = false
+        return
+      }
+
       this.ax.get('reasons').then(r => {
         this.AllReasons = r.data.data.data
         this.Reasons = this.AllReasons.filter(r => r.id != this.ticket.reason_id)
+        this.EditReason = true
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
       })
@@ -229,7 +238,7 @@ export default {
       <p id="ticket_info_reason" class="font-medium">
         {{ ticket.reason }}
       </p>
-      <span title="Сменить тему" @click="EditReason = !EditReason">
+      <span title="Сменить тему" @click="GetReasons()">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
           class="w-3 h-3 cursor-pointer">
           <path stroke-linecap="round" stroke-linejoin="round"
@@ -240,9 +249,9 @@ export default {
 
     <div class="grid grid-cols-4 justify-items-center gap-y-4 w-full">
       <!-- @mouseover="ShowUserInfo = true" @mouseleave="ShowUserInfo = false" -->
-      <div class="relative col-span-2 w-full" @click="ShowUserInfo = !ShowUserInfo; ShowManagerInfo = false"
+      <div class="relative col-span-2 w-full"
         @mouseleave="ShowUserInfo = false">
-        <div class="flex justify-center">
+        <div @click="ShowUserInfo = !ShowUserInfo; ShowManagerInfo = false" class="flex justify-center">
           <Avatar rounded size="lg" alt="avatar" :title="ticket.user?.name"
             :img="ticket.user?.avatar ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
           <!-- <p>Создатель</p> -->
@@ -280,9 +289,9 @@ export default {
         </div>
       </div>
 
-      <div class="relative col-span-2 w-full" @click="ShowManagerInfo = !ShowManagerInfo; ShowUserInfo = false"
+      <div class="relative col-span-2 w-full"
         @mouseleave="ShowManagerInfo = false">
-        <div class="flex justify-center">
+        <div @click="ShowManagerInfo = !ShowManagerInfo; ShowUserInfo = false" class="flex justify-center">
           <Avatar rounded size="lg" alt="avatar" :title="ticket.manager?.name"
             :img="ticket.manager?.avatar ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
           <!-- <p class="flex items-center gap-1">
@@ -336,7 +345,7 @@ export default {
 
         <p class="flex items-center gap-1">
           Ответственный
-          <span title="Сменить ответственного" @click="EditParticipants = !EditParticipants">
+          <span title="Сменить ответственного" @click="GetManagers()">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
               stroke="currentColor" class="w-3 h-3 cursor-pointer">
               <path stroke-linecap="round" stroke-linejoin="round"

@@ -22,8 +22,8 @@ class UpdateTicketRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'reason_id' => 'sometimes|required|numeric',
-            // 'weight' => 'sometimes|required|numeric',
+            'reason_id' => 'sometimes|required|int',
+            // 'weight' => 'sometimes|required|int',
             'active' => 'sometimes|required|boolean',
         ];
     }

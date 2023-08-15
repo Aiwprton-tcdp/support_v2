@@ -5,6 +5,7 @@ use App\Http\Controllers\CRM\IndexAPIController as CRMIndexController;
 use App\Http\Controllers\CRM\DepartmentController as CRMDepartmentController;
 use App\Http\Controllers\CRM\UserController as CRMUserController;
 use App\Http\Controllers\AttachmentController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DetalizationController;
 use App\Http\Controllers\HiddenChatMessageController;
 use App\Http\Controllers\ManagerGroupController;
@@ -81,7 +82,8 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
   Route::any('/websocket/subscribe', [SocketController::class, 'Subscribe']);
   Route::any('/websocket/refresh', [SocketController::class, 'Refresh']);
 
-  Route::prefix('detalization')->group(function () {
-    Route::get('/active_tickets', [DetalizationController::class, 'activeTickets']);
+  Route::prefix('statistics')->group(function () {
+    Route::get('/active_tickets', [DashboardController::class, 'activeTickets']);
+    Route::post('/redistribute', [DashboardController::class, 'redistribute']);
   });
 });

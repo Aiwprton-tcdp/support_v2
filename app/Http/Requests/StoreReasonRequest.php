@@ -23,8 +23,8 @@ class StoreReasonRequest extends FormRequest
     {
         return [
             'name' => 'required|unique:reasons|string|min:2',
-            'weight' => 'required|numeric|min:1',
-            'group_id' => 'required|numeric|min:1',
+            'weight' => 'required|int|min:1',
+            'group_id' => 'required|int|min:1',
         ];
     }
 

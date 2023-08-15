@@ -25,6 +25,7 @@ class MessageResource extends JsonResource
             'content' => $this->content,
             'attachments' => $at,
             'user_id' => $this->user_crm_id,
+            'user' => $this->user_crm_id == 0 ? null : $this->user,
             'ticket_id' => $this->ticket_id,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

@@ -74,14 +74,14 @@ class MessageController extends Controller
             array_push($recipient_ids, $ticket->user_id == $data->user_crm_id ? $ticket->manager_id : $ticket->user_id);
         }
 
-        $message = 'Новое сообщение в тикете';
+        $message = "Новое сообщение в тикете №{$ticket->id}";
         $resource = MessageResource::make($data);
 
         foreach ($recipient_ids as $id) {
             TicketTrait::SendMessageToWebsocket("{$id}.message", [
                 'message' => $resource,
             ]);
-            // TicketTrait::SendNotification($id, $message, $ticket->id);
+            TicketTrait::SendNotification($id, $message, $ticket->id);
         }
 
         $another_recipients = Participant::whereTicketId($ticket->id)
@@ -92,7 +92,7 @@ class MessageController extends Controller
             TicketTrait::SendMessageToWebsocket("{$id}.message", [
                 'message' => $resource,
             ]);
-            // TicketTrait::SendNotification($id, $message, $ticket->id);
+            TicketTrait::SendNotification($id, $message, $ticket->id);
         }
 
         return response()->json([

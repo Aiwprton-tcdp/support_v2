@@ -77,6 +77,7 @@ export default {
         gif: new URL('@assets/reactions/good.gif', import.meta.url),
       }),
       CurrentMark: Number(),
+      IsParticipant: Boolean(),
     }
   },
   setup() {
@@ -101,10 +102,11 @@ export default {
 
       if (this.showModal) {
         this.showModal = false
-      // } else if (this.ticket?.active == 1) {
-      //   this.ticket.active = 2
+        // } else if (this.ticket?.active == 1) {
+        //   this.ticket.active = 2
       }
     })
+    // document.addEventListener('paste', this.AddAttachments)
   },
   methods: {
     Get() {
@@ -127,6 +129,11 @@ export default {
       this.ax.get(`participants?ticket_id=${this.ticket.id}`).then(r => {
         this.participants_data = r.data.data
         this.participants = this.PrepareParticipants([...this.participants_data])
+        this.IsParticipant = this.ticket.user_id == this.UserData.crm_id || this.ticket.manager_id == this.UserData.crm_id
+
+        if (!this.IsParticipant) {
+          this.IsParticipant = this.participants_data.some(p => p.crm_id == this.UserData.crm_id)
+        }
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
       }).finally(this.Get)
@@ -212,6 +219,10 @@ export default {
         mark: this.CurrentMark,
       }).then(r => {
         this.toast(r.data.message, r.data.status ? 'success' : 'error')
+        const index = this.$parent.$parent.$parent.$data.AllTickets.findIndex(({ id }) => id == this.ticket.id)
+        if (index > -1) {
+          this.$parent.$parent.$parent.$data.AllTickets[index].splice(index, 1)
+        }
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
       }).finally(() => this.waiting = false)
@@ -237,9 +248,8 @@ export default {
       }).finally(() => this.waiting = false)
     },
     AddAttachments(event) {
-      // console.log(event)
       // console.log(event.clipboardData)
-      // console.log(window)
+      // console.log(event.clipboardData.items)
       // return
       Array.from(event.target.files).forEach(f => {
         if (this.files.length == 5) {
@@ -277,11 +287,8 @@ export default {
       :class="[UserData.is_admin || UserData.role_id == 2 ? 'col-span-3' : 'col-span-4']">
       <!-- Messaging block -->
       <div id="messages"
-        class="flex flex-col h-full gap-1 content-end py-1 px-2 overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch"
-        :class="[['3', '53083'].includes(UserData.crm_id) ? 'custom-chat-bg-stepan bg-cover' : 'custom-chat-bg',
-          // ticket.active == 0 || IsResolved ? 'row-span-8' : 'row-span-6',
-
-        ]">
+        class="flex flex-col h-full gap-1 z-1 content-end py-1 px-2 overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch"
+        :class="['3', '53083'].includes(UserData.crm_id) ? 'custom-chat-bg-stepan bg-cover' : 'custom-chat-bg'">
         <template v-for="m in messages">
           <div v-if="m.user_id != UserData.crm_id" class="chat-message">
             <div class="flex items-end">
@@ -362,9 +369,9 @@ export default {
           </div>
           <div class="chat-message">
             <div class="flex items-end">
-              <div class="text-sm mx-2 order-2 items-start text-left">
-                <span @click="Get()"
-                  class="px-4 py-2 rounded-lg inline-block rounded-bl-none bg-red-500 cursor-pointer no-underline hover:underline border-0 focus:outline-none decoration-dotted underline-offset-4">
+              <div @click="Get()" class="text-sm mx-2 order-2 items-start text-left cursor-pointer">
+                <span
+                  class="px-4 py-2 rounded-lg inline-block rounded-bl-none bg-red-500 no-underline hover:underline border-0 focus:outline-none decoration-dotted underline-offset-4">
                   Нажмите, чтобы перезагрузить
                 </span>
               </div>
@@ -374,11 +381,16 @@ export default {
       </div>
 
       <!-- Inputs -->
-      <div v-if="!IsResolved" class="h-[60px]">
+      <div v-if="!IsResolved && IsParticipant" class="h-[60px]">
         <!-- </div> :class="UserData.is_admin || UserData.role_id == 2 ? 'col-span-3' : 'col-span-4'"> -->
-        <div v-if="ticket.active != 0 && !IsResolved" class="flex flex-col divide-y">
+        <div v-if="ticket.active == 0">
+          <button @click="ContinueTicket()" color="alternative" class="h-full w-full">
+            Продолжить обсуждение
+          </button>
+        </div>
+        <div v-else class="relative flex flex-col divide-y">
           <!-- Attachments list -->
-          <div v-if="files.length > 0" class="flex flex-wrap gap-3 align-bottom p-2 bg-gray-50 dark:bg-gray-700">
+          <div v-if="files.length > 0" class="absolute bottom-[59px] opacity-70 flex flex-wrap gap-3 align-bottom p-2 bg-gray-50 dark:bg-gray-700">
             <div v-for="(file, key) in files" :key="key" class="file-listing">
               {{ file.name }}
               <span @click="RemoveAttachment(key)" class="cursor-pointer text-red-500 hover:text-red-700"> ✖</span>
@@ -388,7 +400,7 @@ export default {
           <div class="flex flex-row items-center gap-1 px-3 py-2 bg-gray-50 dark:bg-gray-700">
             <!-- Attachments sending input -->
             <div class="border-none bg-transparent cursor-pointer p-2 hover:border-none focus:border-none">
-              <input id="attachments_input" @change="AddAttachments($event)" ref="attachments" type="file" multiple
+              <input id="attachments_input" @change="AddAttachments" ref="attachments" type="file" multiple
                 class="hide-file-input" />
               <label for="attachments_input" class="cursor-pointer">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
@@ -401,7 +413,7 @@ export default {
 
             <!-- Message sending input -->
             <div class="flex-1 relative px-1 rounded-t-lg">
-              <textarea v-model="CreatingMessage" @paste="AddAttachments" @keydown.ctrl.enter.exact="Create()" rows="1"
+              <textarea v-model="CreatingMessage" @keydown.ctrl.enter.exact="Create()" @paste="AddAttachments" rows="1"
                 class="resize-none block overflow-hidden p-2.5 pr-4 w-full text-sm text-gray-900 bg-white rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                 placeholder="Введите сообщение..." />
               <div v-if="CreatingMessage.length > 0" @click="CreatingMessage = ''"
@@ -423,12 +435,6 @@ export default {
               Завершить тикет
             </Button>
           </div>
-        </div>
-        <div v-else>
-          <button @click="ContinueTicket()" color="alternative" class="h-full w-full">
-            Продолжить обсуждение
-          </button>
-          <!-- </div> -->
         </div>
       </div>
     </div>

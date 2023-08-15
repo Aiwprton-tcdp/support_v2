@@ -2,15 +2,15 @@
 
 namespace App\Traits;
 
+use App\Http\Resources\TicketResource;
+use App\Models\HiddenChatMessage;
+use App\Models\Manager;
+use App\Models\Ticket;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 trait TicketTrait
 {
-  private static $C_REST_WEB_HOOK_URL = '';
-  private static $DOMAIN = '';
-
-
   public static function GetReason($message)
   {
     $client = new \GuzzleHttp\Client();
@@ -110,7 +110,7 @@ trait TicketTrait
 
   public static function MarkedTicketsPreparing()
   {
-    $tickets = \App\Models\Ticket::whereActive(false)
+    $tickets = Ticket::whereActive(false)
       ->whereRaw('updated_at < (utc_timestamp() - INTERVAL 1 DAY)')
       ->pluck('id');
 
@@ -122,7 +122,7 @@ trait TicketTrait
 
   public static function FinishTicket($old_ticket_id, $mark = 0)
   {
-    $ticket = \App\Models\Ticket::findOrFail($old_ticket_id);
+    $ticket = Ticket::findOrFail($old_ticket_id);
     $data = clone ($ticket);
     $data->old_ticket_id = $data->id;
     $data->mark = $mark;
@@ -133,20 +133,19 @@ trait TicketTrait
       'manager_id' => 'required|integer|min:1',
       'reason_id' => 'required|integer|min:1',
       'weight' => 'required|integer|min:1',
-      'mark' => 'required|integer|min:0',
+      'mark' => 'required|integer|min:0|max:3',
     ])->validate();
 
     $resolved = \App\Models\ResolvedTicket::firstOrNew($validated);
     if ($resolved->exists) {
-      $message = "Попытка завершить уже завершённый тикет #{$ticket->id}";
       return [
         'status' => false,
         'data' => null,
-        'message' => $message
+        'message' => 'Попытка завершить уже завершённый тикет'
       ];
     }
 
-    \App\Models\HiddenChatMessage::create([
+    HiddenChatMessage::create([
       'content' => 'Тикет завершён',
       'user_crm_id' => 0,
       'ticket_id' => $ticket->id,
@@ -154,7 +153,7 @@ trait TicketTrait
 
     $resolved->save();
     $result = $ticket->delete();
-    $message = "Тикет `{$ticket->id}` успешно завершён";
+    $message = "Тикет №{$ticket->id} успешно завершён";
 
     self::SendMessageToWebsocket("{$ticket->manager_id}.ticket.delete", [
       'id' => $ticket->id,
@@ -180,6 +179,93 @@ trait TicketTrait
     ];
   }
 
+  public static function TryToRedistributeByReason($reason_id, $old_crm_id, $new_crm_ids, $count)
+  {
+    $tickets = Ticket::whereManagerId($old_crm_id)
+      ->whereReasonId($reason_id)->orderByDesc('id')->take($count)->get();
+
+    $managers = Manager::join('users', 'users.crm_id', 'managers.crm_id')
+      ->whereRoleId(2)->whereIn('managers.crm_id', $new_crm_ids)->get();
+
+    $tickets_ids = array_map(fn($e) => $e['id'], $tickets->toArray());
+    $participants = \App\Models\Participant::whereIn('ticket_id', $tickets_ids)
+      ->whereIn('user_crm_id', $new_crm_ids)->get();
+
+    $managersCount = count($new_crm_ids);
+    $currentKey = 0;
+    $data = [];
+    $hiddenChatMessages = [];
+    $participants_ids = [];
+
+    foreach ($tickets as $key => $ticket) {
+      if ($key == $count)
+        break;
+      if ($currentKey == $managersCount)
+        $currentKey = 0;
+
+      $manager_id = $new_crm_ids[$currentKey++];
+      array_push($data, [
+        'ticket_id' => $ticket->id,
+        'user_crm_id' => $manager_id,
+      ]);
+
+      array_push($hiddenChatMessages, [
+        'content' => "Новый ответственный: {$managers->where('crm_id', $manager_id)->first()->name}",
+        'user_crm_id' => 0,
+        'ticket_id' => $ticket->id,
+      ]);
+
+      $participant = $participants->where('ticket_id', $ticket->id)
+        ->where('user_crm_id', $manager_id)->first();
+      if (isset($participant))
+        array_push($participants_ids, $participant->id);
+    }
+
+    dd($data, $managers, $hiddenChatMessages);
+    //TODO распределить тикеты по участникам группы
+
+
+
+    \App\Models\Participant::whereIn('id', $participants_ids)->delete();
+    //TODO убрать из участников новых ответственных
+
+
+    HiddenChatMessage::create($hiddenChatMessages);
+    //TODO записать в системный чат, что сменился ответственный
+
+
+    self::SendMessageToWebsocket("{$ticket->manager_id}.ticket", [
+      'ticket' => TicketResource::make($ticket),
+    ]);
+    //TODO новым ответственным прислать в уведомлении, что они стали ответственными за число тикетов
+    //TODO Через сокет каждому добавить все новые тикеты 
+
+    // $ticket = Ticket::findOrFail($old_ticket_id);
+
+    // self::SendMessageToWebsocket("{$ticket->manager_id}.ticket.delete", [
+    //   'id' => $ticket->id,
+    //   'message' => $message,
+    // ]);
+    // self::SendMessageToWebsocket("{$ticket->user_id}.ticket.delete", [
+    //   'id' => $ticket->id,
+    //   'message' => $message,
+    // ]);
+    // $part_ids = \App\Models\Participant::whereTicketId($ticket->id)
+    //   ->pluck('user_crm_id')->toArray();
+    // foreach ($part_ids as $id) {
+    //   self::SendMessageToWebsocket("{$id}.ticket.delete", [
+    //     'id' => $ticket->id,
+    //     'message' => $message,
+    //   ]);
+    // }
+
+    // return [
+    //   'status' => true,
+    //   'data' => $result,
+    //   'message' => $message
+    // ];
+  }
+
   public static function SendMessageToWebsocket($recipient_id, $data)
   {
     // $channel_id = '#support.' . md5($data->user_id) . md5(env('CENTRIFUGE_SALT'));
@@ -196,28 +282,9 @@ trait TicketTrait
   public static function SendNotification($recipient_id, $message, $ticket_id)
   {
     $market_id = env('MARKETPLACE_ID');
-    $content = "{$message}\r\n[URL=/marketplace/app/{$market_id}/?id={$ticket_id}]Перейти[/URL]";
+    $content = "New ТП:\r\n{$message}\r\n[URL=/marketplace/app/{$market_id}/?id={$ticket_id}]Перейти[/URL]";
     $WEB_HOOK_URL = "https://xn--24-9kc.xn--d1ao9c.xn--p1ai/rest/10033/t8swdg5q7trw0vst/im.message.add.json?USER_ID={$recipient_id}&MESSAGE={$content}&URL_PREVIEW=Y";
 
     \Illuminate\Support\Facades\Http::get($WEB_HOOK_URL);
   }
-
-  // public static function SendNotification($recipient_id, $message, $ticket_id)
-  // {
-  //   static::$C_REST_WEB_HOOK_URL = 'https://xn--24-9kc.xn--b1aaiaj6cd.xn--p1ai/rest/10/86v5bz5tbr1c9xhq/';
-  //   static::$DOMAIN = env('CRM_URL');
-
-  //   $market_id = env('MARKETPLACE_ID');
-  //   $content = "{$message}\r\n[URL=/marketplace/app/{$market_id}/?id={$ticket_id}]Перейти[/URL]";
-
-  //   $result = BX::call(
-  //     'im.message.add',
-  //     array(
-  //       'USER_ID' => $recipient_id,
-  //       'MESSAGE' => $content,
-  //       'URL_PREVIEW' => "Y",
-  //     )
-  //   );
-  //   static::$C_REST_WEB_HOOK_URL = '';
-  // }
 }

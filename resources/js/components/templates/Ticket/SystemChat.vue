@@ -76,14 +76,7 @@ export default {
           return
         }
 
-        console.log(r.data.data)
         const new_message = r.data.data
-        // .map(m => {
-        //   m.created_at = FormatDateTime(m.created_at)
-        //   m.content = FormatLinks(m.content)
-        // })
-        // console.log(new_message)
-        // const new_message = r.data.data
         new_message.created_at = FormatDateTime(new_message.created_at)
         new_message.content = FormatLinks(new_message.content)
         this.Messages.push(new_message)
@@ -115,28 +108,23 @@ export default {
             class="flex flex-col space-y-2 text-sm max-w-sm xl:max-w-md 2xl:max-w-lg mx-2 order-2 items-start text-left opacity-90">
             <span
               class="flex flex-col w-full px-4 py-2 rounded-lg inline-block rounded-bl-none bg-gray-50 whitespace-pre-wrap dark:text-gray-900 dark:bg-gray-300">
-              <span v-html="m?.content" class="break-words"></span>
+              <span v-html="m?.content" class="break-words" />
               <span class="text-xs font-light tracking-tighter text-gray-400 dark:text-gray-500">
                 {{ m.created_at }}
               </span>
             </span>
           </div>
           <div class="order-1">
-            <!-- <img v-if="m.user_id == 0" img="@assets/system-logo.png" alt="Система" title="Система" class="w-6 h-auto rounded-lg" /> -->
-            <Avatar v-if="m.user_id == 0" rounded size="sm" alt="avatar" />
-            <a v-else
-              :href="VITE_CRM_URL + 'company/personal/user/' + (m.user_id == ticket.user_id ? ticket.user.crm_id : ticket.manager.crm_id) + '/'"
-              target="_blank">
-              <Avatar rounded size="sm" alt="avatar"
-                :title="m.user_id == ticket.manager_id ? ticket.manager.name : ticket.user.name"
-                :img="(m.user_id == ticket.manager_id ? ticket.manager.avatar : ticket.user.avatar) ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
+            <Avatar v-if="m.user_id == 0" rounded size="sm" title="Система" />
+            <a v-else :href="`${VITE_CRM_URL}company/personal/user/${m.user_id}/`" target="_blank">
+              <Avatar rounded size="sm" alt="avatar" :title="m.user?.name"
+                :img="m.user?.avatar ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
             </a>
           </div>
         </div>
       </div>
     </template>
   </div>
-  <!-- </div> -->
 
   <div v-if="!IsResolved && ticket.active != 0" class="relative flex flex-row h-[60px] items-center gap-1 px-3 py-2">
     <textarea v-model="CreatingMessage" @keydown.ctrl.enter.exact="CreateMessage()" rows="1"

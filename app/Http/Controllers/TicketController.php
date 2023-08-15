@@ -233,14 +233,13 @@ class TicketController extends Controller
 
     if (isset($validated['active'])) {
       if ($validated['active'] == false) {
-        $user = UserTrait::tryToDefineUserEverywhere($ticket->manager_id);
         HiddenChatMessage::create([
-          'content' => "{$user->name} пометил тикет как решённый",
+          'content' => "{$manager->name} пометил тикет как решённый",
           'user_crm_id' => 0,
           'ticket_id' => $ticket->id,
         ]);
 
-        $message = "Тикет #{$id} был помечен менеджером как решённый\nПожалуйста, оцените работу менеджера";
+        $message = "Тикет №{$ticket->id} был помечен менеджером как решённый\nПожалуйста, оцените работу менеджера";
         TicketTrait::SendMessageToWebsocket("{$ticket->user_id}.ticket.delete", [
           'id' => $ticket->id,
           'message' => null,
@@ -252,7 +251,7 @@ class TicketController extends Controller
         $ticket_data->active = 1;
         $ticket_data->user = $user;
         $ticket_data->manager = $manager;
-        $message = "Тикет #{$id} был возвращён в работу";
+        $message = "Тикет №{$ticket_data->id} был возвращён в работу";
 
         TicketTrait::SendMessageToWebsocket("{$ticket_data->manager_id}.ticket", [
           'ticket' => TicketResource::make($ticket_data),
@@ -308,7 +307,7 @@ class TicketController extends Controller
       ]);
     }
 
-    $message = "Тикет #{$id} ";
+    $message = "Тикет `{$ticket->id}` ";
     if (isset($validated['active']) && $validated['active'] == true) {
       $message .= "возобновлён";
     } else {

@@ -24,7 +24,7 @@ class StoreMessageRequest extends FormRequest
         return [
             'content' => 'required_without:0|string',
             // 'user_crm_id' => 'required|numeric|min:1',
-            'ticket_id' => 'required|numeric|min:1',
+            'ticket_id' => 'required|int|min:1',
             '0' => 'required_without:content|mimes:jpeg,jpg,bmp,png,webp,heic|max:25000',
             '1' => 'mimes:jpeg,jpg,bmp,png,webp,heic|max:25000',
             '2' => 'mimes:jpeg,jpg,bmp,png,webp,heic|max:25000',

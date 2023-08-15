@@ -23,7 +23,7 @@ class UpdateManagerRequest extends FormRequest
     {
         return [
             'name' => 'sometimes|required|string',
-            'role_id' => 'sometimes|required|numeric|min:2',
+            'role_id' => 'sometimes|required|int|min:2',
         ];
     }
 }

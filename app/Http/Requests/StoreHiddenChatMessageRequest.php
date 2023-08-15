@@ -23,7 +23,7 @@ class StoreHiddenChatMessageRequest extends FormRequest
     {
         return [
             'content' => 'required|string|min:1',
-            'ticket_id' => 'required|numeric|min:1',
+            'ticket_id' => 'required|int|min:1',
         ];
     }
 }

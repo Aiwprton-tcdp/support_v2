@@ -48,8 +48,7 @@ class UserController extends Controller
     {
         $user = User::firstOrCreate($request->validated());
 
-        $message = 'Сотрудник `' . $user->name . '` crm_id:' .
-            $user->crm_id . ' добавлен с ролью `' .
+        $message = "Сотрудник `{$user->name}` crm_id: {$user->crm_id} добавлен с ролью `" .
             \App\Models\Role::find($user->role_id)->name . '`';
         Log::info($message);
         
@@ -86,7 +85,7 @@ class UserController extends Controller
         $validated = $request->validated();
 
         $user = User::findOrFail($id);
-        $message = 'Сотрудник `' . $user->name . '` crm_id:' . $user->crm_id;
+        $message = "Сотрудник `{$user->name}` crm_id:{$user->crm_id}";
 
         if ($user->role_id != 2 && $validated['role_id'] == 2) {
             $group = Group::firstOrNew(['name' => $user->name]);
@@ -128,7 +127,7 @@ class UserController extends Controller
             return response()->json($data);
         }
         
-        $message = '`' . $user->name . '` crm_id:' . $user->crm_id . ' удалён';
+        $message = "Сотрудник `{$user->name}` crm_id:{$user->crm_id} удалён";
         $result = $user->delete();
         Log::info($message);
         

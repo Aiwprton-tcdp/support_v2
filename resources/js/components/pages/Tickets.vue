@@ -20,10 +20,12 @@ export default {
       tickets: Array(),
       CurrentTicket: Object(),
       managers: Array(),
+      TicketsHistory: new Map(),
       errored: Boolean(),
       waiting: Boolean(),
       searching: Boolean(),
       ticket401: Boolean(),
+      ShowHistoryInfo: Boolean(),
       search: String(),
       page: Number(),
       TicketsCount: Number(),
@@ -251,6 +253,8 @@ export default {
         this.AllTickets[index].unread_messages = true
         this.TicketsSorting()
       }
+
+      this.TicketsSorting()
     },
     NewTicket(data) {
       data.unread_messages = data.user_id != this.UserData.crm_id
@@ -261,7 +265,9 @@ export default {
     PatchTicket(data) {
       const index = this.AllTickets.findIndex(({ id }) => id == data.id)
       if (index == -1) return
-      this.AllTickets[index].reason = data.reason
+      this.AllTickets[index] = data
+      // this.AllTickets[index].reason = data.reason
+      this.TicketsSorting()
     },
     DeleteTicket(ticket_id, message) {
       this.toast(message, 'success')
@@ -281,6 +287,11 @@ export default {
       this.AllTickets.splice(index, 1)
       const is_current_ticket = this.CurrentTicket.id == ticket_id
       this.CurrentTicket.id = 0
+
+      this.TicketsHistory.delete(ticket_id)
+      console.log(this.TicketsHistory)
+      // const history_index = this.TicketsHistory.findIndex(({ id }) => id == ticket_id)
+      // if (history_index > -1) this.TicketsHistory.splice(history_index, 1)
 
       if (this.$route.name == 'ticket' && is_current_ticket) {
         this.$router.push('tickets')
@@ -323,6 +334,10 @@ export default {
         this.CurrentTicket.id = 0
         this.$router.replace({ name: 'tickets' })
       } else {
+        if (this.TicketsHistory.set(t.id)) this.TicketsHistory.delete(t.id)
+        this.TicketsHistory.set(t.id, t)
+        // this.TicketsHistory.push(t)
+        console.log(this.TicketsHistory)
         this.CurrentTicket = { ...t }
         const index = this.AllTickets.findIndex(({ id }) => id == t.id)
         if (index > -1) {
@@ -354,24 +369,40 @@ export default {
 
 <template>
   <!-- Search in navigation -->
-  <div class="fixed top-1 right-1 flex flex-row space-x-4">
+  <div class="fixed top-1 right-1 flex flex-row space-x-4 z-10">
     <div v-if="AllTickets.length > 0" class="flex flex-wrap space-x-2">
-      <Input @keyup.enter="Get()" v-model="search" placeholder="Поиск" label="" class="flex-1">
-      <template #prefix>
-        <svg aria-hidden="true" class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor"
-          viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-        </svg>
-      </template>
-      <template #suffix v-if="search.length > 0">
-        <svg @click="ClearSearch()" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-          stroke="currentColor" class="text-black-800 w-5 h-5 cursor-pointer">
-          <path stroke-linecap="round" stroke-linejoin="round"
-            d="M12 9.75L14.25 12m0 0l2.25 2.25M14.25 12l2.25-2.25M14.25 12L12 14.25m-2.58 4.92l-6.375-6.375a1.125 1.125 0 010-1.59L9.42 4.83c.211-.211.498-.33.796-.33H19.5a2.25 2.25 0 012.25 2.25v10.5a2.25 2.25 0 01-2.25 2.25h-9.284c-.298 0-.585-.119-.796-.33z" />
-        </svg>
-      </template>
-      </Input>
+      <div class="relative" @click="ShowHistoryInfo = !ShowHistoryInfo" @mouseleave="ShowHistoryInfo = false">
+        <Input @keyup.enter="Get()" v-model="search" placeholder="Поиск" label="" class="flex-1">
+        <template #prefix>
+          <svg aria-hidden="true" class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor"
+            viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+          </svg>
+        </template>
+        <template #suffix v-if="search.length > 0">
+          <svg @click="ClearSearch()" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+            stroke-width="1.5" stroke="currentColor" class="text-black-800 w-5 h-5 cursor-pointer">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M12 9.75L14.25 12m0 0l2.25 2.25M14.25 12l2.25-2.25M14.25 12L12 14.25m-2.58 4.92l-6.375-6.375a1.125 1.125 0 010-1.59L9.42 4.83c.211-.211.498-.33.796-.33H19.5a2.25 2.25 0 012.25 2.25v10.5a2.25 2.25 0 01-2.25 2.25h-9.284c-.298 0-.585-.119-.796-.33z" />
+          </svg>
+        </template>
+        </Input>
+
+        <div :class="ShowHistoryInfo ? 'visible opacity-100' : 'invisible opacity-0'"
+          class="absolute flex flex-col gap-2 p-3 inline-block text-sm font-light text-gray-500 transition-opacity duration-300 bg-white border border-gray-200 rounded-lg shadow-sm w-fit dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400">
+          <p>Последние посещённые тикеты:</p>
+          <div class="flex flex-wrap gap-2">
+            <template v-for="[key, value] in TicketsHistory">
+              <p @click="GoTo(value)" class="font-medium cursor-pointer text-blue-400 hover:text-blue-300 hover:underline"
+                :title="'Тема: ' + value?.reason + '\nСоздатель: ' + value.user?.name">
+                {{ key }}
+              </p>
+            </template>
+          </div>
+        </div>
+      </div>
+
       <Button v-if="search.length > 0" @click="Get()" color="default">Искать</Button>
     </div>
 
@@ -443,7 +474,11 @@ export default {
 
     <div class="h-[calc(100vh-55px)] flex flex-col items-center" :class="[UserData.is_admin && UserData.role_id == 2 ? 'col-span-5' : 'col-span-4',
     { 'justify-center': $route.name == 'tickets' }]">
-      <div v-if="errored" class="flex flex-col">
+      <div v-if="waiting" class="flex flex-col">
+        <p class="mx-auto">Идёт загрузка данных...</p>
+      </div>
+
+      <div v-else-if="errored" class="flex flex-col">
         <p class="mx-auto">Произошла непредвиденная ошибка</p>
 
         <button @click="Get()"

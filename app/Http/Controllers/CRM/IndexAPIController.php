@@ -10,6 +10,7 @@ use App\Traits\BX;
 use App\Models\VerifiedUser;
 use App\Traits\UserTrait;
 use Auth;
+use Illuminate\Support\Facades\DB;
 
 class IndexAPIController extends Controller
 {
@@ -42,7 +43,9 @@ class IndexAPIController extends Controller
       }
 
       $user['is_admin'] = BX::call('user.admin')['result'];
-      $manager = Manager::whereCrmId($auth->crm_id)->first();
+      $manager = Manager::whereCrmId($auth->crm_id)
+        ->orderBy(DB::raw("CASE WHEN role_id = 2 THEN 1 WHEN role_id = 3 THEN 2 ELSE 3 END"))
+        ->first();
       if (!empty($manager)) {
         $user['role_id'] = $manager->role_id;
       }

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreManagerGroupRequest;
+use App\Models\Group;
+use App\Models\Manager;
 use App\Models\ManagerGroup;
 use Illuminate\Support\Facades\Log;
 
@@ -15,9 +17,12 @@ class ManagerGroupController extends Controller
     {
         $group = intval(htmlspecialchars(trim(request('group'))));
         $data = \Illuminate\Support\Facades\DB::table('manager_groups')
+            ->join('groups', 'groups.id', 'manager_groups.group_id')
             ->when(!empty($group), function ($q) use ($group) {
                 $q->whereGroupId($group);
-            })->get();
+            })
+            ->select('manager_groups.*', 'groups.name AS group_name')
+            ->get();
 
         return response()->json([
             'status' => true,
@@ -31,8 +36,8 @@ class ManagerGroupController extends Controller
     public function store(StoreManagerGroupRequest $request)
     {
         $validated = $request->validated();
-        $manager = \App\Models\Manager::with(['user:crm_id,name'])->findOrFail($validated['manager_id']);
-        
+        $manager = Manager::with(['user:crm_id,name'])->findOrFail($validated['manager_id']);
+
         if ($manager->role_id != 2) {
             return response()->json([
                 'status' => false,
@@ -40,15 +45,15 @@ class ManagerGroupController extends Controller
                 'message' => 'В группу можно добавить только менеджера',
             ]);
         }
-        
-        $group = \App\Models\Group::findOrFail($validated['group_id']);
+
+        $group = Group::findOrFail($validated['group_id']);
         $data = ManagerGroup::firstOrNew($validated);
         $is_old = $data->exists;
-        
+
         $message = 'Менеджер `' . $manager->user->name . '`' .
             ($is_old ? ' уже' : '') .
             ' добавлен в группу `' . $group->name . '`';
-        
+
         if ($group->alone) {
             return response()->json([
                 'status' => false,
@@ -56,7 +61,7 @@ class ManagerGroupController extends Controller
                 'message' => 'Группа одноимённая и не доступна для добавления в неё менеджеров',
             ]);
         }
-        
+
         if (!$is_old) {
             $data->save();
             Log::info($message);
@@ -92,7 +97,7 @@ class ManagerGroupController extends Controller
     {
         $data = ManagerGroup::findOrFail($id);
         $count = ManagerGroup::where('group_id', $data->group_id)->count();
-        
+
         if ($count == 1) {
             return response()->json([
                 'status' => false,
@@ -101,8 +106,8 @@ class ManagerGroupController extends Controller
             ]);
         }
 
-        $user = \App\Models\Manager::with(['user:id,name'])->findOrFail($data->manager_id);
-        $group = \App\Models\Group::findOrFail($data->group_id);
+        $user = Manager::with(['user:id,name'])->findOrFail($data->manager_id);
+        $group = Group::findOrFail($data->group_id);
         $message = '`' . $user->name . '` удалён из группы `' . $group->name . '`';
         Log::info($message);
 

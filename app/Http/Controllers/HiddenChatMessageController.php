@@ -6,6 +6,7 @@ use App\Http\Requests\StoreHiddenChatMessageRequest;
 use App\Http\Requests\UpdateHiddenChatMessageRequest;
 use App\Http\Resources\MessageResource;
 use App\Models\HiddenChatMessage;
+use Illuminate\Support\Facades\Auth;
 
 class HiddenChatMessageController extends Controller
 {
@@ -21,6 +22,20 @@ class HiddenChatMessageController extends Controller
             ->when(!empty($ticket_id), fn($q) => $q->whereTicketId($ticket_id))
             ->paginate($limit < 1 ? 100 : $limit);
 
+        $search = \App\Traits\UserTrait::search();
+        $users_collection = array();
+    
+        foreach ($search->data as $user) {
+            $users_collection[$user->crm_id] = $user;
+        }
+        unset($search);
+    
+        foreach ($data as $message) {
+            if ($message->user_crm_id == 0) continue;
+            $message->user = $users_collection[$message->user_crm_id];
+        }
+        unset($users_collection);
+        
         return response()->json([
             'status' => true,
             'data' => MessageResource::collection($data)->response()->getData()
@@ -44,8 +59,9 @@ class HiddenChatMessageController extends Controller
             ]);
         }
 
-        $validated['user_crm_id'] = \Illuminate\Support\Facades\Auth::user()->crm_id;
+        $validated['user_crm_id'] = Auth::user()->crm_id;
         $data = HiddenChatMessage::create($validated);
+        $data->user = \App\Traits\UserTrait::tryToDefineUserEverywhere($data->user_crm_id);
 
         return response()->json([
             'status' => true,
