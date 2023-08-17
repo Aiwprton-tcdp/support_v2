@@ -62,7 +62,6 @@ export default {
     this.emitter.on('PatchTicket', this.PatchTicket)
 
     this.IsResolved = this.ticket?.old_ticket_id > 0
-    this.BusyManagers = []
     this.GetDepartments()
   },
   methods: {
@@ -249,8 +248,7 @@ export default {
 
     <div class="grid grid-cols-4 justify-items-center gap-y-4 w-full">
       <!-- @mouseover="ShowUserInfo = true" @mouseleave="ShowUserInfo = false" -->
-      <div class="relative col-span-2 w-full"
-        @mouseleave="ShowUserInfo = false">
+      <div class="relative col-span-2 w-full" @mouseleave="ShowUserInfo = false">
         <div @click="ShowUserInfo = !ShowUserInfo; ShowManagerInfo = false" class="flex justify-center">
           <Avatar rounded size="lg" alt="avatar" :title="ticket.user?.name"
             :img="ticket.user?.avatar ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
@@ -289,8 +287,7 @@ export default {
         </div>
       </div>
 
-      <div class="relative col-span-2 w-full"
-        @mouseleave="ShowManagerInfo = false">
+      <div class="relative col-span-2 w-full" @mouseleave="ShowManagerInfo = false">
         <div @click="ShowManagerInfo = !ShowManagerInfo; ShowUserInfo = false" class="flex justify-center">
           <Avatar rounded size="lg" alt="avatar" :title="ticket.manager?.name"
             :img="ticket.manager?.avatar ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
@@ -356,7 +353,7 @@ export default {
       </div>
     </div>
 
-    <div>
+    <div class="flex flex-col items-center gap-1 w-full">
       <p v-if="BusyManagers.length > 0">Прочие участники</p>
 
       <div class="flex flex-wrap my-2">
@@ -368,7 +365,6 @@ export default {
 
       <VueMultiselect v-if="!IsResolved && EditParticipants" :options="Managers" placeholder="Выберите менеджера"
         @select="AddParticipant" label="name" track-by="name" :show-labels="false" />
-
       <VueMultiselect v-if="!IsResolved && EditReason" :options="Reasons" placeholder="Выберите тему"
         @select="ChangeReason" label="name" track-by="name" :show-labels="false" />
     </div>

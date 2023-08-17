@@ -3,9 +3,7 @@
 namespace App\Http\Controllers\CRM;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\CRM\DepartmentResource;
-use App\Traits\BX;
-use Illuminate\Support\Facades\Cache;
+use App\Traits\UserTrait;
 
 class DepartmentController extends Controller
 {
@@ -16,21 +14,9 @@ class DepartmentController extends Controller
   {
     $id = intval(htmlspecialchars(trim(request('id'))));
 
-    if (Cache::store('file')->has('crm_departments')) {
-      $data = Cache::store('file')->get('crm_departments');
-      return response()->json([
-        'status' => true,
-        'data' => $data
-      ]);
-    }
-
-    $data = BX::firstBatch('department.get');
-    $resource = DepartmentResource::collection($data)->response()->getData();
-    Cache::store('file')->put('crm_departments', $resource, 3600);
-
     return response()->json([
       'status' => true,
-      'data' => $resource
+      'data' => UserTrait::departments()
     ]);
   }
 }

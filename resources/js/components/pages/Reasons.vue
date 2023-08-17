@@ -165,7 +165,7 @@ export default {
   <!-- Search -->
   <div class="fixed top-1 right-1">
     <div v-if="AllReasons.length > 0" class="flex flex-row space-x-2">
-      <Input @keyup.enter="Search()" v-model="search" placeholder="Поиск по id или названию" label="" class="w-64">
+      <Input @keyup.enter="Search()" v-model="search" placeholder="Поиск" label="" class="w-64">
       <template #prefix v-if="search.length == 0">
         <svg aria-hidden="true" class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor"
           viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

@@ -34,7 +34,7 @@ class ManagerController extends Controller
                 $q->whereId($id)->orWhereRaw('LOWER(users.name) LIKE ?', ["%{$name}%"]);
             })
             ->select('managers.*', 'users.name')
-            ->paginate($limit < 1 ? 10 : $limit);
+            ->paginate($limit < 1 ? 100 : $limit);
 
         // $departments = UserTrait::departments();
         // dd($departments);
@@ -63,14 +63,24 @@ class ManagerController extends Controller
      */
     public function store(StoreManagerRequest $request)
     {
-        $user = User::firstOrCreate($request->except(['role_id']));
-        $manager = Manager::firstOrCreate($request->except(['name']));
+        $user = User::firstOrNew($request->except(['role_id']));
+        $manager = Manager::firstOrNew($request->except(['name']));
         // $user = Manager::with('user:id,name')->firstOrCreate($request->validated());
         // return response()->json([
         //     'status' => true,
         //     'data' => $user,
         //     'message' => 'test',
         // ]);
+dd($user, $manager, $request);
+        if ($manager->exists) {
+            return response()->json([
+                'status' => false,
+                'data' => null,
+                'message' => 'Данному пользователю уже выдана такая роль',
+            ]);
+        }
+        $user->save();
+        $manager->save();
 
         $message = 'Сотрудник `' . $user->name . '` crm_id:' .
             $manager->crm_id . ' добавлен с ролью `' .

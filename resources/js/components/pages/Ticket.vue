@@ -78,6 +78,10 @@ export default {
       }),
       CurrentMark: Number(),
       IsParticipant: Boolean(),
+
+
+      file: String(),
+      dragging: Boolean(),
     }
   },
   setup() {
@@ -93,6 +97,7 @@ export default {
   },
   mounted() {
     this.IsResolved = this.ticket?.old_ticket_id > 0
+    this.IsParticipant = this.ticket.user_id == this.UserData.crm_id || this.ticket.manager_id == this.UserData.crm_id
     this.GetParticipants()
     this.emitter.on('NewMessage', this.NewMessage)
     this.emitter.on('NewParticipant', this.GetParticipants)
@@ -199,7 +204,19 @@ export default {
       }).finally(() => this.waiting = false)
     },
     NewMessage(data) {
+      console.log('NewMessage')
+      console.log(data)
+      console.log(this.messages)
+      console.log(this.messages.findIndex(({ id }) => id == data.id))
+
+      const index = this.messages.findIndex(({ id }) => id == data.id)
+      if (index > -1) return
+
       data.created_at = FormatDateTime(data.created_at)
+      if (data.created_at == "Invalid Date") {
+        data.created_at = FormatDateTime(new Date())
+      }
+
       data.content = FormatLinks(data.content)
       this.messages.push(data)
       this.ScrollChat()
@@ -248,11 +265,23 @@ export default {
       }).finally(() => this.waiting = false)
     },
     AddAttachments(event) {
-      // console.log(event.clipboardData)
-      // console.log(event.clipboardData.items)
-      // return
+      if (event.target.files.length == 0) {
+        console.log('There are no files for uploading')
+        return
+      }
+      const types = [
+        'image/png',
+        'image/jpeg',
+        'image/jpg',
+        'image/bmp',
+        'image/webp',
+        'image/heic',
+      ]
       Array.from(event.target.files).forEach(f => {
-        if (this.files.length == 5) {
+        if (!types.includes(f['type'])) {
+          this.toast('Вы можете отправить только изображения', 'warning')
+          return
+        } else if (this.files.length == 5) {
           this.toast('За раз Вы можете отправить не более 5 файлов', 'warning')
           return
         }
@@ -275,6 +304,18 @@ export default {
     SlideTo(swiper) {
       const index = this.AllFiles.findIndex(({ id }) => id == this.CurrentAttachmentId)
       swiper.slideTo(index + 1, 0)
+    },
+    DragFiles(e) {
+      var files = e.target.files || e.dataTransfer.files
+
+      if (!files.length) {
+        this.dragging = false
+        return
+      }
+
+      this.AddAttachments(e)
+      this.dragging = false
+      this.ScrollChat()
     }
   }
 }
@@ -286,7 +327,7 @@ export default {
     <div class="h-[calc(100vh-55px)] flex flex-col"
       :class="[UserData.is_admin || UserData.role_id == 2 ? 'col-span-3' : 'col-span-4']">
       <!-- Messaging block -->
-      <div id="messages"
+      <div v-if="!dragging" @dragenter="dragging = true" id="messages"
         class="flex flex-col h-full gap-1 z-1 content-end py-1 px-2 overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch"
         :class="['3', '53083'].includes(UserData.crm_id) ? 'custom-chat-bg-stepan bg-cover' : 'custom-chat-bg'">
         <template v-for="m in messages">
@@ -379,6 +420,20 @@ export default {
           </div>
         </template>
       </div>
+      <!-- Drad and drop -->
+      <div v-else @dragleave="dragging = false" :class="['dropZone', dragging ? 'dropZone-over' : '']">
+        <div @drag="DragFiles" class="flex flex-col h-full items-center justify-center">
+          <div>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+              stroke="currentColor" class="w-6 h-6">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+            </svg>
+          </div>
+          <span>Drop file or click to upload</span>
+        </div>
+        <input type="file" @change="DragFiles" multiple>
+      </div>
 
       <!-- Inputs -->
       <div v-if="!IsResolved && IsParticipant" class="h-[60px]">
@@ -390,7 +445,8 @@ export default {
         </div>
         <div v-else class="relative flex flex-col divide-y">
           <!-- Attachments list -->
-          <div v-if="files.length > 0" class="absolute bottom-[59px] opacity-70 flex flex-wrap gap-3 align-bottom p-2 bg-gray-50 dark:bg-gray-700">
+          <div v-if="files.length > 0"
+            class="absolute bottom-[59px] opacity-70 flex flex-wrap gap-3 align-bottom p-2 bg-gray-50 dark:bg-gray-700">
             <div v-for="(file, key) in files" :key="key" class="file-listing">
               {{ file.name }}
               <span @click="RemoveAttachment(key)" class="cursor-pointer text-red-500 hover:text-red-700"> ✖</span>
@@ -400,8 +456,8 @@ export default {
           <div class="flex flex-row items-center gap-1 px-3 py-2 bg-gray-50 dark:bg-gray-700">
             <!-- Attachments sending input -->
             <div class="border-none bg-transparent cursor-pointer p-2 hover:border-none focus:border-none">
-              <input id="attachments_input" @change="AddAttachments" ref="attachments" type="file" multiple
-                class="hide-file-input" />
+              <input id="attachments_input" @change="AddAttachments" ref="attachments" type="file" accept="image/*"
+                multiple class="hide-file-input" />
               <label for="attachments_input" class="cursor-pointer">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
                   stroke="currentColor" for="attachments_input" class="text-black-800 w-6 h-6">
@@ -456,7 +512,6 @@ export default {
     </div>
   </div>
 
-
   <!-- Attachments slider modal -->
   <div v-if="showModal" ref="carousel" @click.self="showModal = false"
     class="fixed left-0 top-0 flex h-screen w-full items-center justify-center bg-black bg-opacity-50 py-10 px-24">
@@ -475,5 +530,69 @@ export default {
 <style>
 .tabs-nowrap ul {
   flex-wrap: nowrap !important;
+}
+
+.dropZone {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  border: 2px dashed #aaa;
+}
+
+/* .dropZone:hover {
+  border: 2px solid #2e94c4;
+}
+
+.dropZone:hover .dropZone-title {
+  color: #1975A0;
+} */
+
+.dropZone-info {
+  color: white;
+  position: absolute;
+  top: 50%;
+  width: 100%;
+  transform: translate(0, -50%);
+  text-align: center;
+}
+
+/* .dropZone-title {
+  color: black;
+} */
+
+.dropZone input {
+  position: absolute;
+  cursor: pointer;
+  top: 0px;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+}
+
+.dropZone-over {
+  background: #eee;
+  opacity: 0.8;
+}
+
+.dropZone-uploaded {
+  width: 80%;
+  height: 200px;
+  position: relative;
+  border: 2px dashed #eee;
+}
+
+.dropZone-uploaded-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #A8A8A8;
+  position: absolute;
+  top: 50%;
+  width: 100%;
+  transform: translate(0, -50%);
+  text-align: center;
 }
 </style>

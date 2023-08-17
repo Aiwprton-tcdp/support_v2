@@ -76,7 +76,9 @@ export default {
       })
     },
     Create(data) {
-      if (data.new_role_id < 2) {
+      if (!this.only_with_roles && data.new_role_id == 0) {
+        return
+      } else if (data.new_role_id < 2) {
         this.Delete(data)
         return
       } else if (data.hasOwnProperty('id')) {
@@ -89,7 +91,7 @@ export default {
         crm_id: data.crm_id,
         role_id: data.new_role_id,
       }).then(r => {
-        this.toast(r.data.message, 'success')
+        this.toast(r.data.message, r.data.status ? 'success' : 'error')
 
         this.AllUsersWithRoles.push(r.data.data)
       }).catch(e => {
@@ -150,14 +152,12 @@ export default {
         id.length > 0 && u.crm_id.toString().includes(id)
         || text.length > 0
         && (u.name.toLowerCase().includes(text)
-          || u.post.toLowerCase().includes(text))
+          || u?.post.toLowerCase().includes(text))
 
       this.users = (this.only_with_roles ? this.AllUsersWithRoles : this.AllUsers).filter(expression)
     },
     ClearSearch() {
       this.search = ''
-      // this.users = this.only_with_roles ? this.AllUsersWithRoles : this.AllUsers
-
       this.users = this.only_with_roles
         ? this.AllUsersWithRoles.length == 0 ? this.GetManagers() : this.AllUsersWithRoles
         : this.AllUsers.length == 0 ? this.Get() : this.AllUsers
@@ -177,8 +177,7 @@ export default {
         </button>
 
         <div class="flex flex-row space-x-2">
-          <Input @keyup.enter="Search()" v-model="search" placeholder="Поиск по id, ФИО или должности" label=""
-            class="w-72">
+          <Input @keyup.enter="Search()" v-model="search" placeholder="Поиск" label="" class="w-48">
           <template #prefix v-if="search.length == 0">
             <svg aria-hidden="true" class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor"
               viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -204,8 +203,8 @@ export default {
       <TableHead>
         <TableHeadCell>Crm_id</TableHeadCell>
         <TableHeadCell>ФИО</TableHeadCell>
-        <TableHeadCell>Должность</TableHeadCell>
-        <TableHeadCell>Внутренний номер</TableHeadCell>
+        <TableHeadCell v-if="!only_with_roles">Должность</TableHeadCell>
+        <TableHeadCell v-if="!only_with_roles">Внутренний номер</TableHeadCell>
         <TableHeadCell>Роль</TableHeadCell>
       </TableHead>
 
@@ -213,8 +212,8 @@ export default {
         <TableRow v-for="u in users">
           <TableCell>{{ u.crm_id }}</TableCell>
           <TableCell>{{ u.name }}</TableCell>
-          <TableCell>{{ u.post }} {{ u.role_id }}</TableCell>
-          <TableCell>{{ u.inner_phone }}</TableCell>
+          <TableCell v-if="!only_with_roles">{{ u.post }}</TableCell>
+          <TableCell v-if="!only_with_roles">{{ u.inner_phone }}</TableCell>
           <TableCell>
             <div class="space-x-3">
               <Select @change="Create(u)" v-model.number="u.new_role_id" :options="roles" placeholder="Выбрать роль" />

@@ -6,6 +6,7 @@ use App\Http\Requests\Dashboard\RedistributionRequest;
 use App\Models\Ticket;
 use App\Traits\TicketTrait;
 use App\Traits\UserTrait;
+use Illuminate\Support\Facades\Cache;
 
 class DashboardController extends Controller
 {
@@ -18,17 +19,19 @@ class DashboardController extends Controller
             ->selectRaw('reasons.id reason_id, reasons.name reason_name, manager_id, COUNT(tickets.id) tickets_count')
             ->groupBy('manager_id', 'reasons.id')->get();
 
-        $search = UserTrait::search();
-        $search_users = array_values(array_filter($search->data, fn($e) => in_array($e->crm_id, $managers)));
-        unset($search);
+        $search_users = array_values(array_filter(
+            UserTrait::search()->data,
+            fn($e) => in_array($e->crm_id, $managers)
+        ));
 
         $users = [];
+        $lost = [];
+        $active = [];
+        
         foreach ($search_users as $user) {
             $users[$user->crm_id] = $user;
         }
         unset($search_users);
-        $lost = [];
-        $active = [];
 
         foreach ($tickets as $ticket) {
             if (in_array($ticket->manager_id, $managers)) {
@@ -56,12 +59,30 @@ class DashboardController extends Controller
     {
         $validated = $request->validated();
         // 59 + (28 + 35,5)
-        TicketTrait::TryToRedistributeByReason(
+        $result = TicketTrait::TryToRedistributeByReason(
             $validated['reason_id'],
             $validated['user_crm_id'],
             $validated['new_crm_ids'],
             $validated['count']
         );
-        dd($validated);
+        return response()->json($result);
+    }
+
+    // Обновление кеша
+    public function cacheReload()
+    {
+        Cache::store('file')->forget('crm_users');
+        Cache::store('file')->forget('crm_departments');
+        Cache::store('file')->forget('crm_all_users');
+
+        UserTrait::search();
+        UserTrait::departments();
+        UserTrait::withFired();
+
+        return response()->json([
+            'status' => true,
+            'data' => null,
+            'message' => 'Кеш успешно обновлён',
+        ]);
     }
 }

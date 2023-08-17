@@ -85,7 +85,7 @@ class ParticipantController extends Controller
       $participant->save();
     }
 
-    TicketTrait::SendNotification($validated['user_crm_id'], 'Вы стали ответственным за тикет', $ticket->id);
+    TicketTrait::SendNotification($validated['user_crm_id'], "Вы стали ответственным за тикет №{$ticket->id}", $ticket->id);
 
     $manager = \App\Traits\UserTrait::tryToDefineUserEverywhere($ticket->manager_id);
 

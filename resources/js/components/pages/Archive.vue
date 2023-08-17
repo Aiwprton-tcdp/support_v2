@@ -71,7 +71,7 @@ export default {
       })
     },
     TryToGoToForcedTicket() {
-      console.log(window.ticket_id)
+      // console.log(window.ticket_id)
       if (window.ticket_id > 0 && this.page == 1) {
         this.ax.get(`resolved_tickets/${window.ticket_id}`).then(r => {
           if (!r.data.status) {
@@ -97,12 +97,12 @@ export default {
     },
     GoTo(t) {
       console.log('Archive.GoTo(t)')
-      if (this.CurrentTicket.id == t.id) {
-        this.CurrentTicket.id = 0
+      if (this.CurrentTicket.old_ticket_id == t.old_ticket_id) {
+        this.CurrentTicket.old_ticket_id = 0
         this.$router.push({ name: 'archive' })
       } else {
         this.CurrentTicket = { ...t }
-        this.$router.push({ name: 'archive_ticket', params: { id: t.id } })
+        this.$router.push({ name: 'archive_ticket', params: { id: t.old_ticket_id } })
       }
     },
     Search() {
@@ -198,7 +198,7 @@ export default {
     <div v-else id="archive" @scroll="onScroll"
       class="flex flex-col max-h-[calc(100vh-55px)] divide-y overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch">
       <div v-for="t in tickets" class="p-1"
-        :class="t.id == CurrentTicket?.id ? 'bg-blue-200 dark:bg-blue-500' : 'bg-white hover:bg-gray-100 dark:bg-gray-600 dark:hover:bg-gray-800'">
+        :class="t.old_ticket_id == CurrentTicket?.old_ticket_id ? 'bg-blue-200 dark:bg-blue-500' : 'bg-white hover:bg-gray-100 dark:bg-gray-600 dark:hover:bg-gray-800'">
         <div @click.self="GoTo(t)" class="flex flex-row items-center w-full gap-2 cursor-pointer">
           <a :href="VITE_CRM_URL + 'company/personal/user/' + (UserData.crm_id == t.user_id ? t.manager_id : t.user_id) + '/'"
             target="_blank">

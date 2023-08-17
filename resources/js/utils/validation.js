@@ -24,7 +24,7 @@ export const FormatLinks = data => {
 }
 
 export const FormatDateTime = data => {
-  if (data == null) data = new Date()
+  if (data == null || data == "Invalid Date") data = new Date()
 
   let tyu = new Date(new Date(data).toDateString()) < new Date(new Date().toDateString())
   const options = tyu ? {

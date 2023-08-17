@@ -24,11 +24,13 @@ export default {
     <Tab name="tickets" title="Тикеты" />
     <Tab name="archive" title="Архив" />
 
-    <template v-if="UserData.is_admin || [2, 3, 4].includes(UserData?.role_id)">
-      <!-- <Tab name="details" title="Детализация" /> -->
+    <template v-if="UserData.is_admin
+      || [2, 3, 4].includes(UserData?.role_id)
+      || UserData.crm_id == 4942">
+      <Tab name="details" title="Детализация" />
       <Tab name="dashboard" title="Статистика" />
       <!-- <Tab name="coupons" title="Купоны" /> -->
-      <template v-if="UserData.is_admin || UserData?.role_id != 4">
+      <template v-if="UserData.is_admin || UserData.crm_id == 4942">
         <Tab name="reasons" title="Темы" />
         <Tab name="groups" title="Группы" />
         <Tab name="users" title="Пользователи" />

@@ -44,7 +44,7 @@ trait UserTrait
 
     $manager = !empty($managers)
       ? $managers[0]
-      : User::whereCrmId($user_id)->first();
+      : User::firstWhere('crm_id', $user_id);
 
     if (!isset($manager)) {
       $manager = [
@@ -59,8 +59,7 @@ trait UserTrait
   public static function search()
   {
     if (Cache::store('file')->has('crm_users')) {
-      $data = Cache::store('file')->get('crm_users');
-      return $data;
+      return Cache::store('file')->get('crm_users');
     }
 
     $data = BX::firstBatch('user.search', [
@@ -68,7 +67,7 @@ trait UserTrait
       'ACTIVE' => true,
     ]);
     $resource = \App\Http\Resources\CRM\UserResource::collection($data)->response()->getData();
-    Cache::store('file')->put('crm_users', $resource, 10800);
+    Cache::store('file')->forever('crm_users', $resource);
 
     return $resource;
   }
@@ -76,15 +75,14 @@ trait UserTrait
   public static function withFired($force = false)
   {
     if (!$force && Cache::store('file')->has('crm_all_users')) {
-      $data = Cache::store('file')->get('crm_all_users');
-      return $data;
+      return Cache::store('file')->get('crm_all_users');
     }
 
     $data = BX::firstBatch('user.get', [
       'USER_TYPE' => 'employee',
     ]);
     $resource = \App\Http\Resources\CRM\UserResource::collection($data)->response()->getData();
-    Cache::store('file')->put('crm_all_users', $resource, 10800);
+    Cache::store('file')->forever('crm_all_users', $resource);
 
     return $resource;
   }
@@ -92,16 +90,12 @@ trait UserTrait
   public static function departments()
   {
     if (Cache::store('file')->has('crm_departments')) {
-      $data = Cache::store('file')->get('crm_departments');
-      return response()->json([
-        'status' => true,
-        'data' => $data
-      ]);
+      return Cache::store('file')->get('crm_departments');
     }
 
     $data = BX::firstBatch('department.get');
     $resource = DepartmentResource::collection($data)->response()->getData();
-    Cache::store('file')->put('crm_departments', $resource, 10800);
+    Cache::store('file')->forever('crm_departments', $resource);
 
     return $resource;
   }

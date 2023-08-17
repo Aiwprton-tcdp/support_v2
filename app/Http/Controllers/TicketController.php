@@ -105,7 +105,7 @@ class TicketController extends Controller
     // dd($is_admin, BX::call('user.current')['result']);
     // $message = 'Не созданы некоторые темы. Перейдите во вкладку "Темы" и заполните недостающие темы';
     
-    $message = \App\Models\Manager::whereCrmId(Auth::user()->crm_id)->exists()// || $is_admin
+    $message = \App\Models\Manager::whereCrmId($user_crm_id)->exists()// || $is_admin
       ? 'Не созданы некоторые темы. Перейдите во вкладку "Темы" и заполните недостающие темы'
       : 'В настройке приложения допущены критические ошибки, обратитесь к администратору';
     $checksum = \App\Traits\ReasonTrait::Checksum();
@@ -167,7 +167,7 @@ class TicketController extends Controller
     TicketTrait::SendMessageToWebsocket("{$manager_id}.ticket", [
       'ticket' => $resource,
     ]);
-    $message = "Новый тикет\nТема: {$ticket->reason}\nОтветственный: {$ticket->manager->name}";
+    $message = "Новый тикет №{$ticket->id}\nТема: {$ticket->reason}\nСоздатель: {$ticket->user->name}";
     TicketTrait::SendNotification($manager_id, $message, $ticket->id);
     HiddenChatMessage::create([
       'content' => 'Тикет создан',
@@ -267,7 +267,7 @@ class TicketController extends Controller
     }
 
     if (isset($validated['reason_id'])) {
-      $reason = \App\Models\Reason::whereId($validated['reason_id'])->first();
+      $reason = \App\Models\Reason::firstWhere('id', $validated['reason_id']);
       $validated['weight'] = $reason->weight;
     }
 

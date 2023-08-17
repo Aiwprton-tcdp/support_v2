@@ -24,7 +24,7 @@ class GroupController extends Controller
             ->when(!empty($id) || !empty($name), function ($q) use ($id, $name) {
                 $q->whereId($id)->orWhereRaw('LOWER(name) LIKE ?', ['%{$name}%']);
             })
-            ->paginate($limit < 1 ? 10 : $limit);
+            ->paginate($limit < 1 ? 100 : $limit);
 
         return response()->json([
             'status' => true,

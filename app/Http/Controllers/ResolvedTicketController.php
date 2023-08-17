@@ -86,7 +86,7 @@ class ResolvedTicketController extends Controller
    */
   public function show(string $id)
   {
-    $data = ResolvedTicket::whereOldTicketId($id)->first();
+    $data = ResolvedTicket::firstWhere('old_ticket_id', $id);
 
     if (!isset($data)) {
       return response()->json([

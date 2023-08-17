@@ -82,8 +82,13 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
   Route::any('/websocket/subscribe', [SocketController::class, 'Subscribe']);
   Route::any('/websocket/refresh', [SocketController::class, 'Refresh']);
 
+  Route::prefix('detalization')->group(function () {
+    Route::get('/', [DetalizationController::class, 'index']);
+  });
+
   Route::prefix('statistics')->group(function () {
     Route::get('/active_tickets', [DashboardController::class, 'activeTickets']);
     Route::post('/redistribute', [DashboardController::class, 'redistribute']);
+    Route::get('/cache_reload', [DashboardController::class, 'cacheReload']);
   });
 });

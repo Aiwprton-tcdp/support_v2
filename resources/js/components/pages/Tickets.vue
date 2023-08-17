@@ -253,12 +253,16 @@ export default {
         this.AllTickets[index].unread_messages = true
         this.TicketsSorting()
       }
-
-      this.TicketsSorting()
     },
     NewTicket(data) {
       data.unread_messages = data.user_id != this.UserData.crm_id
-      this.AllTickets.push(data)
+      const index = this.AllTickets.findIndex(({ id }) => id == data.id)
+      if (index == -1) {
+        this.AllTickets.push(data)
+      } else {
+        this.AllTickets[index] = data
+      }
+
       this.TicketsCount++
       this.TicketsSorting()
     },
@@ -270,10 +274,10 @@ export default {
       this.TicketsSorting()
     },
     DeleteTicket(ticket_id, message) {
-      this.toast(message, 'success')
-
       const index = this.tickets.findIndex(({ id }) => id == ticket_id)
       if (index == -1) return
+      
+      this.toast(message, 'success')
 
       if (this.AllTickets.length < this.TicketsCount--) {
         let page = Math.floor(index / this.limit) + 1
@@ -287,11 +291,7 @@ export default {
       this.AllTickets.splice(index, 1)
       const is_current_ticket = this.CurrentTicket.id == ticket_id
       this.CurrentTicket.id = 0
-
       this.TicketsHistory.delete(ticket_id)
-      console.log(this.TicketsHistory)
-      // const history_index = this.TicketsHistory.findIndex(({ id }) => id == ticket_id)
-      // if (history_index > -1) this.TicketsHistory.splice(history_index, 1)
 
       if (this.$route.name == 'ticket' && is_current_ticket) {
         this.$router.push('tickets')
@@ -336,8 +336,6 @@ export default {
       } else {
         if (this.TicketsHistory.set(t.id)) this.TicketsHistory.delete(t.id)
         this.TicketsHistory.set(t.id, t)
-        // this.TicketsHistory.push(t)
-        console.log(this.TicketsHistory)
         this.CurrentTicket = { ...t }
         const index = this.AllTickets.findIndex(({ id }) => id == t.id)
         if (index > -1) {
@@ -406,7 +404,7 @@ export default {
       <Button v-if="search.length > 0" @click="Get()" color="default">Искать</Button>
     </div>
 
-    <Button :disabled="errored" @click="GoToNewTicket()" color="default">
+    <Button :disabled="errored || waiting" @click="GoToNewTicket()" color="default">
       <span class="items-center font-bold dark:text-gray-900">&#10010;&nbsp;&nbsp;Новое обращение</span>
     </Button>
   </div>

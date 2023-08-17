@@ -14,6 +14,7 @@ export default {
       lostTickets: Array(),
       activeTickets: Array(),
       AllTickets: Array(),
+      waiting: Boolean(),
       VITE_CRM_URL: String(import.meta.env.VITE_CRM_URL),
     }
   },
@@ -47,6 +48,20 @@ export default {
         this.errored = true
       })
     },
+    CacheReload() {
+      if (this.waiting) return
+      this.waiting = true
+
+      this.ax.get('statistics/cache_reload').then(r => {
+        if (r.data.status == true) {
+          this.toast(r.data.message, 'success')
+        }
+        this.errored = r.data.status != true
+      }).catch(e => {
+        this.toast(e.response.data.message, 'error')
+        this.errored = true
+      }).finally(() => this.waiting = false)
+    },
     ShowModal(data) {
       this.$refs.TicketsRedistribution.visible = true
       this.$refs.TicketsRedistribution.errored = false
@@ -58,7 +73,13 @@ export default {
 </script>
 
 <template>
-  <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+  <div class="fixed top-1 right-1 flex flex-row space-x-4 z-10">
+    <Button :disabled="waiting" @click="CacheReload()" color="default">
+      <span class="items-center font-bold dark:text-gray-900">Обновить кеш</span>
+    </Button>
+  </div>
+
+  <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 m-2">
     <div class="flex flex-col gap-1">
       <p class="text-lg">Активные тикеты</p>
       <template v-for="t in AllTickets">

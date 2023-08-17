@@ -5,6 +5,7 @@ namespace App\Traits;
 use App\Http\Resources\TicketResource;
 use App\Models\HiddenChatMessage;
 use App\Models\Manager;
+use App\Models\Participant;
 use App\Models\Ticket;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -16,7 +17,7 @@ trait TicketTrait
     $client = new \GuzzleHttp\Client();
     $res = $client->post(env('NLP_URL'), ['form_params' => ['message' => $message]])->getBody()->getContents();
     $name = json_decode($res, true);
-    $reason = \App\Models\Reason::whereName($name)->first();
+    $reason = \App\Models\Reason::firstWhere('name', $name);
     return $reason;
   }
 
@@ -163,7 +164,7 @@ trait TicketTrait
       'id' => $ticket->id,
       'message' => $message,
     ]);
-    $part_ids = \App\Models\Participant::whereTicketId($ticket->id)
+    $part_ids = Participant::whereTicketId($ticket->id)
       ->pluck('user_crm_id')->toArray();
     foreach ($part_ids as $id) {
       self::SendMessageToWebsocket("{$id}.ticket.delete", [
@@ -188,14 +189,19 @@ trait TicketTrait
       ->whereRoleId(2)->whereIn('managers.crm_id', $new_crm_ids)->get();
 
     $tickets_ids = array_map(fn($e) => $e['id'], $tickets->toArray());
-    $participants = \App\Models\Participant::whereIn('ticket_id', $tickets_ids)
+    $participants = Participant::whereIn('ticket_id', $tickets_ids)
       ->whereIn('user_crm_id', $new_crm_ids)->get();
 
     $managersCount = count($new_crm_ids);
     $currentKey = 0;
-    $data = [];
     $hiddenChatMessages = [];
     $participants_ids = [];
+
+    $users_collection = array();
+
+    foreach (UserTrait::search()->data as $user) {
+      $users_collection[$user->crm_id] = $user;
+    }
 
     foreach ($tickets as $key => $ticket) {
       if ($key == $count)
@@ -204,10 +210,6 @@ trait TicketTrait
         $currentKey = 0;
 
       $manager_id = $new_crm_ids[$currentKey++];
-      array_push($data, [
-        'ticket_id' => $ticket->id,
-        'user_crm_id' => $manager_id,
-      ]);
 
       array_push($hiddenChatMessages, [
         'content' => "Новый ответственный: {$managers->where('crm_id', $manager_id)->first()->name}",
@@ -219,51 +221,55 @@ trait TicketTrait
         ->where('user_crm_id', $manager_id)->first();
       if (isset($participant))
         array_push($participants_ids, $participant->id);
+
+      $new_participant = Participant::firstOrNew([
+        'ticket_id' => $ticket->id,
+        'user_crm_id' => $ticket->manager_id,
+      ]);
+      if (!$new_participant->exists)
+        $new_participant->save();
+
+      $ticket->manager_id = $manager_id;
+      $ticket->save();
+
+      $ticket->reason = \App\Models\Reason::find($ticket->reason_id)->name;
+      $ticket->user = $users_collection[$ticket->user_id];
+      $ticket->manager = $users_collection[$ticket->manager_id];
+
+      self::SendNotification($manager_id, "Вы стали ответственным за тикет №{$ticket->id}", $ticket->id);
+      self::SendMessageToWebsocket("{$manager_id}.ticket", [
+        'ticket' => TicketResource::make($ticket),
+      ]);
+
+      $result = [
+        'ticket_id' => $ticket->id,
+        'new_manager' => $ticket->manager,
+        'new_participant_id' => $new_participant->user_crm_id,
+      ];
+      self::SendMessageToWebsocket("{$ticket->manager_id}.participant", [
+        'participant' => $result,
+      ]);
+      self::SendMessageToWebsocket("{$ticket->user_id}.participant", [
+        'participant' => $result,
+      ]);
+      $part_ids = Participant::whereTicketId($ticket->id)
+        ->pluck('user_crm_id')->toArray();
+      foreach ($part_ids as $id) {
+        self::SendMessageToWebsocket("{$id}.participant", [
+          'participant' => $result,
+        ]);
+      }
     }
 
-    dd($data, $managers, $hiddenChatMessages);
-    //TODO распределить тикеты по участникам группы
+    unset($users_collection);
+    Participant::whereIn('id', $participants_ids)->delete();
+    HiddenChatMessage::insert($hiddenChatMessages);
 
-
-
-    \App\Models\Participant::whereIn('id', $participants_ids)->delete();
-    //TODO убрать из участников новых ответственных
-
-
-    HiddenChatMessage::create($hiddenChatMessages);
-    //TODO записать в системный чат, что сменился ответственный
-
-
-    self::SendMessageToWebsocket("{$ticket->manager_id}.ticket", [
-      'ticket' => TicketResource::make($ticket),
-    ]);
-    //TODO новым ответственным прислать в уведомлении, что они стали ответственными за число тикетов
-    //TODO Через сокет каждому добавить все новые тикеты 
-
-    // $ticket = Ticket::findOrFail($old_ticket_id);
-
-    // self::SendMessageToWebsocket("{$ticket->manager_id}.ticket.delete", [
-    //   'id' => $ticket->id,
-    //   'message' => $message,
-    // ]);
-    // self::SendMessageToWebsocket("{$ticket->user_id}.ticket.delete", [
-    //   'id' => $ticket->id,
-    //   'message' => $message,
-    // ]);
-    // $part_ids = \App\Models\Participant::whereTicketId($ticket->id)
-    //   ->pluck('user_crm_id')->toArray();
-    // foreach ($part_ids as $id) {
-    //   self::SendMessageToWebsocket("{$id}.ticket.delete", [
-    //     'id' => $ticket->id,
-    //     'message' => $message,
-    //   ]);
-    // }
-
-    // return [
-    //   'status' => true,
-    //   'data' => $result,
-    //   'message' => $message
-    // ];
+    return [
+      'status' => true,
+      'data' => null,
+      'message' => "Тикеты успешно переданы ({$count}шт.)"
+    ];
   }
 
   public static function SendMessageToWebsocket($recipient_id, $data)
