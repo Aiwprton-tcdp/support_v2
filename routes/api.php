@@ -29,6 +29,7 @@ use Illuminate\Support\Facades\Route;
 Route::post('/install', [CRMInstallController::class, 'install']);
 Route::post('/index', [CRMIndexController::class, '__invoke']);
 Route::post('/auth/check', [CRMUserController::class, 'check']);
+Route::get('/cache_reload', [DashboardController::class, 'cacheReload']);
 
 Route::group(['middleware' => 'auth:sanctum'], function () {
   Route::prefix('bx')->group(function () {

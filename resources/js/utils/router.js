@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory, createWebHashHistory, createMemoryHistory } from 'vue-router'
+import { createRouter, createWebHistory } from 'vue-router'
 import { defineAsyncComponent } from 'vue'
 
 const routes = [{
@@ -43,10 +43,10 @@ const routes = [{
   path: '/groups',
   name: 'groups',
   component: defineAsyncComponent(() => import('@pages/Groups.vue'))
-// }, {
-//   path: '/roles',
-//   name: 'roles',
-//   component: defineAsyncComponent(() => import('@pages/Roles.vue'))
+  // }, {
+  //   path: '/roles',
+  //   name: 'roles',
+  //   component: defineAsyncComponent(() => import('@pages/Roles.vue'))
 }, {
   path: '/reasons',
   name: 'reasons',

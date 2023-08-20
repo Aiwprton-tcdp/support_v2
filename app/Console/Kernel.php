@@ -16,7 +16,8 @@ class Kernel extends ConsoleKernel
         // $schedule->command('inspire')->hourly();
         $schedule->call(fn() => TicketTrait::MarkedTicketsPreparing())
             ->name('tickets.marked.prepare')
-            ->weekdays()->hourly();
+            ->weekdays()
+            ->hourly();
     }
 
     /**

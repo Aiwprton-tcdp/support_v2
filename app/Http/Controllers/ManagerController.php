@@ -71,7 +71,7 @@ class ManagerController extends Controller
         //     'data' => $user,
         //     'message' => 'test',
         // ]);
-dd($user, $manager, $request);
+// dd($user, $manager, $request);
         if ($manager->exists) {
             return response()->json([
                 'status' => false,

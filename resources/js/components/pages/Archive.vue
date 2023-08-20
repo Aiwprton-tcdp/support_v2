@@ -1,17 +1,19 @@
 <script>
 import { inject } from 'vue'
-import { Input, Button, Avatar } from 'flowbite-vue'
+import {
+  Input as VueInput,
+  Button as VueButton,
+  Avatar
+} from 'flowbite-vue'
+
 import TicketNotFound from '@states/TicketNotFound.vue'
 
 export default {
-  name: 'Archive',
+  name: 'ArchivePage',
   components: {
-    Input, Button,
+    VueInput, VueButton,
     Avatar, TicketNotFound
   },
-  // props: {
-  //   id: Number()
-  // },
   data() {
     return {
       AllTickets: Array(),
@@ -147,23 +149,23 @@ export default {
   <!-- Search in navigation -->
   <div class="fixed top-1 right-1 flex flex-row space-x-4">
     <div v-if="AllTickets.length > 0" class="flex flex-wrap space-x-2">
-      <Input @keyup.enter="Get()" v-model="search" placeholder="Поиск" label="" class="flex-1">
-      <template #prefix>
-        <svg aria-hidden="true" class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor"
-          viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-        </svg>
-      </template>
-      <template #suffix v-if="search.length > 0">
-        <svg @click="ClearSearch()" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-          stroke="currentColor" class="text-black-800 w-5 h-5 cursor-pointer">
-          <path stroke-linecap="round" stroke-linejoin="round"
-            d="M12 9.75L14.25 12m0 0l2.25 2.25M14.25 12l2.25-2.25M14.25 12L12 14.25m-2.58 4.92l-6.375-6.375a1.125 1.125 0 010-1.59L9.42 4.83c.211-.211.498-.33.796-.33H19.5a2.25 2.25 0 012.25 2.25v10.5a2.25 2.25 0 01-2.25 2.25h-9.284c-.298 0-.585-.119-.796-.33z" />
-        </svg>
-      </template>
-      </Input>
-      <Button v-if="search.length > 0" @click="Search()" color="default">Искать</Button>
+      <VueInput @keyup.enter="Get()" v-model="search" placeholder="Поиск" label="" class="flex-1">
+        <template #prefix>
+          <svg aria-hidden="true" class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor"
+            viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+          </svg>
+        </template>
+        <template #suffix v-if="search.length > 0">
+          <svg @click="ClearSearch()" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+            stroke-width="1.5" stroke="currentColor" class="text-black-800 w-5 h-5 cursor-pointer">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M12 9.75L14.25 12m0 0l2.25 2.25M14.25 12l2.25-2.25M14.25 12L12 14.25m-2.58 4.92l-6.375-6.375a1.125 1.125 0 010-1.59L9.42 4.83c.211-.211.498-.33.796-.33H19.5a2.25 2.25 0 012.25 2.25v10.5a2.25 2.25 0 01-2.25 2.25h-9.284c-.298 0-.585-.119-.796-.33z" />
+          </svg>
+        </template>
+      </VueInput>
+      <VueButton v-if="search.length > 0" @click="Search()" color="default">Искать</VueButton>
     </div>
   </div>
 
@@ -173,7 +175,7 @@ export default {
     <template v-if="waiting && this.page == 1">
       <div
         class="flex flex-col h-[calc(100vh-55px)] divide-y overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch">
-        <div v-for="key in 10" class="flex flex-row items-center w-full gap-2 p-1 cursor-pointer">
+        <div v-for="key in 10" v-bind:key="key" class="flex flex-row items-center w-full gap-2 p-1 cursor-pointer">
           <svg class="w-10 h-10 text-gray-200 dark:text-gray-700" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"
             fill="currentColor" viewBox="0 0 20 20">
             <path
@@ -187,17 +189,17 @@ export default {
       </div>
     </template>
 
-    <p v-if="AllTickets.length == 0" class="text-center text-gray-400 m-10">
-      Здесь будет список Ваших завершённых тикетов
-    </p>
     <p v-else-if="searching && AllTickets.length == 0" class="flex flex-col text-center text-gray-400 m-8">
       По данномму запросу нет совпадений
-      <Button @click="ClearSearch()" color="default">Очистить</Button>
+      <VueButton @click="ClearSearch()" color="default">Очистить</VueButton>
+    </p>
+    <p v-if="AllTickets.length == 0" class="text-center text-gray-400 m-10">
+      Здесь будет список Ваших завершённых тикетов
     </p>
 
     <div v-else id="archive" @scroll="onScroll"
       class="flex flex-col max-h-[calc(100vh-55px)] divide-y overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch">
-      <div v-for="t in tickets" class="p-1"
+      <div v-for="t in tickets" v-bind:key="t" class="p-1"
         :class="t.old_ticket_id == CurrentTicket?.old_ticket_id ? 'bg-blue-200 dark:bg-blue-500' : 'bg-white hover:bg-gray-100 dark:bg-gray-600 dark:hover:bg-gray-800'">
         <div @click.self="GoTo(t)" class="flex flex-row items-center w-full gap-2 cursor-pointer">
           <a :href="VITE_CRM_URL + 'company/personal/user/' + (UserData.crm_id == t.user_id ? t.manager_id : t.user_id) + '/'"

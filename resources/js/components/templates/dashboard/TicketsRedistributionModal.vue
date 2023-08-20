@@ -1,14 +1,17 @@
 <script>
 import { inject } from 'vue'
-import { Button, Input, Modal, Toggle } from 'flowbite-vue'
+import {
+  Button as VueButton,
+  Input as VueInput,
+  Modal
+} from 'flowbite-vue'
 import VueMultiselect from 'vue-multiselect'
 
 export default {
   name: 'TicketsRedistributionModal',
   components: {
-    Button, Input,
-    Modal, Toggle,
-    VueMultiselect
+    VueButton, VueInput,
+    Modal, VueMultiselect
   },
   data() {
     return {
@@ -88,7 +91,7 @@ export default {
     },
   },
   watch: {
-    SelectedManagers(newValue, oldValue) {
+    SelectedManagers(newValue) {
       this.SelectedManagers = newValue
       // console.log('watch this.SelectedManagers')
       // console.log(this.SelectedManagers)
@@ -109,7 +112,7 @@ export default {
 
     <template #body>
       <div class="flex flex-row gap-2">
-        <Input v-model="count" type="number" label="Количество тикетов на передачу:" />
+        <VueInput v-model="count" type="number" label="Количество тикетов на передачу:" />
 
         <div>
           <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-300">
@@ -127,9 +130,9 @@ export default {
           class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-blue-300 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-gray-600">
           Отменить
         </button>
-        <Button @click="Redistribute()" color="green">
+        <VueButton @click="Redistribute()" color="green">
           Подтвердить
-        </Button>
+        </VueButton>
       </div>
     </template>
   </Modal>

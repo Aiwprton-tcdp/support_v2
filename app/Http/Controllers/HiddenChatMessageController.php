@@ -63,6 +63,18 @@ class HiddenChatMessageController extends Controller
         $data = HiddenChatMessage::create($validated);
         $data->user = \App\Traits\UserTrait::tryToDefineUserEverywhere($data->user_crm_id);
 
+        $message = "Новое сообщение в системном чате тикета №{$ticket->id}";
+        if ($ticket->manager_id != $data->user_crm_id) {
+            \App\Traits\TicketTrait::SendNotification($ticket->manager_id, $message, $ticket->id);
+        }
+
+        $another_recipients = \App\Models\Participant::whereTicketId($ticket->id)
+            ->whereNot('user_crm_id', $data->user_crm_id)
+            ->get('user_crm_id');
+        foreach ($another_recipients as $rec) {
+            \App\Traits\TicketTrait::SendNotification($rec->user_crm_id, $message, $ticket->id);
+        }
+
         return response()->json([
             'status' => true,
             'data' => MessageResource::make($data)

@@ -1,11 +1,8 @@
 <script>
 import { inject } from 'vue'
 import {
-  Table, TableBody,
-  TableRow, TableCell,
-  Input, Button,
-  Select, Avatar,
-  Modal, Tabs, Tab
+  Button as VueButton,
+  Avatar, Tabs, Tab
 } from 'flowbite-vue'
 import { Swiper, SwiperSlide } from 'swiper/vue'
 import {
@@ -26,18 +23,12 @@ import 'swiper/css/navigation'
 import 'swiper/css/virtual'
 
 export default {
-  name: 'Ticket',
+  name: 'TicketPage',
   components: {
-    Table, TableBody,
-    TableRow, TableCell,
-    Input, Button,
-    Select, Avatar,
-    Modal, Tabs,
-    Tab, Swiper,
-    SwiperSlide,
+    VueButton, Avatar, Tabs,
+    Tab, Swiper, SwiperSlide,
     MessageAttachments,
-    Detalization,
-    SystemChat
+    Detalization, SystemChat
   },
   props: {
     id: Number(),
@@ -206,9 +197,6 @@ export default {
     NewMessage(data) {
       console.log('NewMessage')
       console.log(data)
-      console.log(this.messages)
-      console.log(this.messages.findIndex(({ id }) => id == data.id))
-
       const index = this.messages.findIndex(({ id }) => id == data.id)
       if (index > -1) return
 
@@ -224,6 +212,7 @@ export default {
     },
     MarkShowing() {
       this.marking = true
+      this.ticket.user_self_resolve_trying = true
       setTimeout(() => this.ScrollChat(), 150)
     },
     CloseTicket(value) {
@@ -245,6 +234,12 @@ export default {
       }).finally(() => this.waiting = false)
     },
     ContinueTicket() {
+      if (this.ticket.user_self_resolve_trying) {
+        delete this.ticket.user_self_resolve_trying
+        this.marking = false
+        this.messages.splice()
+        return
+      }
       if (this.waiting) return
       this.waiting = true
 
@@ -330,7 +325,7 @@ export default {
       <div v-if="!dragging" @dragenter="dragging = true" id="messages"
         class="flex flex-col h-full gap-1 z-1 content-end py-1 px-2 overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch"
         :class="['3', '53083'].includes(UserData.crm_id) ? 'custom-chat-bg-stepan bg-cover' : 'custom-chat-bg'">
-        <template v-for="m in messages">
+        <template v-for="m in messages" v-bind:key="m">
           <div v-if="m.user_id != UserData.crm_id" class="chat-message">
             <div class="flex items-end">
               <div
@@ -385,7 +380,7 @@ export default {
                   <p>Для подтверждения завершения укажите оценку работы менеджер(а/ов) в рамках данного тикета</p>
 
                   <div class="flex flex-row">
-                    <div v-for="icon in MarkIcons">
+                    <div v-for="icon in MarkIcons" v-bind:key="icon">
                       <img :src="icon.hover ? icon.gif : icon.img" :alt="icon.name" @click="CloseTicket(icon.value)"
                         @mouseover="icon.hover = true" @mouseleave="icon.hover = false" class="cursor-pointer opacity-100"
                         :class="{ 'grayscale': !icon.hover && CurrentMark != icon.value }" />
@@ -438,7 +433,7 @@ export default {
       <!-- Inputs -->
       <div v-if="!IsResolved && IsParticipant" class="h-[60px]">
         <!-- </div> :class="UserData.is_admin || UserData.role_id == 2 ? 'col-span-3' : 'col-span-4'"> -->
-        <div v-if="ticket.active == 0">
+        <div v-if="ticket.active == 0 || ticket.user_self_resolve_trying">
           <button @click="ContinueTicket()" color="alternative" class="h-full w-full">
             Продолжить обсуждение
           </button>
@@ -482,14 +477,14 @@ export default {
               </div>
             </div>
 
-            <Button v-if="CreatingMessage.length > 0 || files.length > 0" @click="Create()"
+            <VueButton v-if="CreatingMessage.length > 0 || files.length > 0" @click="Create()"
               class="border-none hover:border-none focus:border-none" color="default">
               Отправить
-            </Button>
-            <Button v-if="ticket.user_id == UserData.crm_id && !marking" @click="MarkShowing()"
+            </VueButton>
+            <VueButton v-if="ticket.user_id == UserData.crm_id && !marking" @click="MarkShowing()"
               class="border-none hover:border-none focus:border-none" color="red">
               Завершить тикет
-            </Button>
+            </VueButton>
           </div>
         </div>
       </div>

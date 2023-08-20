@@ -33,6 +33,7 @@ class ResolvedTicket extends Model
   public function scopeFilter(
     \Illuminate\Database\Eloquent\Builder $query,
     int $user_id,
+    array $tickets_ids,
     string $search
   ): void {
     $query->join('reasons', 'reasons.id', 'resolved_tickets.reason_id')
@@ -42,6 +43,8 @@ class ResolvedTicket extends Model
         $q->on('participants.ticket_id', 'resolved_tickets.old_ticket_id')
           ->where('participants.user_crm_id', $user_id);
       })
+      // ->whereNotNull('resolved_tickets.old_ticket_id')
+      ->whereIn('resolved_tickets.old_ticket_id', $tickets_ids)
       ->when($user_id != 0, function ($q) use ($user_id) {
         $q->whereManagerId($user_id)
           ->orWhere('user_id', $user_id)

@@ -149,15 +149,16 @@ button:focus-visible {
 }
 
 .custom-chat-bg {
-  background-image: linear-gradient(rgb(141 174 241 / 20%), rgb(135 80 156 / 20%)), url(@assets/chat_bg.jpg)
+  background-image: linear-gradient(rgb(141 174 241 / 20%), rgb(135 80 156 / 20%)), url(@assets/chat_bg.jpg);
+  background-attachment: local;
 }
 
 .custom-chat-bg-stepan {
-  background-image: url(https://jdm-cars.github.io/galant3.jpg)
+  background-image: url(https://jdm-cars.github.io/galant3.jpg);
 }
 
 .custom-chat-bg span {
-  font-family: Geneva, Verdana, sans-serif
+  font-family: Geneva, Verdana, sans-serif;
 }
 
 .hide-file-input {

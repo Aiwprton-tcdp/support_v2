@@ -1,38 +1,29 @@
 <script>
 import { inject } from 'vue'
-import {
-  Input, Button,
-  Avatar
-} from 'flowbite-vue'
+import { Avatar } from 'flowbite-vue'
 
 import { StringVal, FormatLinks, FormatDateTime } from '@utils/validation.js'
 
 export default {
-  name: 'SystemChat',
-  components: {
-    Input, Button,
-    Avatar
-  },
+  name: 'SystemChatComponent',
+  components: { Avatar },
   props: {
     ticket: Object(),
   },
   data() {
     return {
-      VITE_CRM_URL: String(import.meta.env.VITE_CRM_URL),
       Messages: Array(),
       CreatingMessage: String(),
       IsResolved: Boolean(),
       waiting: Boolean(),
+      VITE_CRM_URL: String(import.meta.env.VITE_CRM_URL),
     }
   },
   setup() {
     const UserData = inject('UserData')
     const toast = inject('createToast')
 
-    return {
-      UserData,
-      toast
-    }
+    return { UserData, toast }
   },
   mounted() {
     this.IsResolved = this.ticket?.old_ticket_id > 0
@@ -101,7 +92,7 @@ export default {
   <!-- <div :class="ticket.active == 0 || IsResolved ? 'h-full' : 'h-[calc(100%-43px)]'"> -->
   <div id="system_chat_messages"
     class="flex flex-col gap-1 h-[calc(100%-15px)] content-end py-1 px-2 overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch">
-    <template v-for="m in Messages">
+    <template v-for="m in Messages" v-bind:key="m">
       <div class="chat-message">
         <div class="flex items-end mt-1">
           <div

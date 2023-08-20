@@ -2,10 +2,11 @@
 import { provide, ref } from 'vue'
 import { toast } from 'vue3-toastify'
 import Emitter from 'tiny-emitter'
-import Header from '@temps/Header.vue'
+
+import HeaderComponent from '@temps/Header.vue'
 
 export default {
-  components: { Header },
+  components: { HeaderComponent },
   setup() {
     const UserData = ref(window.user)
     const emitter = ref(new Emitter())
@@ -52,9 +53,6 @@ export default {
         Parameters[sParameterName[0]] = sParameterName[1]
       }
 
-      // console.log(Parameters)
-      // console.log(auth)
-
       this.ax.post('auth/check', {
         auth: auth,
         sid: Parameters
@@ -79,6 +77,6 @@ export default {
 </script>
 
 <template>
-  <Header />
+  <HeaderComponent />
   <RouterView />
 </template>

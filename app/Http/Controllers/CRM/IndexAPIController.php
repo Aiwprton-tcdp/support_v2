@@ -3,13 +3,7 @@
 namespace App\Http\Controllers\CRM;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\CRM\UserResource;
-use App\Models\Manager;
-use App\Models\User;
 use App\Traits\BX;
-use App\Models\VerifiedUser;
-use App\Traits\UserTrait;
-use Auth;
 use Illuminate\Support\Facades\DB;
 
 class IndexAPIController extends Controller
@@ -32,7 +26,7 @@ class IndexAPIController extends Controller
         'inner_phone' => $data['UF_PHONE_INNER'] ?? 0,
       ];
 
-      $auth = User::whereCrmId($user['crm_id'])->firstOrNew([
+      $auth = \App\Models\User::whereCrmId($user['crm_id'])->firstOrNew([
         'crm_id' => $user['crm_id'],
         'name' => $user['name'],
       ]);
@@ -43,14 +37,13 @@ class IndexAPIController extends Controller
       }
 
       $user['is_admin'] = BX::call('user.admin')['result'];
-      $manager = Manager::whereCrmId($auth->crm_id)
+      $manager = \App\Models\Manager::whereCrmId($auth->crm_id)
         ->orderBy(DB::raw("CASE WHEN role_id = 2 THEN 1 WHEN role_id = 3 THEN 2 ELSE 3 END"))
         ->first();
       if (!empty($manager)) {
         $user['role_id'] = $manager->role_id;
       }
 
-      // $data = $_REQUEST;
       return view('welcome', compact('user', 'token', 'ticket_id'));
     } catch (\Exception $er) {
       return $er->getMessage();

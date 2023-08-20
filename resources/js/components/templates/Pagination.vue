@@ -1,6 +1,6 @@
 <script>
 export default {
-  name: 'Pagination',
+  name: 'PaginationComponent',
   props: ['invoke'],
   data() {
     return {
@@ -105,7 +105,7 @@ export default {
           </label>
         </li>
 
-        <li v-for="p in available_pages">
+        <li v-for="p in available_pages" v-bind:key="p">
           <label v-if="p == this.page"
             class="px-3 py-2 inline-block align-center text-gray-900 dark:bg-gray-800 dark:text-gray-400">{{ p }}</label>
           <button v-else @click="Certain(p)"

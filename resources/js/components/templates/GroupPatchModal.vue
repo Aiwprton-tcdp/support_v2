@@ -1,12 +1,15 @@
 <script>
 import { inject } from 'vue'
-import { Button, Modal, Toggle } from 'flowbite-vue'
+import {
+  Button as VueButton,
+  Modal, Toggle
+} from 'flowbite-vue'
 import VueMultiselect from 'vue-multiselect'
 
 export default {
   name: 'GroupPatchModal',
   components: {
-    Button, Modal,
+    VueButton, Modal,
     Toggle, VueMultiselect
   },
   data() {
@@ -92,7 +95,7 @@ export default {
     },
   },
   watch: {
-    OnlyInGroup(newValue, oldValue) {
+    OnlyInGroup(newValue) {
       this.OnlyInGroup = newValue
     }
   }
@@ -116,12 +119,12 @@ export default {
           placeholder="Выберите менеджера" @select="AddToGroup" @remove="RemoveFromGroup" label="name" track-by="name">
           <template #noResult>Нет данных</template>
 
-          <template slot="option" slot-scope="props">
+          <template v-slot:option="props">
             <img class="option__image" :src="props.option.avatar" alt="avatar">
             <span>{{ props.option.text }}</span>
           </template>
 
-          <template slot="tag" slot-scope="{ option, remove }">
+          <template v-slot:tag="{ option, remove }">
             <!-- <img class="tag__image" :src="option.avatar" alt="avatar"> -->
             <span class="multiselect__tag">
               <span>{{ option.text }}</span>
@@ -138,10 +141,10 @@ export default {
 
     <template #footer>
       <div class="flex flex-row-reverse justify-between">
-        <button @click="Close" type="button"
+        <VueButton @click="Close"
           class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-blue-300 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-gray-600">
           Закрыть
-        </button>
+        </VueButton>
       </div>
     </template>
   </Modal>

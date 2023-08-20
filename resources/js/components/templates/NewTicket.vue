@@ -1,11 +1,12 @@
 <script>
 import { inject } from 'vue'
-import { Button, Select } from 'flowbite-vue'
+import { Button as VueButton } from 'flowbite-vue'
+
 import { StringVal, FormatLinks, FormatDateTime } from '@utils/validation.js'
 
 export default {
   name: 'NewTicket',
-  components: { Button, Select },
+  components: { VueButton },
   data() {
     return {
       messages: Array(),
@@ -36,8 +37,8 @@ export default {
         return
       }
 
-      this.CreatingMessage = FormatLinks(message)
-      this.AddMessage(this.CreatingMessage, true)
+      this.CreatingMessage = message
+      this.AddMessage(FormatLinks(message), true)
 
       const SystemMessages = [
         'Проверьте Ваше сообщение на корректность и информативность',
@@ -71,7 +72,7 @@ export default {
       }
 
       this.ax.post('tickets', {
-        message: message,
+        message: FormatLinks(message),
       }).then(r => {
         if (r.data.status == false) {
           this.toast(r.data.message, 'error')
@@ -98,7 +99,7 @@ export default {
 <template>
   <div id="messages"
     class="custom-chat-bg flex flex-col gap-1 h-full w-full content-end py-1 px-2 overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch">
-    <template v-for="m in messages" class="bg-gray-100 bg-opacity-50">
+    <template v-for="m in messages" v-bind:key="m">
       <div v-if="m.current" class="chat-message">
         <div class="flex items-end justify-end">
           <div class="flex flex-col space-y-2 text-sm max-w-sm mx-2 order-1 items-end text-right opacity-90">
@@ -145,14 +146,14 @@ export default {
     </div>
 
     <div class="flex flex-row gap-1">
-      <Button v-if="WasFirstTouch" @click="Create()" :disabled="CreatingMessage.length == 0"
+      <VueButton v-if="WasFirstTouch" @click="Create()" :disabled="CreatingMessage.length == 0"
         class="border-none hover:border-none focus:border-none" color="green">
         Подтвердить
-      </Button>
-      <Button v-else-if="CreatingMessage.length > 0" @click="Check()"
+      </VueButton>
+      <VueButton v-else-if="CreatingMessage.length > 0" @click="Check()"
         class="border-none hover:border-none focus:border-none" color="default">
         Проверить
-      </Button>
+      </VueButton>
     </div>
   </div>
 </template>

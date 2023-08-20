@@ -1,16 +1,13 @@
 <script>
 import { inject } from 'vue'
-import {
-  Input, Button,
-  Avatar
-} from 'flowbite-vue'
+import { Button as VueButton, Avatar } from 'flowbite-vue'
 import VueMultiselect from 'vue-multiselect'
 import useClipboard from 'vue-clipboard3'
 
 export default {
-  name: 'Detalization',
+  name: 'DetalizationComponent',
   components: {
-    Input, Button,
+    VueButton,
     Avatar, VueMultiselect
   },
   props: {
@@ -19,8 +16,6 @@ export default {
   },
   data() {
     return {
-      VITE_CRM_URL: String(import.meta.env.VITE_CRM_URL),
-      VITE_CRM_MARKETPLACE_ID: String(import.meta.env.VITE_CRM_MARKETPLACE_ID),
       AllManagers: Array(),
       Managers: Array(),
       AllBusyManagers: Array(),
@@ -33,6 +28,8 @@ export default {
       IsResolved: Boolean(),
       ShowUserInfo: Boolean(),
       ShowManagerInfo: Boolean(),
+      VITE_CRM_URL: String(import.meta.env.VITE_CRM_URL),
+      VITE_CRM_MARKETPLACE_ID: String(import.meta.env.VITE_CRM_MARKETPLACE_ID),
     }
   },
   setup() {
@@ -106,19 +103,6 @@ export default {
         this.toast(e.response.data.message, 'error')
       })
     },
-    // GetParticipants() {
-    //   this.ax.get(`participants?ticket_id=${this.ticket.id}`).then(r => {
-    //     this.AllBusyManagers = r.data.data
-    //     this.BusyManagers = [...this.AllBusyManagers]
-    //     this.SendParticipants(this.BusyManagers)
-
-    //     this.Managers = this.AllManagers.filter(m => this.ticket.manager_id != m.crm_id)
-    //     // this.Managers = this.AllManagers.filter(m => this.ticket.manager_id != m.crm_id
-    //     //   && !this.BusyManagers.some(bm => bm.crm_id == m.crm_id))
-    //   }).catch(e => {
-    //     this.toast(e.response.data.message, 'error')
-    //   })
-    // },
     AddParticipant(data) {
       if (this.IsResolved) return
 
@@ -131,8 +115,7 @@ export default {
           return
         }
 
-        this.ticket.manager = r.data.data.new_manager
-        this.ticket.manager_id = r.data.data.new_manager.crm_id
+        this.NewParticipant(r.data.data)
 
         this.BusyManagers = [...this.AllBusyManagers]
         this.Managers = this.AllManagers.filter(m => this.ticket.manager_id != m.crm_id)
@@ -158,9 +141,13 @@ export default {
       this.ticket.manager_id = data.new_manager.crm_id
     },
     PatchTicket(data) {
+      // if (this.ticket.reason_id == data.reason_id) return
+      console.log('PatchTicket')
+      console.log(data)
       this.ticket.reason = data.reason
       this.ticket.reason_id = data.reason_id
       this.Reasons = this.AllReasons.filter(r => r.id != this.ticket.reason_id)
+      // this.emitter.emit('PatchTicket', data)
     },
     CloseTicket() {
       if (!window.confirm("Вы уверены, что хотите завершить тикет?")) {
@@ -198,14 +185,14 @@ export default {
       })
     },
     CopyTicketId() {
-      this.copy(`${this.VITE_CRM_URL}marketplace/app/${this.VITE_CRM_MARKETPLACE_ID}/?id=${this.ticket.id}`)
+      this.copy(`${this.VITE_CRM_URL}marketplace/app/${this.VITE_CRM_MARKETPLACE_ID}/?id=${this.ticket.old_ticket_id}`)
     },
   },
   watch: {
-    BusyManagers(newValue, oldValue) {
+    BusyManagers(newValue) {
       this.BusyManagers = newValue
     },
-    participants(newValue, oldValue) {
+    participants(newValue) {
       this.AllBusyManagers = newValue
       this.BusyManagers = this.AllBusyManagers
 
@@ -224,7 +211,7 @@ export default {
       <p for="ticket_info_id">ID тикета</p>
       <p id="ticket_info_id" @click="CopyTicketId()" title="Скопировать ссылку на тикет"
         class="flex items-center gap-1 font-medium text-blue-600 dark:text-blue-500 hover:underline cursor-pointer">
-        #{{ ticket.id }}
+        #{{ ticket.old_ticket_id ?? ticket.id }}
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
           class="w-3 h-3">
           <path stroke-linecap="round" stroke-linejoin="round"
@@ -270,7 +257,7 @@ export default {
           <div>
             <p>Подразделения:</p>
             <div class="flex flex-wrap gap-1">
-              <template v-for="dep in ticket.user.departments">
+              <template v-for="dep in ticket.user.departments" v-bind:key="dep">
                 <div class="font-medium truncate">
                   <a :href="`${VITE_CRM_URL}company/structure.php?set_filter_structure=Y&structure_UF_DEPARTMENT=${dep}`"
                     target="_blank">
@@ -317,7 +304,7 @@ export default {
           <div>
             <p>Подразделения:</p>
             <div class="flex flex-wrap">
-              <template v-for="dep in ticket.manager.departments">
+              <template v-for="dep in ticket.manager.departments" v-bind:key="dep">
                 <div class="font-medium truncate mr-2">
                   <a :href="`${VITE_CRM_URL}company/structure.php?set_filter_structure=Y&structure_UF_DEPARTMENT=${dep}`"
                     target="_blank">
@@ -357,7 +344,7 @@ export default {
       <p v-if="BusyManagers.length > 0">Прочие участники</p>
 
       <div class="flex flex-wrap my-2">
-        <span v-for="m in BusyManagers"
+        <span v-for="m in BusyManagers" v-bind:key="m"
           class="m-1 bg-blue-100 text-blue-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300">
           {{ m?.name }}
         </span>
@@ -369,18 +356,22 @@ export default {
         @select="ChangeReason" label="name" track-by="name" :show-labels="false" />
     </div>
 
-    <div v-if="!IsResolved" class="flex flex-wrap items-center gap-3">
-      <!-- <Button @click="EditParticipants = !EditParticipants" :color="EditParticipants ? 'alternative' : 'default'">
+    <div v-if="IsResolved">
+      <p>Тикет был завершён</p>
+      <p>{{ ticket.mark > 0 ? 'с оценкой ' + ticket.mark + '/3' : 'без оценки' }}</p>
+    </div>
+    <div v-else class="flex flex-wrap items-center gap-3">
+      <!-- <VueButton @click="EditParticipants = !EditParticipants" :color="EditParticipants ? 'alternative' : 'default'">
         <p v-if="EditParticipants">Отменить</p>
         <p v-else>Сменить ответственного</p>
-      </Button>
+      </VueButton>
 
-      <Button @click="EditReason = !EditReason" :color="EditReason ? 'alternative' : 'default'">
+      <VueButton @click="EditReason = !EditReason" :color="EditReason ? 'alternative' : 'default'">
         <p v-if="EditReason">Отменить</p>
         <p v-else>Сменить тему</p>
-      </Button> -->
+      </VueButton> -->
 
-      <Button v-if="ticket.user_id != UserData.crm_id" @click="CloseTicket()" color="red">Завершить тикет</Button>
+      <VueButton v-if="ticket.user_id != UserData.crm_id" @click="CloseTicket()" color="red">Завершить тикет</VueButton>
     </div>
   </div>
 </template>

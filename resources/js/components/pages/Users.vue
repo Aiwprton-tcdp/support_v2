@@ -1,21 +1,22 @@
 <script>
-import { ref, inject } from 'vue'
+import { inject } from 'vue'
 import {
-  Table, TableHead,
+  Table as VueTable, TableHead,
   TableBody, TableHeadCell,
   TableRow, TableCell,
-  Input, Button,
-  Select
+  Input as VueInput,
+  Button as VueButton,
+  Select as VueSelect
 } from 'flowbite-vue'
 
 export default {
-  name: 'Users',
+  name: 'UsersPage',
   components: {
-    Table, TableHead,
+    VueTable, TableHead,
     TableBody, TableHeadCell,
     TableRow, TableCell,
-    Input, Button,
-    Select
+    VueInput, VueButton,
+    VueSelect
   },
   data() {
     return {
@@ -81,7 +82,7 @@ export default {
       } else if (data.new_role_id < 2) {
         this.Delete(data)
         return
-      } else if (data.hasOwnProperty('id')) {
+      } else if (Object.prototype.hasOwnProperty.call(data, 'id')) {
         this.Patch(data)
         return
       }
@@ -177,28 +178,30 @@ export default {
         </button>
 
         <div class="flex flex-row space-x-2">
-          <Input @keyup.enter="Search()" v-model="search" placeholder="Поиск" label="" class="w-48">
-          <template #prefix v-if="search.length == 0">
-            <svg aria-hidden="true" class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor"
-              viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-            </svg>
-          </template>
-          <template #suffix v-else>
-            <svg @click="ClearSearch()" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-              stroke-width="1.5" stroke="currentColor" class="text-black-800 w-5 h-5 cursor-pointer">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                d="M12 9.75L14.25 12m0 0l2.25 2.25M14.25 12l2.25-2.25M14.25 12L12 14.25m-2.58 4.92l-6.375-6.375a1.125 1.125 0 010-1.59L9.42 4.83c.211-.211.498-.33.796-.33H19.5a2.25 2.25 0 012.25 2.25v10.5a2.25 2.25 0 01-2.25 2.25h-9.284c-.298 0-.585-.119-.796-.33z" />
-            </svg>
-          </template>
-          </Input>
-          <Button :disabled="search.length == 0" @click="Search()" color="default">Искать</Button>
+          <VueInput @keyup.enter="Search()" v-model="search" placeholder="Поиск" label="" class="w-48">
+            <template #prefix v-if="search.length == 0">
+              <svg aria-hidden="true" class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor"
+                viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+              </svg>
+            </template>
+            <template #suffix v-else>
+              <svg @click="ClearSearch()" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                stroke-width="1.5" stroke="currentColor" class="text-black-800 w-5 h-5 cursor-pointer">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M12 9.75L14.25 12m0 0l2.25 2.25M14.25 12l2.25-2.25M14.25 12L12 14.25m-2.58 4.92l-6.375-6.375a1.125 1.125 0 010-1.59L9.42 4.83c.211-.211.498-.33.796-.33H19.5a2.25 2.25 0 012.25 2.25v10.5a2.25 2.25 0 01-2.25 2.25h-9.284c-.298 0-.585-.119-.796-.33z" />
+              </svg>
+            </template>
+          </VueInput>
+          <VueButton :disabled="search.length == 0" @click="Search()" color="default">
+            Искать
+          </VueButton>
         </div>
       </div>
     </div>
 
-    <Table
+    <VueTable
       class="max-h-[calc(100vh-54px)] overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch">
       <TableHead>
         <TableHeadCell>Crm_id</TableHeadCell>
@@ -209,19 +212,19 @@ export default {
       </TableHead>
 
       <TableBody>
-        <TableRow v-for="u in users">
+        <TableRow v-for="u in users" v-bind:key="u">
           <TableCell>{{ u.crm_id }}</TableCell>
           <TableCell>{{ u.name }}</TableCell>
           <TableCell v-if="!only_with_roles">{{ u.post }}</TableCell>
           <TableCell v-if="!only_with_roles">{{ u.inner_phone }}</TableCell>
           <TableCell>
             <div class="space-x-3">
-              <Select @change="Create(u)" v-model.number="u.new_role_id" :options="roles" placeholder="Выбрать роль" />
+              <VueSelect @change="Create(u)" v-model.number="u.new_role_id" :options="roles" placeholder="Выбрать роль" />
             </div>
           </TableCell>
         </TableRow>
       </TableBody>
-    </Table>
+    </VueTable>
   </template>
 
   <div v-else-if="errored" class="flex flex-col gap-3 mt-3">

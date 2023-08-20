@@ -12,7 +12,7 @@ import 'vue3-toastify/dist/index.css'
 import 'vue-multiselect/dist/vue-multiselect.css'
 // import 'vue-chat-emoji/dist/vue-chat-emoji.min.css'
 
-axios.defaults.baseURL = 'https://support.aiwprton.sms19.ru/api/'
+axios.defaults.baseURL = import.meta.env.VITE_APP_URL + '/api/'
 
 axios.interceptors.request.use(config => {
   const token = localStorage.getItem('support_access')

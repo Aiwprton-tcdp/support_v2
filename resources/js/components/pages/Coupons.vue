@@ -1,5 +1,4 @@
 <script>
 </script>
 
-<template>
-</template>
+<template></template>

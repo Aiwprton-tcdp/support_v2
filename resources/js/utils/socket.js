@@ -7,7 +7,7 @@ export const SocketStart = (axios, ticket_id) => {
     debug: true,
     subscribeEndpoint: axios.defaults.baseURL + "websocket/subscribe",
     onRefresh: (ctx, cb) => {
-      let promise = fetch(axios.defaults.baseURL + "websocket/refresh", {
+      fetch(axios.defaults.baseURL + "websocket/refresh", {
         method: "POST",
         user_id: this.currentUserID,
       }).then(resp => {

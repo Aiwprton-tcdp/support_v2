@@ -1,15 +1,15 @@
 <script>
 import { inject } from 'vue'
 import {
-  Table, TableHead,
+  Table as VueTable, TableHead,
   TableBody, TableHeadCell,
   TableRow, TableCell,
 } from 'flowbite-vue'
 
 export default {
-  name: 'Roles',
+  name: 'RolesPage',
   components: {
-    Table, TableHead,
+    VueTable, TableHead,
     TableBody, TableHeadCell,
     TableRow, TableCell,
   },
@@ -40,28 +40,28 @@ export default {
 </script>
 
 <template>
-<Table v-if="roles.length > 0" hoverable>
-  <TableHead>
-    <TableHeadCell>Id</TableHeadCell>
-    <TableHeadCell>Название</TableHeadCell>
-    <TableHeadCell><span class="sr-only">Edit</span></TableHeadCell>
-  </TableHead>
+  <VueTable v-if="roles.length > 0" hoverable>
+    <TableHead>
+      <TableHeadCell>Id</TableHeadCell>
+      <TableHeadCell>Название</TableHeadCell>
+      <TableHeadCell><span class="sr-only">Edit</span></TableHeadCell>
+    </TableHead>
 
-  <TableBody>
-    <TableRow v-for="r in roles">
-      <TableCell>{{ r.id }}</TableCell>
-      <TableCell>{{ r.name }}</TableCell>
-      <TableCell><span class="sr-only">Edit</span></TableCell>
-    </TableRow>
-  </TableBody>
-</Table>
+    <TableBody>
+      <TableRow v-for="r in roles" v-bind:key="r">
+        <TableCell>{{ r.id }}</TableCell>
+        <TableCell>{{ r.name }}</TableCell>
+        <TableCell><span class="sr-only">Edit</span></TableCell>
+      </TableRow>
+    </TableBody>
+  </VueTable>
 
-<div>
-  <div v-if="errored">
-    <p>Ошибка</p>
+  <div>
+    <div v-if="errored">
+      <p>Ошибка</p>
+    </div>
+    <div v-else-if="roles.length == 0">
+      <p>Нет данных</p>
+    </div>
   </div>
-  <div v-else-if="roles.length == 0">
-    <p>Нет данных</p>
-  </div>
-</div>
 </template>

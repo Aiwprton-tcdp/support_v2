@@ -3,7 +3,7 @@ import { inject } from 'vue'
 import { Tabs, Tab } from 'flowbite-vue'
 
 export default {
-  name: 'Header',
+  name: 'HeaderComponent',
   components: { Tabs, Tab },
   setup() {
     const ActiveTab = inject('ActiveTab')

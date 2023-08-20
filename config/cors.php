@@ -15,7 +15,7 @@ return [
     |
     */
 
-    'paths' => ['api/*', 'https://aiwprtonshop.site/support/api/*', 'https://support_api.aiwprton.sms19.ru/*'],
+    'paths' => ['api/*', 'https://aiwprtonshop.site/support/api/*', 'https://support_api.aiwprton.sms19.ru/*', env('APP_URL') . '/api/*'],
 
     'allowed_methods' => ['*'],
 

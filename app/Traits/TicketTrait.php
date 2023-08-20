@@ -137,6 +137,7 @@ trait TicketTrait
       'mark' => 'required|integer|min:0|max:3',
     ])->validate();
 
+    $validated['mark'] = strval($validated['mark']);
     $resolved = \App\Models\ResolvedTicket::firstOrNew($validated);
     if ($resolved->exists) {
       return [
@@ -146,16 +147,16 @@ trait TicketTrait
       ];
     }
 
+    $resolved->save();
+    $result = $ticket->delete();
+
     HiddenChatMessage::create([
       'content' => 'Тикет завершён',
       'user_crm_id' => 0,
       'ticket_id' => $ticket->id,
     ]);
 
-    $resolved->save();
-    $result = $ticket->delete();
     $message = "Тикет №{$ticket->id} успешно завершён";
-
     self::SendMessageToWebsocket("{$ticket->manager_id}.ticket.delete", [
       'id' => $ticket->id,
       'message' => $message,
@@ -275,7 +276,8 @@ trait TicketTrait
   public static function SendMessageToWebsocket($recipient_id, $data)
   {
     // $channel_id = '#support.' . md5($data->user_id) . md5(env('CENTRIFUGE_SALT'));
-    $channel_id = '#support.' . $recipient_id;
+    $prefix = env('APP_PREFIX', 'support');
+    $channel_id = "#{$prefix}.{$recipient_id}";
     $client = new \phpcent\Client(
       env('CENTRIFUGE_URL') . '/api',
       '8ffaffac-8c9e-4a9c-88ce-54658097096e',
@@ -288,8 +290,10 @@ trait TicketTrait
   public static function SendNotification($recipient_id, $message, $ticket_id)
   {
     $market_id = env('MARKETPLACE_ID');
-    $content = "New ТП:\r\n{$message}\r\n[URL=/marketplace/app/{$market_id}/?id={$ticket_id}]Перейти[/URL]";
-    $WEB_HOOK_URL = "https://xn--24-9kc.xn--d1ao9c.xn--p1ai/rest/10033/t8swdg5q7trw0vst/im.message.add.json?USER_ID={$recipient_id}&MESSAGE={$content}&URL_PREVIEW=Y";
+    $crm_id = env('CRM_URL');
+    $webhook_id = env('WEBHOOK_ID');
+    $content = "{$message}\r\n[URL=/marketplace/app/{$market_id}/?id={$ticket_id}]Перейти[/URL]";
+    $WEB_HOOK_URL = "{$crm_id}rest/{$webhook_id}/im.message.add.json?USER_ID={$recipient_id}&MESSAGE={$content}&URL_PREVIEW=Y";
 
     \Illuminate\Support\Facades\Http::get($WEB_HOOK_URL);
   }

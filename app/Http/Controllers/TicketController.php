@@ -64,11 +64,12 @@ class TicketController extends Controller
         $id = intval(trim(preg_replace('/[^0-9]+/', '', $search)));
         $name = mb_strtolower(trim(preg_replace('/[^А-яA-z ]+/iu', '', $search)));
 
-        $q->when($id > 0, fn($r) => $r->where('tickets.id', $id))->whereActive(true)
-          ->when(!empty($name), function ($y) use ($name) {
-            $y->orWhereRaw('LOWER(u.name) LIKE ?', ["%{$name}%"])->whereActive(true)
-              ->orWhereRaw('LOWER(m.name) LIKE ?', ["%{$name}%"])->whereActive(true);
-          });
+        $q->when($id > 0, function ($r) use ($id) {
+          $r->where('tickets.id', $id)->whereActive(true);
+        })->when(!empty($name), function ($y) use ($name) {
+          $y->orWhereRaw('LOWER(u.name) LIKE ?', ["%{$name}%"])->whereActive(true)
+            ->orWhereRaw('LOWER(m.name) LIKE ?', ["%{$name}%"])->whereActive(true);
+        });
       })
       ->select('tickets.*', 'tickets.id AS tid', 'reasons.name AS reason', 'messages.user_crm_id AS last_message_crm_id', 'messages.created_at AS last_message_date')
 
@@ -104,8 +105,8 @@ class TicketController extends Controller
     // $is_admin = BX::call('user.admin')['result'];
     // dd($is_admin, BX::call('user.current')['result']);
     // $message = 'Не созданы некоторые темы. Перейдите во вкладку "Темы" и заполните недостающие темы';
-    
-    $message = \App\Models\Manager::whereCrmId($user_crm_id)->exists()// || $is_admin
+
+    $message = \App\Models\Manager::whereCrmId($user_crm_id)->exists() // || $is_admin
       ? 'Не созданы некоторые темы. Перейдите во вкладку "Темы" и заполните недостающие темы'
       : 'В настройке приложения допущены критические ошибки, обратитесь к администратору';
     $checksum = \App\Traits\ReasonTrait::Checksum();
@@ -123,6 +124,14 @@ class TicketController extends Controller
    */
   public function store(StoreTicketRequest $request)
   {
+    if (in_array('Студент', explode(' ', Auth::user()->name))) {
+      return response()->json([
+        'status' => false,
+        'data' => null,
+        'message' => 'Студенческий аккаунт не имеет возможности создавать тикеты'
+      ]);
+    }
+
     $data = $request->validated();
     $reason = TicketTrait::GetReason($data['message'])
       ?? \App\Models\Reason::first();
@@ -267,7 +276,9 @@ class TicketController extends Controller
     }
 
     if (isset($validated['reason_id'])) {
-      $reason = \App\Models\Reason::firstWhere('id', $validated['reason_id']);
+      $reason = \App\Models\Reason::firstWhere('id', $validated['reason_id'])
+        ?? \App\Models\Reason::find(1);
+      $validated['reason_id'] = $reason->id;
       $validated['weight'] = $reason->weight;
     }
 

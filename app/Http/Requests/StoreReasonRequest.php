@@ -23,7 +23,7 @@ class StoreReasonRequest extends FormRequest
     {
         return [
             'name' => 'required|unique:reasons|string|min:2',
-            'weight' => 'required|int|min:1',
+            'weight' => 'required|int|min:1|max:100',
             'group_id' => 'required|int|min:1',
         ];
     }
@@ -34,6 +34,7 @@ class StoreReasonRequest extends FormRequest
             'name.unique' => 'Тема с таким названием уже существует',
             'group_id.min' => 'Не указана группа',
             'weight.min' => 'Вес должен быть не менее 1',
+            'weight.max' => 'Вес должен быть не более 100',
         ];
     }
 }
