@@ -50,6 +50,7 @@ export default {
       this.waiting = true
 
       let data = this.search.trim()
+      const reset_searching = this.searching
       this.searching = data != ''
 
       this.ax.get(`resolved_tickets?page=${page}&limit=${this.limit}&search=${data}`).then(r => {
@@ -58,7 +59,15 @@ export default {
           this.toast(r.data.message, 'error')
         }
 
-        this.AllTickets = r.data.data.data
+        if (data != '' || reset_searching) {
+          this.AllTickets = r.data.data.data
+        } else {
+          if (this.AllTickets.length == 0) {
+            this.AllTickets = r.data.data.data
+          } else {
+            this.TicketsUnion(r.data.data.data)
+          }
+        }
         this.tickets = this.AllTickets
       }).catch(e => {
         if (e.response.status == 401) {
@@ -71,6 +80,13 @@ export default {
         this.TryToGoToForcedTicket()
         this.waiting = false
       })
+    },
+    TicketsUnion(data = []) {
+      let map = new Map()
+      Array.from([this.AllTickets, data].flat()).forEach(e => {
+        map.set(e.id, e)
+      })
+      this.AllTickets = [...map.values()]
     },
     TryToGoToForcedTicket() {
       // console.log(window.ticket_id)
@@ -128,7 +144,7 @@ export default {
     ClearSearch() {
       this.search = ''
       this.page = 1
-      this.tickets = this.AllTickets
+      this.Get()
     },
     onScroll(e) {
       if (this.searching
@@ -165,7 +181,7 @@ export default {
           </svg>
         </template>
       </VueInput>
-      <VueButton v-if="search.length > 0" @click="Search()" color="default">Искать</VueButton>
+      <VueButton v-if="search.length > 0" @click="Get()" color="default">Искать</VueButton>
     </div>
   </div>
 

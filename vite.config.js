@@ -12,7 +12,6 @@ export default defineConfig(({ mode }) => {
   process.env = { ...process.env, ...loadEnv(mode, process.cwd()) };
 
   return {
-
     plugins: [
       laravel({
         input: ['resources/css/app.css', 'resources/js/main.js'],
@@ -44,7 +43,7 @@ export default defineConfig(({ mode }) => {
     ],
     server: {
       hmr: {
-        host: "https://support_test.aiwprton.sms19.ru",
+        host: process.env.VITE_APP_URL,
       },
     },
     resolve: {

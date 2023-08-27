@@ -748,6 +748,7 @@ trait BX
       'application_token' => $request->get("sid")["APP_SID"],
       'client_endpoint' => 'https://' . htmlspecialchars($request->get("auth")["domain"]) . '/rest/'
     ];
+    return static::$dataExt;
   }
 
   public static function setDataE($request)

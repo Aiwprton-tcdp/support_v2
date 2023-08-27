@@ -11,7 +11,7 @@ class UserController extends Controller
 {
   public function check()
   {
-    BX::resetDataExt(request());
+    $check = BX::resetDataExt(request());
     $data = BX::call('user.current')['result'];
 
     $auth_user = \Illuminate\Support\Facades\Auth::user();

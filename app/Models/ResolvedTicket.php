@@ -34,6 +34,10 @@ class ResolvedTicket extends Model
     \Illuminate\Database\Eloquent\Builder $query,
     int $user_id,
     array $tickets_ids,
+    array $weights,
+    array $users,
+    array $reasons,
+    array $dates,
     string $search
   ): void {
     $query->join('reasons', 'reasons.id', 'resolved_tickets.reason_id')
@@ -43,13 +47,25 @@ class ResolvedTicket extends Model
         $q->on('participants.ticket_id', 'resolved_tickets.old_ticket_id')
           ->where('participants.user_crm_id', $user_id);
       })
-      // ->whereNotNull('resolved_tickets.old_ticket_id')
-      ->whereIn('resolved_tickets.old_ticket_id', $tickets_ids)
-      ->when($user_id != 0, function ($q) use ($user_id) {
-        $q->whereManagerId($user_id)
-          ->orWhere('user_id', $user_id)
-          ->orWhere('participants.user_crm_id', $user_id);
+      ->leftJoin('messages', function ($q) {
+        $q->on('messages.ticket_id', 'resolved_tickets.old_ticket_id')
+          ->whereRaw('messages.id IN (SELECT MIN(m.id) FROM messages m join resolved_tickets t on t.old_ticket_id = m.ticket_id GROUP BY t.old_ticket_id)');
       })
+      ->leftJoin('hidden_chat_messages', function ($q) {
+        $q->on('hidden_chat_messages.ticket_id', 'resolved_tickets.old_ticket_id')
+          ->whereRaw('hidden_chat_messages.id IN (SELECT MAX(m.id) FROM hidden_chat_messages m join resolved_tickets t on t.old_ticket_id = m.ticket_id WHERE m.content LIKE "%пометил тикет как решённый" GROUP BY t.old_ticket_id)');
+      })
+      ->whereNotNull('resolved_tickets.old_ticket_id')
+      // ->when($tickets_ids[0] != 0, fn($q) => $q->whereIn('resolved_tickets.old_ticket_id', $tickets_ids))
+      ->when($weights[0] != 0, fn($q) => $q->whereIn('resolved_tickets.weight', $weights))
+      ->when(!empty($reasons[0]), fn($q) => $q->whereIn('resolved_tickets.reason_id', $reasons))
+      ->when(
+        !empty($users[0]),
+        fn($q) => $q->whereIn('manager_id', $users)
+          ->orWhereIn('user_id', $users)
+          ->orWhereIn('participants.user_crm_id', $users)
+      )
+      ->when($dates[0] != '1970-01-01', fn($q) => $q->whereBetween('messages.created_at', $dates))
       ->when(!empty($search), function ($q) use ($search) {
         $name = mb_strtolower(trim(preg_replace('/[^А-яA-z -]+/iu', '', $search)));
 

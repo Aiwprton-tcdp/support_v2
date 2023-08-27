@@ -142,8 +142,6 @@ export default {
     },
     PatchTicket(data) {
       // if (this.ticket.reason_id == data.reason_id) return
-      console.log('PatchTicket')
-      console.log(data)
       this.ticket.reason = data.reason
       this.ticket.reason_id = data.reason_id
       this.Reasons = this.AllReasons.filter(r => r.id != this.ticket.reason_id)
@@ -185,7 +183,7 @@ export default {
       })
     },
     CopyTicketId() {
-      this.copy(`${this.VITE_CRM_URL}marketplace/app/${this.VITE_CRM_MARKETPLACE_ID}/?id=${this.ticket.old_ticket_id}`)
+      this.copy(`${this.VITE_CRM_URL}marketplace/app/${this.VITE_CRM_MARKETPLACE_ID}/?id=${this.ticket.old_ticket_id ?? this.ticket.id}`)
     },
   },
   watch: {

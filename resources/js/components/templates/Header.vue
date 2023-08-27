@@ -8,6 +8,7 @@ export default {
   setup() {
     const ActiveTab = inject('ActiveTab')
     const UserData = inject('UserData')
+    console.log(UserData)
 
     return { ActiveTab, UserData }
   },
@@ -26,11 +27,11 @@ export default {
 
     <template v-if="UserData.is_admin
       || [2, 3, 4].includes(UserData?.role_id)
-      || UserData.crm_id == 4942">
+      || ['4942', '126404'].includes(UserData.crm_id)">
       <Tab name="details" title="Детализация" />
       <Tab name="dashboard" title="Статистика" />
       <!-- <Tab name="coupons" title="Купоны" /> -->
-      <template v-if="UserData.is_admin || UserData.crm_id == 4942">
+      <template v-if="UserData.is_admin || ['4942', '126404'].includes(UserData.crm_id)">
         <Tab name="reasons" title="Темы" />
         <Tab name="groups" title="Группы" />
         <Tab name="users" title="Пользователи" />

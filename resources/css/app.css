@@ -119,7 +119,8 @@ button:hover {
 
 button:focus,
 button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  /* outline: 4px auto -webkit-focus-ring-color; */
+  --tw-ring-opacity: 0 !important;
 }
 
 .card {

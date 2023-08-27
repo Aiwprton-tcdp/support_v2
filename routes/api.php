@@ -88,8 +88,10 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
   });
 
   Route::prefix('statistics')->group(function () {
-    Route::get('/active_tickets', [DashboardController::class, 'activeTickets']);
+    Route::get('/active_tickets', [DashboardController::class, 'getActiveTickets']);
     Route::post('/redistribute', [DashboardController::class, 'redistribute']);
     Route::get('/cache_reload', [DashboardController::class, 'cacheReload']);
+
+    Route::get('/tickets_by_reason', [DashboardController::class, 'getTicketsCountByReasons']);
   });
 });

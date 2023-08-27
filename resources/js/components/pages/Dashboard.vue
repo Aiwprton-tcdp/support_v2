@@ -1,8 +1,37 @@
 <script>
 import { inject } from 'vue'
 import { Button as VueButton, Avatar } from 'flowbite-vue'
+import * as echarts from 'echarts'
 
 import TicketsRedistributionModal from '@temps/dashboard/TicketsRedistributionModal.vue'
+
+import {
+  DatasetComponent,
+  GridComponent,
+  TransformComponent,
+  TitleComponent,
+  TooltipComponent,
+  ToolboxComponent,
+  LegendComponent
+} from 'echarts/components'
+import { PieChart, BarChart, LineChart } from 'echarts/charts'
+import { UniversalTransition } from 'echarts/features'
+import { CanvasRenderer } from 'echarts/renderers'
+
+echarts.use([
+  DatasetComponent,
+  GridComponent,
+  TransformComponent,
+  TitleComponent,
+  TooltipComponent,
+  ToolboxComponent,
+  LegendComponent,
+  PieChart,
+  BarChart,
+  LineChart,
+  CanvasRenderer,
+  UniversalTransition
+])
 
 export default {
   name: 'DashboardPage',
@@ -47,7 +76,7 @@ export default {
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
         this.errored = true
-      })
+      }).finally(this.InitChartCountByReasons)
     },
     CacheReload() {
       if (this.waiting) return
@@ -69,6 +98,56 @@ export default {
       this.$refs.TicketsRedistribution.ticket = data
       this.$refs.TicketsRedistribution.GetAllManagers()
     },
+    InitChartCountByReasons() {
+      this.ax.get('statistics/tickets_by_reason').then(r => {
+        const d = r.data.data
+        const chart = echarts.init(document.getElementById('tickets_count_by_reasons'))
+        // const chart = echarts.init(
+        //   document.getElementById('tickets_count_by_reasons'),
+        //   null,
+        //   {
+        //     width: 600,
+        //     height: 400,
+        //   }
+        // )
+
+        chart.setOption({
+          title: {
+            text: 'Количество тикетов по темам',
+            subtext: '',
+            left: 'center'
+          },
+          tooltip: {
+            trigger: 'item'
+          },
+          legend: {
+            orient: 'horizontal',
+            top: 'bottom'
+          },
+          toolbox: {
+            feature: {
+              restore: {},
+              saveAsImage: {}
+            }
+          },
+          series: [{
+            name: '',
+            type: 'pie',
+            radius: '50%',
+            data: d,
+            emphasis: {
+              itemStyle: {
+                shadowBlur: 10,
+                shadowOffsetX: 0,
+                shadowColor: 'rgba(0, 0, 0, 0.5)'
+              }
+            }
+          }]
+        })
+      }).catch(error => {
+        console.log(error)
+      })
+    },
   }
 }
 </script>
@@ -80,7 +159,7 @@ export default {
     </VueButton>
   </div>
 
-  <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 m-2">
+  <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2 m-2">
     <div class="flex flex-col gap-1">
       <p class="text-lg">Активные тикеты</p>
       <div
@@ -111,6 +190,11 @@ export default {
           </div>
         </template>
       </div>
+    </div>
+
+    <div class="col-span-2 flex flex-col gap-1">
+      <!-- <p class="text-lg">Количество тикетов по темам</p> -->
+      <div id="tickets_count_by_reasons" class="w-full h-[30vh]"></div>
     </div>
   </div>
 

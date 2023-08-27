@@ -30,6 +30,7 @@ export default {
       searching: Boolean(),
       ticket401: Boolean(),
       ShowHistoryInfo: Boolean(),
+      ShowWarning: Boolean(),
       search: String(),
       page: Number(),
       TicketsCount: Number(),
@@ -270,19 +271,16 @@ export default {
       this.TicketsSorting()
     },
     PatchTicket(data) {
-      console.log('Tickets.PatchTicket')
       const index = this.AllTickets.findIndex(({ id }) => id == data.id)
-      console.log(index)
-      console.log(data)
       if (index == -1) return
-      console.log(this.AllTickets[index])
       this.AllTickets[index] = data
-      // this.AllTickets[index].reason = data.reason
+      this.tickets = this.AllTickets
       this.TicketsSorting()
     },
     DeleteTicket(ticket_id, message) {
       const index = this.tickets.findIndex(({ id }) => id == ticket_id)
       if (index == -1) return
+      this.AllTickets.splice(index, 1)
 
       this.toast(message, 'success')
 
@@ -295,7 +293,6 @@ export default {
         })
       }
 
-      this.AllTickets.splice(index, 1)
       const is_current_ticket = this.CurrentTicket.id == ticket_id
       this.CurrentTicket.id = 0
       this.TicketsHistory.delete(ticket_id)
@@ -510,6 +507,27 @@ export default {
             Чтобы начать, выберите тикет из списка
           </p>
         </template>
+
+        <!-- Warning -->
+        <!-- <div class="relative col-span-2 w-full" @mouseover="ShowWarning = true" @mouseleave="ShowWarning = false">
+          <div @click="ShowWarning = !ShowWarning" class="flex justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+              stroke="currentColor" class="w-6 h-6 text-blue-500 cursor-pointer">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+            </svg>
+          </div>
+
+          <div :class="ShowWarning ? 'visible opacity-100' : 'invisible opacity-0'"
+            class="absolute z-10 w-[100%] flex flex-col gap-2 p-3 inline-block text-sm font-light text-gray-500 transition-opacity duration-300 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400">
+            <p>
+              В ситуации, когда нет уведомлений об ошибке, но страница
+              не загружается или действие не выполняется, выполните
+              перезагрузку страницы через комбинацию клавиш
+            <pre>Ctrl + F5</pre>
+            </p>
+          </div>
+        </div> -->
       </div>
     </div>
   </div>

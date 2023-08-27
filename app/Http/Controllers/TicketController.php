@@ -2,17 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\CRM\UserController;
-use App\Http\Requests\DeleteTicketRequest;
 use App\Http\Requests\StoreTicketRequest;
 use App\Http\Requests\UpdateTicketRequest;
-use App\Http\Resources\MessageResource;
 use App\Http\Resources\TicketResource;
-use App\Jobs\TicketClosingJob;
 use App\Models\HiddenChatMessage;
 use App\Models\Message;
 use App\Models\Ticket;
-use App\Traits\BX;
 use App\Traits\TicketTrait;
 use App\Traits\UserTrait;
 use Illuminate\Support\Facades\Auth;
@@ -96,7 +91,8 @@ class TicketController extends Controller
     unset($search);
 
     foreach ($data as $ticket) {
-      $ticket->user = $users_collection[$ticket->user_id];
+      $ticket->user = $users_collection[$ticket->user_id]
+        ?? ['name' => 'Удалённый пользователь'];
       $ticket->manager = $users_collection[$ticket->manager_id];
     }
     unset($users_collection);
@@ -242,8 +238,9 @@ class TicketController extends Controller
 
     if (isset($validated['active'])) {
       if ($validated['active'] == false) {
+        $name = Auth::user()->name;
         HiddenChatMessage::create([
-          'content' => "{$manager->name} пометил тикет как решённый",
+          'content' => "{$name} пометил тикет как решённый",
           'user_crm_id' => 0,
           'ticket_id' => $ticket->id,
         ]);

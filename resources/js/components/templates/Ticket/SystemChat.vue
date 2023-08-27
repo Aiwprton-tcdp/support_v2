@@ -31,7 +31,8 @@ export default {
   },
   methods: {
     GetHiddenChatMessages() {
-      this.ax.get(`hidden_chat_messages?ticket=${this.ticket.id}`).then(r => {
+      const id = this.IsResolved ? this.ticket?.old_ticket_id : this.ticket.id
+      this.ax.get(`hidden_chat_messages?ticket=${id}`).then(r => {
         this.Messages = r.data.data.data
         this.ScrollChat()
         this.Messages.forEach(m => {

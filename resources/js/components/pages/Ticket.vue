@@ -144,6 +144,8 @@ export default {
       return y
     },
     Create() {
+      console.log('this.ticket.id')
+      console.log(this.ticket.id)
       if (this.waiting) return
       this.waiting = true
 
@@ -197,6 +199,8 @@ export default {
     NewMessage(data) {
       console.log('NewMessage')
       console.log(data)
+      console.log('this.ticket.id')
+      console.log(this.ticket.id)
       const index = this.messages.findIndex(({ id }) => id == data.id)
       if (index > -1) return
 

@@ -41,10 +41,10 @@ class ResolvedTicketController extends Controller
         $id = intval(trim(preg_replace('/[^0-9]+/', '', $search)));
         $name = mb_strtolower(trim(preg_replace('/[^А-яA-z ]+/iu', '', $search)));
 
-        $q->when($id > 0, fn($r) => $r->where('resolved_tickets.old_ticket_id', $id))->whereActive(true)
+        $q->when($id > 0, fn($r) => $r->where('resolved_tickets.old_ticket_id', $id))
           ->when(!empty($name), function ($y) use ($name) {
-            $y->orWhereRaw('LOWER(u.name) LIKE ?', ["%{$name}%"])->whereActive(true)
-              ->orWhereRaw('LOWER(m.name) LIKE ?', ["%{$name}%"])->whereActive(true);
+            $y->orWhereRaw('LOWER(u.name) LIKE ?', ["%{$name}%"])
+              ->orWhereRaw('LOWER(m.name) LIKE ?', ["%{$name}%"]);
           });
       })
       ->select('resolved_tickets.*', 'reasons.name AS reason')
@@ -60,7 +60,8 @@ class ResolvedTicketController extends Controller
     unset($search);
 
     foreach ($data as $ticket) {
-      $ticket->user = $users_collection[$ticket->user_id];
+      $ticket->user = $users_collection[$ticket->user_id]
+        ?? ['name' => 'Удалённый пользователь'];
       $ticket->manager = $users_collection[$ticket->manager_id];
     }
 
@@ -77,7 +78,7 @@ class ResolvedTicketController extends Controller
   {
     $val = $request->validated();
     $data = TicketTrait::FinishTicket($val['old_ticket_id'], $val['mark']);
-    Log::info($data['message']);
+    Log::info('StoreResolvedTicket: ' . $data['message']);
     return response()->json($data);
   }
 
@@ -86,7 +87,9 @@ class ResolvedTicketController extends Controller
    */
   public function show(string $id)
   {
-    $data = ResolvedTicket::firstWhere('old_ticket_id', $id);
+    $data = ResolvedTicket::join('reasons', 'reasons.id', 'resolved_tickets.reason_id')
+      ->select('resolved_tickets.*', 'reasons.name AS reason')
+      ->firstWhere('old_ticket_id', $id);
 
     if (!isset($data)) {
       return response()->json([

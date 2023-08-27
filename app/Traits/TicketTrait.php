@@ -117,7 +117,7 @@ trait TicketTrait
 
     foreach ($tickets as $id) {
       $result = static::FinishTicket($id);
-      Log::info($result['message']);
+      Log::info('MarkedTicketsPreparing:' . $result['message']);
     }
   }
 

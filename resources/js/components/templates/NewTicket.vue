@@ -72,7 +72,7 @@ export default {
       }
 
       this.ax.post('tickets', {
-        message: FormatLinks(message),
+        message: message,
       }).then(r => {
         if (r.data.status == false) {
           this.toast(r.data.message, 'error')

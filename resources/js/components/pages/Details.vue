@@ -5,11 +5,13 @@ import {
   TableBody, TableHeadCell,
   TableRow, TableCell,
   Input as VueInput,
-  Button as VueButton, Toggle
+  Button as VueButton
 } from 'flowbite-vue'
 import VueMultiselect from 'vue-multiselect'
+import DatePicker from 'vue-datepicker-next'
 import VueSimpleRangeSlider from 'vue-simple-range-slider'
 
+import 'vue-datepicker-next/index.css'
 import 'vue-simple-range-slider/css'
 
 import { FormatDateTime } from '@utils/validation.js'
@@ -22,7 +24,7 @@ export default {
     TableBody, TableHeadCell,
     TableRow, TableCell,
     VueInput, VueButton,
-    Toggle, VueMultiselect,
+    VueMultiselect, DatePicker,
     VueSimpleRangeSlider, Pagination
   },
   data() {
@@ -30,7 +32,8 @@ export default {
       Tickets: Array(),
       FilteredTickets: Array(),
       CurrentTicket: Object(),
-      managers: Array(),
+      users: Array(),
+      reasons: Array(),
       FirstTry: Boolean(true),
       errored: Boolean(),
       waiting: Boolean(),
@@ -44,14 +47,15 @@ export default {
         from_id: Number(1),
         to_id: Number(100),
         id_range: Array(1, 100),
-        reason: Number(),
+        users: Array(),
+        reasons: Array(),
         from_weight: Number(1),
         to_weight: Number(100),
         weight_range: Array(1, 100),
-        only_active: Boolean(),
-        only_resolved: Boolean(),
-        from_date: String(),
-        to_date: String(),
+        active: Boolean(true),
+        inactive: Boolean(true),
+        resolved: Boolean(true),
+        date_range: Array(),
       }),
       file: String(),
       dragging: Boolean(),
@@ -67,7 +71,6 @@ export default {
   },
   mounted() {
     this.Get(++this.page)
-    console.log(this.Filters)
   },
   methods: {
     Get(page = 1, limit = 10) {
@@ -79,23 +82,31 @@ export default {
       this.searching = data != ''
       let metadata = null
 
-      console.log(this.Filters.from_id)
-      console.log(this.Filters.to_id)
+      let url_filters = `&min_id=${this.Filters.id_range[0]}
+&max_id=${this.Filters.id_range[1]}
+&min_w=${this.Filters.weight_range[0]}
+&max_w=${this.Filters.weight_range[1]}
+&users=${this.Filters.users.map(({ crm_id }) => crm_id)}
+&reasons=${this.Filters.reasons.map(({ id }) => id)}
+&from_date=${new Date(this.Filters.date_range[0]).toDateString()}
+&to_date=${new Date(this.Filters.date_range[1]).toDateString()}`
+
       this.ax.get(`detalization?page=${page}
-        &limit=${limit}
-        &search=${data}
-        &from_id=${this.Filters.from_id}
-        &to_id=${this.Filters.to_id}`).then(r => {
+&limit=${limit}
+&search=${data}
+&active=${this.Filters.active}
+&inactive=${this.Filters.inactive}
+&resolved=${this.Filters.resolved}
+${this.FirstTry ? '' : url_filters}`).then(r => {
         this.Tickets = r.data.data.data//.filter(t => t.id != null)
         this.Tickets.forEach(t => t.created_at = FormatDateTime(t.created_at))
-        console.log(this.Tickets)
+        // console.log(this.Tickets)
         this.FilteredTickets = this.Tickets
 
         metadata = r.data.data.meta
         if (this.FirstTry) {
           this.Filters.to_id = metadata.total
           this.Filters.id_range[1] = metadata.total
-          this.FirstTry = false
         }
         this.errored = !r.data.status
       }).catch(e => {
@@ -104,9 +115,27 @@ export default {
         this.errored = true
       }).finally(() => {
         this.waiting = false
+        this.FirstTry = false
         if (this.Tickets.length > 0 && this.Tickets[0].id != null) {
           this.PreparePagination(metadata)
         }
+        this.GetUsers()
+        this.GetReasons()
+      })
+    },
+    GetUsers() {
+      this.ax.get('bx/users').then(r => {
+        this.users = r.data.data.data
+      }).catch(e => {
+        this.toast(e.response.data.message, 'error')
+        // this.errored = true
+      })
+    },
+    GetReasons() {
+      this.ax.get('reasons').then(r => {
+        this.reasons = r.data.data.data
+      }).catch(e => {
+        this.toast(e.response.data.message, 'error')
       })
     },
     PreparePagination(meta) {
@@ -117,11 +146,12 @@ export default {
     },
     Filter() {
       console.log(this.Filters)
+      this.page = 1
+      this.Get(this.page)
     },
     ClearFilters() {
-      const now = new Date().toDateString()
-      console.log('now')
-      console.log(now)
+      // const now = new Date().toDateString()
+      this.FirstTry = true
       this.Filters = {
         from_id: 1,
         to_id: 100,
@@ -130,10 +160,12 @@ export default {
         from_weight: 1,
         to_weight: 100,
         weight_range: [1, 100],
-        only_active: false,
-        only_resolved: false,
-        from_date: now,
-        to_date: now,
+        users: [],
+        reasons: [],
+        active: true,
+        inactive: true,
+        resolved: true,
+        date_range: [],
       }
     },
     onChange(e) {
@@ -173,7 +205,8 @@ export default {
 <template>
   <div class="fixed top-1 right-1 flex flex-row space-x-4 z-10">
     <div class="relative">
-      <VueButton :disabled="waiting" @click="ShowFilters = !ShowFilters" color="alternative" class="w-[120px]">
+      <button :disabled="waiting" @click="ShowFilters = !ShowFilters"
+        class="w-[120px] text-sm pb-1 no-underline hover:underline border-0 focus:outline-none bg-transparent decoration-dotted underline-offset-4">
         <div class="flex flex-row items-center justify-between">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
             class="w-4 h-4">
@@ -182,45 +215,53 @@ export default {
           </svg>
           <span class="items-center font-bold dark:text-gray-900">Фильтры</span>
         </div>
-      </VueButton>
+      </button>
 
       <div :class="ShowFilters ? 'visible opacity-100' : 'invisible opacity-0'"
-        class="absolute flex flex-col !w-[98vw] left-[calc(-99vw+120px)] right-0 gap-2 p-3 inline-block text-sm font-light text-gray-500 transition-opacity duration-300 bg-white border border-gray-200 rounded-lg shadow-sm w-fit dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400">
+        class="absolute flex flex-col gap-2 !w-[98vw] left-[calc(-99vw+120px)] right-0 p-3 inline-block text-sm font-light text-gray-500 transition-opacity duration-300 bg-white border border-gray-200 rounded-lg shadow-sm w-fit dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400">
         <div class="grid grid-cols-4 gap-2">
           <!-- Ids range -->
-          <div v-if="Filters.from_id != Filters.to_id" class="col-span-1">
+          <!-- <div v-if="Filters.from_id != Filters.to_id" class="col-span-1">
             <label for="ids">Id</label>
             <VueSimpleRangeSlider id="ids" v-model="Filters.id_range" :min="Filters.from_id" :max="Filters.to_id" />
-          </div>
+          </div> -->
 
           <!-- Reasons -->
           <div class="col-span-3">
             <label for="reasons">Темы</label>
-            <VueMultiselect id="reasons" v-model="OnlyInGroup" :options="managers" :multiple="true"
-              :close-on-select="false" placeholder="Выберите менеджера" @select="AddToGroup" @remove="RemoveFromGroup"
-              label="name" track-by="name">
-              <template #noResult>Нет данных</template>
-
-              <template v-slot:option="props">
-                <img class="option__image" :src="props.option.avatar" alt="avatar">
-                <span>{{ props.option.text }}</span>
-              </template>
-
-              <template v-slot:tag="{ option, remove }">
-                <span class="multiselect__tag">
-                  <span>{{ option.text }}</span>
-                  <span class="multiselect__tag-icon" @click.prevent="remove(option)">
-                    &#10006;
-                  </span>
-                </span>
-              </template>
-            </VueMultiselect>
+            <VueMultiselect id="reasons" v-model="Filters.reasons" :options="reasons" placeholder="Выберите тему"
+              label="name" track-by="name" :show-labels="false" multiple />
           </div>
 
           <!-- Active or finished -->
-          <div class="col-span-1">
-            <Toggle v-model="Filters.only_active" label="Активные" color="green" />
-            <Toggle v-model="Filters.only_resolved" label="Завершённые" :disabled="Filters.only_active" color="green" />
+          <div class="col-span-1 flex flex-wrap gap-2">
+            <div class="flex items-center mb-4">
+              <input id="checkbox_active" type="checkbox" v-model="Filters.active"
+                class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+              <label for="checkbox_active"
+                class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Активные</label>
+            </div>
+            <div class="flex items-center mb-4">
+              <input id="checkbox_inactive" type="checkbox" v-model="Filters.inactive"
+                class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+              <label for="checkbox_inactive"
+                class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Неактивные</label>
+            </div>
+            <div class="flex items-center mb-4">
+              <input id="checkbox_resolved" type="checkbox" v-model="Filters.resolved"
+                class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+              <label for="checkbox_resolved"
+                class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Завершённые</label>
+            </div>
+            <!-- <Toggle v-model="Filters.active" label="Активные" color="green" />
+            <Toggle v-model="Filters.resolved" label="Завершённые" :disabled="Filters.only_active" color="green" /> -->
+          </div>
+
+          <!-- Users -->
+          <div class="col-span-3">
+            <label for="users">Пользователи</label>
+            <VueMultiselect id="users" v-model="Filters.users" :options="users" placeholder="Выберите пользователя"
+              label="name" track-by="name" :show-labels="false" multiple />
           </div>
 
           <!-- Weight -->
@@ -232,7 +273,10 @@ export default {
 
           <!-- Dates -->
           <div class="col-span-2">
-            <p>Дата создания</p>
+            <label for="dates">Дата создания</label>
+            <div id="dates">
+              <DatePicker v-model:value="Filters.date_range" type="date" editable="false" range />
+            </div>
           </div>
         </div>
 
@@ -244,7 +288,7 @@ export default {
     </div>
   </div>
 
-  <div v-if="Tickets.length == 0 || Tickets[0].id == null" class="h-[calc(100vh-55px)] p-8">
+  <div v-if="Tickets.length == 0" @click="ShowFilters = false" class="h-[calc(100vh-55px)] p-8">
     <p class="text-center text-gray-400">
       Нет данных
     </p>
@@ -261,6 +305,8 @@ export default {
           <TableHeadCell>Ответственный</TableHeadCell>
           <TableHeadCell>Вес</TableHeadCell>
           <TableHeadCell>Статус/Оценка</TableHeadCell>
+          <TableHeadCell>Дата создания</TableHeadCell>
+          <TableHeadCell>Время</TableHeadCell>
           <TableHeadCell><span class="sr-only">Edit</span></TableHeadCell>
         </TableHead>
 
@@ -272,6 +318,8 @@ export default {
             <TableCell>{{ t.manager.name }}</TableCell>
             <TableCell>{{ t.weight }}</TableCell>
             <TableCell>{{ t.active ?? t.mark + '/3' }}</TableCell>
+            <TableCell>{{ t.start_date }}</TableCell>
+            <TableCell>{{ t.time }}</TableCell>
             <TableCell>
               <a :href="`${VITE_CRM_URL}marketplace/app/${VITE_CRM_MARKETPLACE_ID}/?id=${t.id}`" target="_blank">
                 Перейти
