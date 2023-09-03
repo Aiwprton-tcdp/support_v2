@@ -53,7 +53,7 @@ class ResolvedTicket extends Model
       })
       ->leftJoin('hidden_chat_messages', function ($q) {
         $q->on('hidden_chat_messages.ticket_id', 'resolved_tickets.old_ticket_id')
-          ->whereRaw('hidden_chat_messages.id IN (SELECT MAX(m.id) FROM hidden_chat_messages m join resolved_tickets t on t.old_ticket_id = m.ticket_id WHERE m.content LIKE "%пометил тикет как решённый" GROUP BY t.old_ticket_id)');
+          ->whereRaw('hidden_chat_messages.id IN (SELECT MAX(m.id) FROM hidden_chat_messages m join resolved_tickets t on t.old_ticket_id = m.ticket_id WHERE m.content LIKE "Тикет завершён" GROUP BY t.old_ticket_id)');
       })
       ->whereNotNull('resolved_tickets.old_ticket_id')
       // ->when($tickets_ids[0] != 0, fn($q) => $q->whereIn('resolved_tickets.old_ticket_id', $tickets_ids))

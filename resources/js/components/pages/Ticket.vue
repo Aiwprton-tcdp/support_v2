@@ -1,5 +1,5 @@
 <script>
-import { inject } from 'vue'
+import { inject, defineAsyncComponent } from 'vue'
 import {
   Button as VueButton,
   Avatar, Tabs, Tab
@@ -12,9 +12,13 @@ import {
 } from 'swiper/modules'
 
 import { StringVal, FormatLinks, FormatDateTime } from '@utils/validation.js'
+
 import MessageAttachments from '@temps/MessageAttachments.vue'
-import Detalization from '@temps/Ticket/Detalization.vue'
-import SystemChat from '@temps/Ticket/SystemChat.vue'
+// const MessageAttachments = defineAsyncComponent(() => import('@temps/MessageAttachments.vue'))
+import TemplateMessages from '@temps/Ticket/TemplateMessages.vue'
+// const TemplateMessages = defineAsyncComponent(() => import('@temps/Ticket/TemplateMessages.vue'))
+const Detalization = defineAsyncComponent(() => import('@temps/Ticket/Detalization.vue'))
+const SystemChat = defineAsyncComponent(() => import('@temps/Ticket/SystemChat.vue'))
 
 import 'swiper/css'
 import 'swiper/css/zoom'
@@ -27,7 +31,7 @@ export default {
   components: {
     VueButton, Avatar, Tabs,
     Tab, Swiper, SwiperSlide,
-    MessageAttachments,
+    MessageAttachments, TemplateMessages,
     Detalization, SystemChat
   },
   props: {
@@ -69,10 +73,9 @@ export default {
       }),
       CurrentMark: Number(),
       IsParticipant: Boolean(),
-
-
       file: String(),
       dragging: Boolean(),
+      showTempMessages: Boolean(),
     }
   },
   setup() {
@@ -92,6 +95,9 @@ export default {
     this.GetParticipants()
     this.emitter.on('NewMessage', this.NewMessage)
     this.emitter.on('NewParticipant', this.GetParticipants)
+    this.emitter.on('UseTemplateMessage', m => {
+      this.CreatingMessage = `${this.CreatingMessage.trim()} ${m}`.trim()
+    })
 
     document.addEventListener('keydown', e => {
       if (e.key !== 'Escape') return
@@ -144,8 +150,6 @@ export default {
       return y
     },
     Create() {
-      console.log('this.ticket.id')
-      console.log(this.ticket.id)
       if (this.waiting) return
       this.waiting = true
 
@@ -185,22 +189,23 @@ export default {
         this.CreatingMessage = ''
         r.data.data.attachments.forEach(a => this.AllFiles.push(a))
 
-        const index = this.$parent.$parent.$parent.$data.AllTickets.findIndex(({ id }) => id == r.data.data.ticket_id)
-        this.$parent.$parent.$parent.$data.AllTickets[index].unread_messages = false
-        this.$parent.$parent.$parent.TicketsSorting()
+        const index = this.$parent.$parent.$data.AllTickets.findIndex(({ id }) => id == Number(r.data.data.ticket_id))
+        this.$parent.$parent.$data.AllTickets[index].unread_messages = false
+        this.$parent.$parent.TicketsSorting()
+        // const index = this.$parent.$parent.$parent.$data.AllTickets.findIndex(({ id }) => id == Number(r.data.data.ticket_id))
+        // this.$parent.$parent.$parent.$data.AllTickets[index].unread_messages = false
+        // this.$parent.$parent.$parent.TicketsSorting()
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
-        this.messages.push({
-          content: message,
-          created_at: FormatDateTime(),
-        })
+        // this.messages.push({
+        //   content: message,
+        //   user_id: this.UserData.crm_id,
+        //   created_at: FormatDateTime(),
+        //   attachments: [],
+        // })
       }).finally(() => this.waiting = false)
     },
     NewMessage(data) {
-      console.log('NewMessage')
-      console.log(data)
-      console.log('this.ticket.id')
-      console.log(this.ticket.id)
       const index = this.messages.findIndex(({ id }) => id == data.id)
       if (index > -1) return
 
@@ -228,14 +233,16 @@ export default {
         old_ticket_id: this.ticket.id,
         mark: this.CurrentMark,
       }).then(r => {
-        this.toast(r.data.message, r.data.status ? 'success' : 'error')
-        const index = this.$parent.$parent.$parent.$data.AllTickets.findIndex(({ id }) => id == this.ticket.id)
-        if (index > -1) {
-          this.$parent.$parent.$parent.$data.AllTickets[index].splice(index, 1)
-        }
+        // this.toast(r.data.message, r.data.status ? 'success' : 'error')
+        // const index = this.$parent.$parent.$parent.$data.AllTickets.findIndex(({ id }) => id == this.ticket.id)
+        // if (index > -1) {
+        //   this.$parent.$parent.$parent.$data.AllTickets[index].splice(index, 1)
+        // }
+        this.emitter.emit('DeleteTicket', this.ticket.id, r.data.message)
+        // this.$router.push('tickets')
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
-      }).finally(() => this.waiting = false)
+      })//.finally(() => this.waiting = false)
     },
     ContinueTicket() {
       if (this.ticket.user_self_resolve_trying) {
@@ -255,16 +262,18 @@ export default {
           return
         }
         this.ticket.active = 1
-        const index = this.$parent.$parent.$parent.$data.AllTickets.findIndex(({ id }) => id == this.ticket.id)
+        const index = this.$parent.$parent.$data.AllTickets.findIndex(({ id }) => id == this.ticket.id)
         if (index == -1) return
-        this.$parent.$parent.$parent.$data.AllTickets[index].marked_as_deleted = false
-        this.$parent.$parent.$parent.$data.AllTickets[index].unread_messages = false
+        this.$parent.$parent.$data.AllTickets[index].marked_as_deleted = false
+        this.$parent.$parent.$data.AllTickets[index].unread_messages = false
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
       }).finally(() => this.waiting = false)
     },
     AddAttachments(event) {
-      if (event.target.files.length == 0) {
+      if (event.target.files == null) {
+        return
+      } else if (event.target.files.length == 0) {
         console.log('There are no files for uploading')
         return
       }
@@ -443,16 +452,34 @@ export default {
           </button>
         </div>
         <div v-else class="relative flex flex-col divide-y">
-          <!-- Attachments list -->
-          <div v-if="files.length > 0"
-            class="absolute bottom-[59px] opacity-70 flex flex-wrap gap-3 align-bottom p-2 bg-gray-50 dark:bg-gray-700">
-            <div v-for="(file, key) in files" :key="key" class="file-listing">
-              {{ file.name }}
-              <span @click="RemoveAttachment(key)" class="cursor-pointer text-red-500 hover:text-red-700"> ✖</span>
+          <div v-if="UserData.role_id == 2 && showTempMessages || files.length > 0"
+            class="absolute bottom-[59px] flex flex-col opacity-80 flex flex-wrap space-y-3 divide-y align-bottom p-2 bg-gray-50 dark:bg-gray-700">
+            <!-- Template Messages list -->
+            <div v-if="UserData.role_id == 2 && showTempMessages">
+              <TemplateMessages />
             </div>
+
+            <!-- Attachments list -->
+            <template v-if="files.length > 0">
+              <div v-for="(file, key) in files" :key="key" class="file-listing">
+                {{ file.name }}
+                <span @click="RemoveAttachment(key)" class="cursor-pointer text-red-500 hover:text-red-700"> ✖</span>
+              </div>
+            </template>
           </div>
 
           <div class="flex flex-row items-center gap-1 px-3 py-2 bg-gray-50 dark:bg-gray-700">
+            <!-- Template messages button -->
+            <div class="border-none bg-transparent cursor-pointer p-2 hover:border-none focus:border-none">
+              <div @click="showTempMessages = !showTempMessages" class="cursor-pointer" title="Шаблоны сообщений">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                  stroke="currentColor" class="w-6 h-6">
+                  <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+                </svg>
+              </div>
+            </div>
+
             <!-- Attachments sending input -->
             <div class="border-none bg-transparent cursor-pointer p-2 hover:border-none focus:border-none">
               <input id="attachments_input" @change="AddAttachments" ref="attachments" type="file" accept="image/*"
@@ -467,8 +494,9 @@ export default {
             </div>
 
             <!-- Message sending input -->
-            <div class="flex-1 relative px-1 rounded-t-lg">
-              <textarea v-model="CreatingMessage" @keydown.ctrl.enter.exact="Create()" @paste="AddAttachments" rows="1"
+            <div class="flex-1 relative px-1 rounded-t-lg"><!-- v-focus:[active]="$route.name == 'ticket'" -->
+              <textarea v-model="CreatingMessage" @keydown.ctrl.enter.exact="Create()" v-focus rows="1"
+                @paste="AddAttachments"
                 class="resize-none block overflow-hidden p-2.5 pr-4 w-full text-sm text-gray-900 bg-white rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                 placeholder="Введите сообщение..." />
               <div v-if="CreatingMessage.length > 0" @click="CreatingMessage = ''"
@@ -504,26 +532,32 @@ export default {
         </Tabs>
       </div>
 
-      <div :class="ticket.active == 0 || IsResolved ? 'h-[calc(100%-55px)]' : 'h-[calc(100%-55px-43px)]'">
-        <Detalization :ticket="ticket" :participants="participants_data" :class="{ 'hidden': ActiveTab != 'details' }" />
+      <div
+        :class="ticket.active == 0 || IsResolved || ActiveTab == 'details' ? 'h-[calc(100%-55px)]' : 'h-[calc(100%-55px-43px)]'">
+        <KeepAlive>
+          <Detalization v-if="ActiveTab == 'details'" :ticket="ticket" :participants="participants_data" />
+        </KeepAlive>
         <SystemChat v-if="ActiveTab == 'system_chat'" :ticket="ticket" />
       </div>
     </div>
   </div>
 
   <!-- Attachments slider modal -->
-  <div v-if="showModal" ref="carousel" @click.self="showModal = false"
-    class="fixed left-0 top-0 flex h-screen w-full items-center justify-center bg-black bg-opacity-50 py-10 px-24">
-    <Swiper :slides-per-view="1" :space-between="50" :modules="modules" @afterInit="SlideTo" :loop="AllFiles.length > 0"
-      :keyboard="{ enabled: true }" :pagination="{ clickable: true, type: 'fraction' }" grabCursor centeredSlides
-      mousewheel zoom virtual navigation>
-      <SwiperSlide v-for="(file, key) in  AllFiles " :key="key" :virtualIndex="key">
-        <div class="swiper-zoom-container">
-          <img :src="file?.link" :alt="file?.name" class="object-contain">
-        </div>
-      </SwiperSlide>
-    </Swiper>
-  </div>
+  <Transition name="modal">
+    <div v-if="showModal" @click.self="showModal = false" class="modal-mask">
+      <div @click.self="showModal = false" class="modal-body">
+        <Swiper :slides-per-view="1" :space-between="50" :modules="modules" @afterInit="SlideTo"
+          :loop="AllFiles.length > 0" :keyboard="{ enabled: true }" :pagination="{ clickable: true, type: 'fraction' }"
+          grabCursor centeredSlides mousewheel zoom virtual navigation>
+          <SwiperSlide v-for="(file, key) in  AllFiles " :key="key" :virtualIndex="key">
+            <div class="swiper-zoom-container">
+              <img :src="file?.link" :alt="file?.name" class="object-contain">
+            </div>
+          </SwiperSlide>
+        </Swiper>
+      </div>
+    </div>
+  </Transition>
 </template>
 
 <style>

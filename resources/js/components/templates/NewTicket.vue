@@ -1,19 +1,23 @@
 <script>
 import { inject } from 'vue'
-import { Button as VueButton } from 'flowbite-vue'
+import { Button as VueButton, Input as VueInput } from 'flowbite-vue'
+import { mask } from 'vue-the-mask'
 
 import { StringVal, FormatLinks, FormatDateTime } from '@utils/validation.js'
 
 export default {
   name: 'NewTicket',
-  components: { VueButton },
+  components: { VueButton, VueInput },
+  directives: { mask },
   data() {
     return {
       messages: Array(),
+      waiting: Boolean(),
       errored: Boolean(),
       WasFirstTouch: Boolean(),
+      HasAnyDeskAddress: Boolean(false),
       CreatingMessage: String(),
-      waiting: Boolean(),
+      AnyDeskAddress: String(),
     }
   },
   setup() {
@@ -28,7 +32,8 @@ export default {
   },
   methods: {
     Check() {
-      if (this.WasFirstTouch) return
+      if (this.waiting) return
+      this.waiting = true
 
       const message = this.CreatingMessage.trim()
       const validate = StringVal(message, 1, 1000)
@@ -42,14 +47,14 @@ export default {
 
       const SystemMessages = [
         'Проверьте Ваше сообщение на корректность и информативность',
-        'Чтобы завершить создание обращения, нажмите кнопку `Подтвердить`',
+        'Чтобы завершить создание обращения, нажмите кнопку \'Подтвердить\'',
         'При необходимости Вы можете отредактировать сообщение в поле ввода',
       ]
-      let i = 0
 
-      SystemMessages.forEach(m => setTimeout(() => {
+      SystemMessages.forEach((m, key) => setTimeout(() => {
         this.AddMessage(m)
-      }, ++i * 250))
+        this.waiting = key < SystemMessages.length - 1
+      }, key * 250))
       this.WasFirstTouch = true
     },
     AddMessage(message, current = false) {
@@ -60,9 +65,8 @@ export default {
       })
       this.ScrollChat()
     },
-    Create() {
+    GoToAnyDeskAdding() {
       if (this.waiting) return
-      this.waiting = true
 
       const message = this.CreatingMessage.trim()
       const validate = StringVal(message, 1, 1000)
@@ -71,8 +75,24 @@ export default {
         return
       }
 
+      this.AddMessage(FormatLinks(message), true)
+      this.AddMessage('Укажите адрес AnyDesk, чтобы в перспективе ускорить решение проблемы')
+
+      this.HasAnyDeskAddress = true
+      this.CreatingMessage = message
+      // this.$nextTick(() => this.AnyDeskAddress = '')
+    },
+    Create() {
+      if (this.waiting) return
+      this.waiting = true
+
+      const message = this.CreatingMessage.trim()
+      const anydesk = this.AnyDeskAddress.trim()
+      this.AddMessage(`AnyDesk: ${anydesk}`, true)
+
       this.ax.post('tickets', {
         message: message,
+        anydesk: anydesk,
       }).then(r => {
         if (r.data.status == false) {
           this.toast(r.data.message, 'error')
@@ -130,12 +150,18 @@ export default {
   </div>
 
   <!-- Message sending block -->
-  <div class="flex flex-row w-full items-center gap-1 px-3 py-2 bg-gray-50 dark:bg-gray-700">
+  <div class="flex flex-row w-full h-58 items-center gap-1 px-3 py-2 bg-gray-50 dark:bg-gray-700">
     <div class="flex-1 relative px-1 rounded-t-lg">
-      <textarea v-model="CreatingMessage" @keydown.ctrl.enter.exact="Check()" rows="1"
-        class="resize-none block overflow-hidden p-2.5 pr-4 w-full text-sm text-gray-900 bg-white rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-        placeholder="Введите сообщение..." />
-      <div v-if="CreatingMessage.length > 0" @click="CreatingMessage = ''"
+      <Transition name="fade" mode="out-in">
+        <textarea v-if="!HasAnyDeskAddress" v-model="CreatingMessage"
+          @keydown.ctrl.enter.exact="WasFirstTouch ? GoToAnyDeskAdding() : Check()" v-focus rows="1"
+          class="resize-none block overflow-hidden p-2.5 pr-4 w-full text-sm text-gray-900 bg-white rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+          placeholder="Введите сообщение..." />
+        <VueInput v-else v-model="AnyDeskAddress" @keydown.ctrl.enter.exact="Create()" v-focus
+          v-mask="[' ### ### ###', '# ### ### ###']" placeholder="987 654 321" />
+      </Transition>
+      <div v-if="CreatingMessage.length > 0 && !HasAnyDeskAddress || AnyDeskAddress.length > 0 && HasAnyDeskAddress"
+        @click="CreatingMessage = ''; AnyDeskAddress = ''"
         class="absolute right-3 inset-y-0 flex items-center mr-1 cursor-pointer">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
           class="text-black-800 w-6 h-6">
@@ -146,11 +172,15 @@ export default {
     </div>
 
     <div class="flex flex-row gap-1">
-      <VueButton v-if="WasFirstTouch" @click="Create()" :disabled="CreatingMessage.length == 0"
+      <VueButton v-if="HasAnyDeskAddress" @click="Create()" :disabled="AnyDeskAddress.length < 12"
+        class="border-none hover:border-none focus:border-none" color="green">
+        Завершить создание обращения
+      </VueButton>
+      <VueButton v-else-if="WasFirstTouch" @click="GoToAnyDeskAdding()" :disabled="CreatingMessage.length == 0 || waiting"
         class="border-none hover:border-none focus:border-none" color="green">
         Подтвердить
       </VueButton>
-      <VueButton v-else-if="CreatingMessage.length > 0" @click="Check()"
+      <VueButton v-else-if="CreatingMessage.length > 0 && !WasFirstTouch" @click="Check()"
         class="border-none hover:border-none focus:border-none" color="default">
         Проверить
       </VueButton>

@@ -33,7 +33,8 @@ class TemplateMessageController extends Controller
         $data = TemplateMessage::create($request->validated());
         return response()->json([
             'status' => true,
-            'data' => TemplateMessageResource::make($data)
+            'data' => TemplateMessageResource::make($data),
+            'message' => 'Шаблон успешно добавлен'
         ]);
     }
 
@@ -56,7 +57,8 @@ class TemplateMessageController extends Controller
 
         return response()->json([
             'status' => true,
-            'data' => TemplateMessageResource::make($data)
+            'data' => TemplateMessageResource::make($data),
+            'message' => 'Шаблон изменён'
         ]);
     }
 
@@ -70,7 +72,8 @@ class TemplateMessageController extends Controller
 
         return response()->json([
             'status' => true,
-            'data' => $result
+            'data' => $result,
+            'message' => 'Шаблон успешно удалён'
         ]);
     }
 }

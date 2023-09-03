@@ -23,56 +23,71 @@ class TicketController extends Controller
   {
     $search = htmlspecialchars(trim(request('search')));
     $limit = intval(htmlspecialchars(trim(request('limit'))));
-    // $active = htmlspecialchars(trim(request('active')));
     $show_all = htmlspecialchars(trim(request('show_all')));
-    // $is_active = boolval($active);
     $is_show_all = boolval($show_all);
+
+    $id = empty($search) ? 0 : intval(trim(preg_replace('/[^0-9]+/', '', $search)));
+    $name = empty($search) ? null : mb_strtolower(trim(preg_replace('/[^А-яA-z ]+/iu', '', $search)));
 
     $user_crm_id = Auth::user()->crm_id;
 
+    // DB::enableQueryLog();
     $data = DB::table('tickets')
       ->join('reasons', 'reasons.id', 'tickets.reason_id')
       ->rightJoin('users AS u', 'u.crm_id', 'tickets.manager_id')
       ->rightJoin('users AS m', 'm.crm_id', 'tickets.manager_id')
-      ->leftJoin('participants', function ($q) use ($user_crm_id) {
-        $q->on('participants.ticket_id', 'tickets.id')
-          ->where('participants.user_crm_id', $user_crm_id);
-      })
-      // ->join('messages', 'messages.ticket_id', 'tickets.id')
-      // ->leftJoin('messages', fn ($q) => $q
-      //   ->on('messages.ticket_id', 'tickets.id')
-      //   ->whereRaw("messages.id IN (SELECT COUNT(m.id) FROM messages m JOIN tickets t ON t.id = m.ticket_id WHERE m.user_crm_id != {$user_crm_id} GROUP BY t.id)")
-      // )
-      ->leftJoin('messages', function ($q) {
-        $q->on('messages.ticket_id', 'tickets.id')
-          ->whereRaw('messages.id IN (SELECT MAX(m.id) FROM messages m join tickets t on t.id = m.ticket_id GROUP BY t.id)');
-      })
-      // ->when(empty($show_all) || !$is_show_all, function ($q) use ($user_crm_id) {
+      ->leftJoin(
+        'participants',
+        fn($q) => $q->on('participants.ticket_id', 'tickets.id')
+          ->where('participants.user_crm_id', $user_crm_id)
+      )
+      ->leftJoin(
+        'messages',
+        fn($q) => $q->on('messages.ticket_id', 'tickets.id')
+          ->whereRaw('messages.id IN (SELECT MAX(m.id) FROM messages m join tickets t on t.id = m.ticket_id GROUP BY t.id)')
+      )
+      ->leftJoin(
+        'hidden_chat_messages',
+        fn($q) => $q->on('hidden_chat_messages.ticket_id', 'tickets.id')
+          ->whereNotIn('hidden_chat_messages.user_crm_id', [0, 1])
+          ->whereRaw('hidden_chat_messages.id IN (SELECT MAX(m.id) FROM hidden_chat_messages m join tickets t on t.id = m.ticket_id GROUP BY t.id)')
+      )
+      ->where('tickets.active', true)
+      ->where(
+        fn($r) => $r->where('tickets.manager_id', $user_crm_id)
+          ->orWhere('tickets.user_id', $user_crm_id)
+          ->orWhere('participants.user_crm_id', $user_crm_id)
+      )
+      ->when($id > 0, fn($r) => $r->where('tickets.id', $id))
+      // ->where(function ($t) use ($id, $name) {
+      // $t
+      // ->when(!empty($search), function ($q) use ($search) {
       // $q
-      ->where(function ($r) use ($user_crm_id) {
-        $r->whereManagerId($user_crm_id)->whereActive(true)
-          ->orWhere('user_id', $user_crm_id) //->whereActive($is_active)
-          ->orWhere('participants.user_crm_id', $user_crm_id)->whereActive(true);
+      ->when(isset($name), function ($y) use ($name) {
+        $y->where(function ($s) use ($name) {
+          $s->whereRaw('LOWER(u.name) LIKE ?', ["%{$name}%"])
+            ->orWhereRaw('LOWER(m.name) LIKE ?', ["%{$name}%"]);
+        });
+        // });
         // });
       })
-      ->when(!empty($search), function ($q) use ($search) {
-        $id = intval(trim(preg_replace('/[^0-9]+/', '', $search)));
-        $name = mb_strtolower(trim(preg_replace('/[^А-яA-z ]+/iu', '', $search)));
-
-        $q->when($id > 0, function ($r) use ($id) {
-          $r->where('tickets.id', $id)->whereActive(true);
-        })->when(!empty($name), function ($y) use ($name) {
-          $y->orWhereRaw('LOWER(u.name) LIKE ?', ["%{$name}%"])->whereActive(true)
-            ->orWhereRaw('LOWER(m.name) LIKE ?', ["%{$name}%"])->whereActive(true);
-        });
-      })
-      ->select('tickets.*', 'tickets.id AS tid', 'reasons.name AS reason', 'messages.user_crm_id AS last_message_crm_id', 'messages.created_at AS last_message_date')
+      // ->whereNotNull('tickets.id')
+      ->select(
+        'tickets.*',
+        'tickets.id AS tid',
+        'reasons.name AS reason',
+        'messages.user_crm_id AS last_message_crm_id',
+        'messages.created_at AS last_message_date',
+        'hidden_chat_messages.created_at AS last_system_message_date'
+      )
 
       ->orderBy(DB::raw("CASE WHEN messages.user_crm_id != {$user_crm_id} THEN 1 WHEN messages.user_crm_id = {$user_crm_id} THEN 3 ELSE 2 END"))
       ->orderByDesc('tickets.weight')
       ->orderBy('last_message_date')
+      ->orderBy('tid')
       ->paginate($limit < 1 ? 100 : $limit);
 
+    // dd(DB::getQueryLog());
     // Подсчёт количества новых сообщений
 
     // ->select('tickets.*', 'tickets.id AS tid', 'reasons.name AS reason',// 'messages.content AS last_message',
@@ -92,8 +107,9 @@ class TicketController extends Controller
 
     foreach ($data as $ticket) {
       $ticket->user = $users_collection[$ticket->user_id]
-        ?? ['name' => 'Удалённый пользователь'];
-      $ticket->manager = $users_collection[$ticket->manager_id];
+        ?? ['name' => 'Неопределённый пользователь'];
+      $ticket->manager = $users_collection[$ticket->manager_id]
+        ?? ['name' => 'Неопределённый менеджер'];
     }
     unset($users_collection);
 
@@ -179,6 +195,7 @@ class TicketController extends Controller
       'user_crm_id' => 0,
       'ticket_id' => $ticket->id,
     ]);
+    Log::info($message);
 
     return response()->json([
       'status' => true,
@@ -315,7 +332,7 @@ class TicketController extends Controller
       ]);
     }
 
-    $message = "Тикет `{$ticket->id}` ";
+    $message = "Тикет №{$ticket->id} ";
     if (isset($validated['active']) && $validated['active'] == true) {
       $message .= "возобновлён";
     } else {

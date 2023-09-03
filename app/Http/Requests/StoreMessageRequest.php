@@ -42,6 +42,7 @@ class StoreMessageRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'ticket_id.min' => 'ID тикета не определено',
             '0.mimes' => 'Допускаются только изображения',
             '1.mimes' => 'Допускаются только изображения',
             '2.mimes' => 'Допускаются только изображения',

@@ -86,12 +86,14 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
   Route::prefix('detalization')->group(function () {
     Route::get('/', [DetalizationController::class, 'index']);
   });
+});
 
   Route::prefix('statistics')->group(function () {
     Route::get('/active_tickets', [DashboardController::class, 'getActiveTickets']);
     Route::post('/redistribute', [DashboardController::class, 'redistribute']);
     Route::get('/cache_reload', [DashboardController::class, 'cacheReload']);
 
-    Route::get('/tickets_by_reason', [DashboardController::class, 'getTicketsCountByReasons']);
+    Route::get('/tickets_by_reasons', [DashboardController::class, 'getTicketsCountByReasons']);
+    Route::get('/tickets_by_groups', [DashboardController::class, 'getTicketsByGroups']);
+    Route::get('/marks_percentage', [DashboardController::class, 'getMarksPercentage']);
   });
-});

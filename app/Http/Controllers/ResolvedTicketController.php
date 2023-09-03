@@ -49,6 +49,7 @@ class ResolvedTicketController extends Controller
       })
       ->select('resolved_tickets.*', 'reasons.name AS reason')
       ->orderBy('resolved_tickets.updated_at')
+      ->orderBy('resolved_tickets.id')
       ->paginate($limit < 1 ? 100 : $limit);
 
     $search = UserTrait::search();
@@ -61,8 +62,9 @@ class ResolvedTicketController extends Controller
 
     foreach ($data as $ticket) {
       $ticket->user = $users_collection[$ticket->user_id]
-        ?? ['name' => 'Удалённый пользователь'];
-      $ticket->manager = $users_collection[$ticket->manager_id];
+        ?? ['name' => 'Неопределённый пользователь'];
+      $ticket->manager = $users_collection[$ticket->manager_id]
+      ?? ['name' => 'Неопределённый менеджер'];
     }
 
     return response()->json([

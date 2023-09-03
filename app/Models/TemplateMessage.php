@@ -18,12 +18,12 @@ class TemplateMessage extends Model
         'updated_at',
         'deleted_at',
     ];
-    
+
     protected $casts = [
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
     ];
-    
+
     protected $table = 'template_messages';
 }

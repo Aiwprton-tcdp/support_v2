@@ -32,7 +32,7 @@ export default {
       ShowHistoryInfo: Boolean(),
       ShowWarning: Boolean(),
       search: String(),
-      page: Number(),
+      page: Number(1),
       TicketsCount: Number(),
       limit: Number(15),
       VITE_CRM_URL: String(import.meta.env.VITE_CRM_URL),
@@ -54,7 +54,7 @@ export default {
     let complete = setInterval(() => {
       if (document.readyState === "complete") {
         clearInterval(complete)
-        this.Get(++this.page)
+        this.Get(this.page)
         this.WebsocketInit()
       }
     }, 200)
@@ -62,6 +62,7 @@ export default {
     this.emitter.on('NewTicket', this.NewTicket)
     this.emitter.on('PatchTicket', this.PatchTicket)
     this.emitter.on('NewMessage', this.NewMessage)
+    this.emitter.on('NewHiddenMessage', this.NewHiddenMessage)
     this.emitter.on('DeleteTicket', this.DeleteTicket)
     this.emitter.on('NewParticipant', this.NewParticipant)
   },
@@ -99,6 +100,7 @@ export default {
         this.AllTickets.forEach(t => {
           t.unread_messages = t.last_message_crm_id != this.UserData.crm_id
           t.marked_as_deleted = t.active == 0
+          t.unread_system_messages = t.last_system_message_date != null && new Date(t.last_system_message_date).getTime() - new Date(t.last_message_date).getTime() < 24 * 60 * 60 * 1000
         })
         this.tickets = this.AllTickets
 
@@ -146,6 +148,7 @@ export default {
 
       const name = `#${this.VITE_APP_PREFIX}.${this.UserData.crm_id}`
       const sub_message = centrifuge.newSubscription(`${name}.message`)
+      const sub_hidden_message = centrifuge.newSubscription(`${name}.hidden_message`)
       const sub_ticket = centrifuge.newSubscription(`${name}.ticket`)
       const sub_patch_ticket = centrifuge.newSubscription(`${name}.ticket.patch`)
       const sub_delete_ticket = centrifuge.newSubscription(`${name}.ticket.delete`)
@@ -160,6 +163,19 @@ export default {
             this.emitter.emit('NewMessage', message)
           } else {
             this.NewMessage(message)
+          }
+        }
+      })
+
+      sub_hidden_message.on('publication', msg => {
+        const message = msg.data.message
+
+        if (['tickets', 'ticket'].includes(this.$route.name)
+          && message.user_id != this.UserData.crm_id) {
+          if (message.ticket_id == this.CurrentTicket.id) {
+            this.emitter.emit('NewHiddenMessage', message)
+          } else {
+            this.NewHiddenMessage(message)
           }
         }
       })
@@ -223,10 +239,25 @@ export default {
       this.$router.push({ name: 'new_ticket' })
     },
     TicketsSorting() {
-      const crm_id = this.UserData.crm_id
+      console.log(this.UserData)
+      const user_id = this.UserData.crm_id
+      const last_message = (t1, t2) => {
+        if ((t1.last_message_crm_id == t1.user_id && t1.manager_id == user_id)
+          - (t2.last_message_crm_id == t2.user_id && t2.manager_id == user_id)) {
+          return -1;
+        }
+        if ((t1.last_message_crm_id == t1.manager_id && t1.manager_id == user_id)
+          - (t2.last_message_crm_id == t2.manager_id && t2.manager_id == user_id)) {
+          return 1;
+        }
+        // a должно быть равным b
+        return 0;
+      }
+
       this.AllTickets = this.AllTickets.sort((t1, t2) =>
         (t1.unread_messages < t2.unread_messages) - (t1.unread_messages > t2.unread_messages)
-        || (t1.last_message_crm_id == crm_id) - (t2.last_message_crm_id == crm_id)
+        || last_message(t1, t2)
+        // || (t1.last_message_crm_id == user_id) - (t2.last_message_crm_id == user_id)
         || (t2.weight - t1.weight)
         || (new Date(t1.last_message_date) - new Date(t2.last_message_date)))
 
@@ -248,6 +279,7 @@ export default {
         this.ax.get(`tickets/${data.ticket_id}`).then(r => {
           const ticket = r.data.data.data
           ticket.unread_messages = true
+          ticket.unread_system_messages = data.last_system_message_date != null && new Date(data.last_system_message_date).getTime() - new Date(data.last_message_date).getTime() < 24 * 60 * 60 * 1000
           this.AllTickets.push(ticket)
           this.TicketsSorting()
         }).catch(e => {
@@ -255,6 +287,28 @@ export default {
         })
       } else {
         this.AllTickets[index].unread_messages = true
+        this.AllTickets[index].unread_system_messages = data.last_system_message_date != null && new Date(data.last_system_message_date).getTime() - new Date(data.last_message_date).getTime() < 24 * 60 * 60 * 1000
+        this.TicketsSorting()
+      }
+    },
+    NewHiddenMessage(data) {
+      if (this.CurrentTicket.id == data.ticket_id) return
+
+      const index = this.AllTickets.findIndex(({ id }) => id == data.ticket_id)
+
+      if (index == -1) {
+        this.ax.get(`tickets/${data.ticket_id}`).then(r => {
+          const ticket = r.data.data.data
+          ticket.unread_messages = true
+          ticket.unread_system_messages = data.last_system_message_date != null && new Date(data.last_system_message_date).getTime() - new Date(data.last_message_date).getTime() < 24 * 60 * 60 * 1000
+          this.AllTickets.push(ticket)
+          this.TicketsSorting()
+        }).catch(e => {
+          this.toast(e.response.data.message, 'error')
+        })
+      } else {
+        this.AllTickets[index].unread_messages = true
+        this.AllTickets[index].unread_system_messages = data.last_system_message_date != null && new Date(data.last_system_message_date).getTime() - new Date(data.last_message_date).getTime() < 24 * 60 * 60 * 1000
         this.TicketsSorting()
       }
     },
@@ -269,21 +323,24 @@ export default {
 
       this.TicketsCount++
       this.TicketsSorting()
+      this.tickets = this.AllTickets
     },
     PatchTicket(data) {
       const index = this.AllTickets.findIndex(({ id }) => id == data.id)
       if (index == -1) return
       this.AllTickets[index] = data
-      this.tickets = this.AllTickets
       this.TicketsSorting()
+      this.tickets = this.AllTickets
     },
     DeleteTicket(ticket_id, message) {
-      const index = this.tickets.findIndex(({ id }) => id == ticket_id)
+      const index = this.AllTickets.findIndex(({ id }) => id == ticket_id)
       if (index == -1) return
       this.AllTickets.splice(index, 1)
 
       this.toast(message, 'success')
 
+      console.log(this.AllTickets.length)
+      console.log(this.TicketsCount)
       if (this.AllTickets.length < this.TicketsCount--) {
         let page = Math.floor(index / this.limit) + 1
         this.ax.get(`tickets?page=${page}&limit=${this.limit}`).then(r => {
@@ -300,6 +357,7 @@ export default {
       if (this.$route.name == 'ticket' && is_current_ticket) {
         this.$router.push('tickets')
       }
+      this.tickets = this.AllTickets
     },
     NewParticipant(data) {
       const index = this.tickets.findIndex(({ id }) => id == data.ticket_id)
@@ -374,7 +432,7 @@ export default {
   <div class="fixed top-1 right-1 flex flex-row space-x-4 z-10">
     <div v-if="AllTickets.length > 0" class="flex flex-wrap space-x-2">
       <div class="relative" @click="ShowHistoryInfo = !ShowHistoryInfo" @mouseleave="ShowHistoryInfo = false">
-        <VueInput @keyup.enter="Get()" v-model="search" placeholder="Поиск" label="" class="flex-1">
+        <VueInput @keyup.enter="Get()" v-model="search" v-focus placeholder="Поиск" label="" class="flex-1">
           <template #prefix>
             <svg aria-hidden="true" class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor"
               viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -414,7 +472,7 @@ export default {
   </div>
 
   <div class="grid divide-x max-h-[calc(100vh-55px)]"
-    :class="UserData.is_admin && UserData.role_id == 2 ? 'grid-cols-6' : 'grid-cols-5'">
+    :class="UserData.is_admin || UserData.role_id == 2 ? 'grid-cols-6' : 'grid-cols-5'">
     <!-- Skeleton -->
     <template v-if="waiting && this.page == 1">
       <div
@@ -443,38 +501,44 @@ export default {
 
     <div v-else id="tickets" @scroll="onScroll"
       class="flex flex-col h-[calc(100vh-55px)] divide-y overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch">
-      <div v-for="t in tickets" v-bind:key="t" class="p-1"
-        :class="t.id == CurrentTicket?.id ? 'bg-blue-200 dark:bg-blue-500' : 'bg-white hover:bg-gray-100 dark:bg-gray-600 dark:hover:bg-gray-800'">
-        <div @click.self="GoTo(t)" class="relative flex flex-row items-center w-full gap-2 cursor-pointer">
-          <a :href="VITE_CRM_URL + 'company/personal/user/' + (UserData.crm_id == t.user_id ? t.manager_id : t.user_id) + '/'"
-            target="_blank">
-            <Avatar rounded size="sm" alt="avatar" :title="'Id тикета: ' + t.id"
-              :img="(UserData.crm_id == t.user_id ? t.manager?.avatar : t.user?.avatar) ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
-          </a>
-          <div @click="GoTo(t)" class="max-w-[80%] flex flex-col cursor-pointer">
-            <p class="truncate" :title="UserData.crm_id == t.user_id ? t.manager?.name : t.user?.name">
-              {{ UserData.crm_id == t.user_id ? t.manager?.name : t.user?.name }}
-            </p>
-            <p class="truncate" :title="t.reason">{{ t.reason }}</p>
-          </div>
+      <TransitionGroup name="list" tag="ul">
+        <div v-for="t in tickets" v-bind:key="t" class="p-1"
+          :class="t.id == CurrentTicket?.id ? 'bg-blue-200 dark:bg-blue-500' : 'bg-white hover:bg-gray-100 dark:bg-gray-600 dark:hover:bg-gray-800'">
+          <div @click.self="GoTo(t)" class="relative flex flex-row items-center w-full gap-2 cursor-pointer">
+            <a :href="VITE_CRM_URL + 'company/personal/user/' + (UserData.crm_id == t.user_id ? t.manager_id : t.user_id) + '/'"
+              target="_blank">
+              <Avatar rounded size="sm" alt="avatar" :title="'Id тикета: ' + t.id"
+                :img="(UserData.crm_id == t.user_id ? t.manager?.avatar : t.user?.avatar) ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
+            </a>
+            <div @click="GoTo(t)" class="max-w-[80%] flex flex-col cursor-pointer">
+              <p class="truncate" :title="UserData.crm_id == t.user_id ? t.manager?.name : t.user?.name">
+                {{ UserData.crm_id == t.user_id ? t.manager?.name : t.user?.name }}
+              </p>
+              <p class="truncate" :title="t.reason">{{ t.reason }}</p>
+            </div>
 
-          <div v-if="t.reset_deleted_mark" class="absolute inline-flex items-center justify-center right-0">
-            <span title="Создатель вернул тикет в работу"
-              class="flex w-2.5 h-2.5 bg-red-500 rounded-full flex-shrink-0"></span>
-          </div>
-          <div v-else-if="t.marked_as_deleted" class="absolute inline-flex items-center justify-center right-0">
-            <span title="Ответственный пометил данный тикет на удаление"
-              class="flex w-2.5 h-2.5 bg-yellow-300 rounded-full flex-shrink-0"></span>
-          </div>
-          <div v-else-if="t.unread_messages" class="absolute inline-flex items-center justify-center right-0">
-            <span title="Есть сообщение, ожидающее Вашего ответа"
-              class="flex w-2.5 h-2.5 bg-indigo-500 rounded-full flex-shrink-0"></span>
+            <div v-if="t.reset_deleted_mark" class="absolute inline-flex items-center justify-center right-0">
+              <span title="Создатель вернул тикет в работу"
+                class="flex w-2.5 h-2.5 bg-red-500 rounded-full flex-shrink-0"></span>
+            </div>
+            <div v-else-if="t.marked_as_deleted" class="absolute inline-flex items-center justify-center right-0">
+              <span title="Ответственный пометил данный тикет на удаление"
+                class="flex w-2.5 h-2.5 bg-yellow-300 rounded-full flex-shrink-0"></span>
+            </div>
+            <div v-else-if="t.unread_messages" class="absolute inline-flex items-center justify-center right-0">
+              <span title="Есть сообщение, ожидающее Вашего ответа"
+                class="flex w-2.5 h-2.5 bg-indigo-500 rounded-full flex-shrink-0"></span>
+            </div>
+            <div v-else-if="t.unread_system_messages" class="absolute inline-flex items-center justify-center right-0">
+              <span title="Новое сообщение в системном чате"
+                class="flex w-2.5 h-2.5 bg-gray-500 rounded-full flex-shrink-0"></span>
+            </div>
           </div>
         </div>
-      </div>
+      </TransitionGroup>
     </div>
 
-    <div class="h-[calc(100vh-55px)] flex flex-col items-center" :class="[UserData.is_admin && UserData.role_id == 2 ? 'col-span-5' : 'col-span-4',
+    <div class="h-[calc(100vh-55px)] flex flex-col items-center" :class="[UserData.is_admin || UserData.role_id == 2 ? 'col-span-5' : 'col-span-4',
     { 'justify-center': $route.name == 'tickets' }]">
       <div v-if="waiting" class="flex flex-col">
         <p class="mx-auto">Идёт загрузка данных...</p>

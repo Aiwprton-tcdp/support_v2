@@ -36,6 +36,7 @@ class MessageController extends Controller
      */
     public function store(StoreMessageRequest $request)
     {
+        // dd($request->validated(), $_FILES);
         if (count($_FILES) > 5) {
             return [
                 'status' => 'error',
@@ -50,7 +51,7 @@ class MessageController extends Controller
         $ticket = \App\Models\Ticket::whereId($validated['ticket_id'])
             ->whereActive(true)->first();
 
-        if (empty($ticket)) {
+        if (!isset($ticket)) {
             return response()->json([
                 'status' => false,
                 'data' => $ticket,
@@ -65,7 +66,7 @@ class MessageController extends Controller
             $attachment_path = TicketTrait::SaveAttachment($data->id, $file);
             array_push($attachments, $attachment_path);
         }
-        $data['attachments'] = collect($attachments);
+        $data->attachments = collect($attachments);
 
         $recipient_ids = [];
         if (!in_array($data->user_crm_id, [$ticket->user_id, $ticket->manager_id])) {

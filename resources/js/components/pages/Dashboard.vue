@@ -1,43 +1,25 @@
 <script>
-import { inject } from 'vue'
+import { inject, defineAsyncComponent } from 'vue'
 import { Button as VueButton, Avatar } from 'flowbite-vue'
-import * as echarts from 'echarts'
 
-import TicketsRedistributionModal from '@temps/dashboard/TicketsRedistributionModal.vue'
+const TicketsRedistributionModal = defineAsyncComponent(() => import('@temps/dashboard/TicketsRedistributionModal.vue'))
+const TicketsByGroupChartComponent = defineAsyncComponent(() => import('@temps/dashboard/TicketsByGroupChart.vue'))
+const TicketsByReasonsChartComponent = defineAsyncComponent(() => import('@temps/dashboard/TicketsByReasonsChart.vue'))
+const MarksPercentageChartComponent = defineAsyncComponent(() => import('@temps/dashboard/MarksPercentageChart.vue'))
 
-import {
-  DatasetComponent,
-  GridComponent,
-  TransformComponent,
-  TitleComponent,
-  TooltipComponent,
-  ToolboxComponent,
-  LegendComponent
-} from 'echarts/components'
-import { PieChart, BarChart, LineChart } from 'echarts/charts'
-import { UniversalTransition } from 'echarts/features'
-import { CanvasRenderer } from 'echarts/renderers'
-
-echarts.use([
-  DatasetComponent,
-  GridComponent,
-  TransformComponent,
-  TitleComponent,
-  TooltipComponent,
-  ToolboxComponent,
-  LegendComponent,
-  PieChart,
-  BarChart,
-  LineChart,
-  CanvasRenderer,
-  UniversalTransition
-])
+// import TicketsRedistributionModal from '@temps/dashboard/TicketsRedistributionModal.vue'
+// import TicketsByGroupChartComponent from '@temps/dashboard/TicketsByGroupChart.vue'
+// import TicketsByReasonsChartComponent from '@temps/dashboard/TicketsByReasonsChart.vue'
+// import MarksPercentageChartComponent from '@temps/dashboard/MarksPercentageChart.vue'
 
 export default {
   name: 'DashboardPage',
   components: {
     VueButton, Avatar,
-    TicketsRedistributionModal
+    TicketsByGroupChartComponent,
+    TicketsRedistributionModal,
+    TicketsByReasonsChartComponent,
+    MarksPercentageChartComponent,
   },
   data() {
     return {
@@ -49,15 +31,8 @@ export default {
     }
   },
   setup() {
-    const UserData = inject('UserData')
     const toast = inject('createToast')
-    const emitter = inject('emitter')
-
-    return {
-      UserData,
-      toast,
-      emitter
-    }
+    return { toast }
   },
   mounted() {
     this.GetActiveTickets()
@@ -76,7 +51,7 @@ export default {
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
         this.errored = true
-      }).finally(this.InitChartCountByReasons)
+      })
     },
     CacheReload() {
       if (this.waiting) return
@@ -98,56 +73,6 @@ export default {
       this.$refs.TicketsRedistribution.ticket = data
       this.$refs.TicketsRedistribution.GetAllManagers()
     },
-    InitChartCountByReasons() {
-      this.ax.get('statistics/tickets_by_reason').then(r => {
-        const d = r.data.data
-        const chart = echarts.init(document.getElementById('tickets_count_by_reasons'))
-        // const chart = echarts.init(
-        //   document.getElementById('tickets_count_by_reasons'),
-        //   null,
-        //   {
-        //     width: 600,
-        //     height: 400,
-        //   }
-        // )
-
-        chart.setOption({
-          title: {
-            text: 'Количество тикетов по темам',
-            subtext: '',
-            left: 'center'
-          },
-          tooltip: {
-            trigger: 'item'
-          },
-          legend: {
-            orient: 'horizontal',
-            top: 'bottom'
-          },
-          toolbox: {
-            feature: {
-              restore: {},
-              saveAsImage: {}
-            }
-          },
-          series: [{
-            name: '',
-            type: 'pie',
-            radius: '50%',
-            data: d,
-            emphasis: {
-              itemStyle: {
-                shadowBlur: 10,
-                shadowOffsetX: 0,
-                shadowColor: 'rgba(0, 0, 0, 0.5)'
-              }
-            }
-          }]
-        })
-      }).catch(error => {
-        console.log(error)
-      })
-    },
   }
 }
 </script>
@@ -159,7 +84,7 @@ export default {
     </VueButton>
   </div>
 
-  <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2 m-2">
+  <div class="grid grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 m-2">
     <div class="flex flex-col gap-1">
       <p class="text-lg">Активные тикеты</p>
       <div
@@ -192,9 +117,17 @@ export default {
       </div>
     </div>
 
-    <div class="col-span-2 flex flex-col gap-1">
-      <!-- <p class="text-lg">Количество тикетов по темам</p> -->
-      <div id="tickets_count_by_reasons" class="w-full h-[30vh]"></div>
+    <div class="col-span-2 lg:col-span-3 xl:col-span-4">
+      <MarksPercentageChartComponent />
+    </div>
+  </div>
+
+  <div class="grid grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 m-2">
+    <div class="col-span-3 lg:col-span-4 xl:col-span-5">
+      <TicketsByReasonsChartComponent />
+    </div>
+    <div class="col-span-3 lg:col-span-4 xl:col-span-5">
+      <TicketsByGroupChartComponent />
     </div>
   </div>
 

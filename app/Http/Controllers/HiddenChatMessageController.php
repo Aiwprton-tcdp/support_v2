@@ -6,6 +6,7 @@ use App\Http\Requests\StoreHiddenChatMessageRequest;
 use App\Http\Requests\UpdateHiddenChatMessageRequest;
 use App\Http\Resources\MessageResource;
 use App\Models\HiddenChatMessage;
+use App\Traits\TicketTrait;
 use Illuminate\Support\Facades\Auth;
 
 class HiddenChatMessageController extends Controller
@@ -24,18 +25,19 @@ class HiddenChatMessageController extends Controller
 
         $search = \App\Traits\UserTrait::search();
         $users_collection = array();
-    
+
         foreach ($search->data as $user) {
             $users_collection[$user->crm_id] = $user;
         }
         unset($search);
-    
+
         foreach ($data as $message) {
-            if ($message->user_crm_id == 0) continue;
+            if ($message->user_crm_id == 0)
+                continue;
             $message->user = $users_collection[$message->user_crm_id];
         }
         unset($users_collection);
-        
+
         return response()->json([
             'status' => true,
             'data' => MessageResource::collection($data)->response()->getData()
@@ -63,16 +65,29 @@ class HiddenChatMessageController extends Controller
         $data = HiddenChatMessage::create($validated);
         $data->user = \App\Traits\UserTrait::tryToDefineUserEverywhere($data->user_crm_id);
 
+        $recipient_ids = $ticket->manager_id != $data->user_crm_id
+            ? [$ticket->manager_id]
+            : [];
+
         $message = "Новое сообщение в системном чате тикета №{$ticket->id}";
-        if ($ticket->manager_id != $data->user_crm_id) {
-            \App\Traits\TicketTrait::SendNotification($ticket->manager_id, $message, $ticket->id);
+        $resource = MessageResource::make($data);
+
+        foreach ($recipient_ids as $id) {
+            TicketTrait::SendMessageToWebsocket("{$id}.message", [
+                'message' => $resource,
+            ]);
+            TicketTrait::SendNotification($id, $message, $ticket->id);
         }
 
         $another_recipients = \App\Models\Participant::whereTicketId($ticket->id)
             ->whereNot('user_crm_id', $data->user_crm_id)
             ->get('user_crm_id');
         foreach ($another_recipients as $rec) {
-            \App\Traits\TicketTrait::SendNotification($rec->user_crm_id, $message, $ticket->id);
+            $id = $rec->user_crm_id;
+            TicketTrait::SendMessageToWebsocket("{$id}.hidden_message", [
+                'message' => $resource,
+            ]);
+            TicketTrait::SendNotification($id, $message, $ticket->id);
         }
 
         return response()->json([

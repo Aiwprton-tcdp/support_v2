@@ -2,14 +2,14 @@
 import { inject } from 'vue'
 import {
   Button as VueButton,
-  Modal, Toggle
+  Toggle
 } from 'flowbite-vue'
 import VueMultiselect from 'vue-multiselect'
 
 export default {
   name: 'GroupPatchModal',
   components: {
-    VueButton, Modal,
+    VueButton,
     Toggle, VueMultiselect
   },
   data() {
@@ -51,15 +51,12 @@ export default {
             this.OnlyInGroup.push(m)
           }
         })
-        console.log('this.managers')
-        console.log(this.managers)
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
         this.errored = true
       })
     },
     AddToGroup(data) {
-      console.log(data)
       this.ax.post('manager_groups', {
         manager_id: data.id,
         group_id: this.group.id,
@@ -79,6 +76,8 @@ export default {
         if (r.data.status) {
           data.in_group = false
           delete data.mg_id
+        } else {
+          this.OnlyInGroup.push(data)
         }
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
@@ -87,7 +86,6 @@ export default {
     ChangeCollaborative() {
       this.ax.patch(`groups/${this.group.id}`, this.group).then(r => {
         this.toast(r.data.message, r.data.status ? 'success' : 'error')
-        console.log(r.data)
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
       })
@@ -105,48 +103,53 @@ export default {
 </script>
 
 <template>
-  <Modal v-if="visible" size="4xl" @close="Close">
-    <template #header>
-      <div class="flex items-center text-lg">
-        <span>Группа: <b>{{ group.name }}</b></span>
+  <Transition name="modal">
+    <div v-if="visible" @click.self="Close" class="modal-mask">
+      <div class="modal-container">
+        <div class="modal-header">
+          <div class="flex items-center text-lg">
+            <span>Группа: <b>{{ group.name }}</b></span>
+          </div>
+        </div>
+
+        <div class="modal-body">
+          <div v-if="errored">
+            <p>Ошибка</p>
+          </div>
+          <div v-else class="flex flex-wrap gap-2">
+            <VueMultiselect v-model="OnlyInGroup" :options="managers" :multiple="true" :close-on-select="false"
+              placeholder="Выберите менеджера" @select="AddToGroup" @remove="RemoveFromGroup" label="name"
+              track-by="name">
+              <template #noResult>Нет данных</template>
+
+              <template slot="option" slot-scope="props">
+                <img class="option__image" :src="props.option.avatar" alt="avatar">
+                <span>{{ props.option.text }}</span>
+              </template>
+
+              <template slot="tag" slot-scope="{ option, remove }">
+                <!-- <img class="tag__image" :src="option.avatar" alt="avatar"> -->
+                <span class="multiselect__tag">
+                  <span>{{ option.text }}</span>
+                  <span class="multiselect__tag-icon" @click.prevent="remove(option)">
+                    &#10006;
+                  </span>
+                </span>
+              </template>
+            </VueMultiselect>
+
+            <Toggle @change="ChangeCollaborative" v-model="group.collaborative" label="Общая" color="green" />
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <div class="flex flex-row-reverse justify-between">
+            <VueButton @click="Close" color="alternative">
+              Закрыть
+            </VueButton>
+          </div>
+        </div>
       </div>
-    </template>
-
-    <template #body>
-      <div v-if="errored">
-        <p>Ошибка</p>
-      </div>
-      <div v-else class="flex flex-wrap space-2">
-        <VueMultiselect v-model="OnlyInGroup" :options="managers" :multiple="true" :close-on-select="false"
-          placeholder="Выберите менеджера" @select="AddToGroup" @remove="RemoveFromGroup" label="name" track-by="name">
-          <template #noResult>Нет данных</template>
-
-          <template slot="option" slot-scope="props">
-            <img class="option__image" :src="props.option.avatar" alt="avatar">
-            <span>{{ props.option.text }}</span>
-          </template>
-
-          <template slot="tag" slot-scope="{ option, remove }">
-            <!-- <img class="tag__image" :src="option.avatar" alt="avatar"> -->
-            <span class="multiselect__tag">
-              <span>{{ option.text }}</span>
-              <span class="multiselect__tag-icon" @click.prevent="remove(option)">
-                &#10006;
-              </span>
-            </span>
-          </template>
-        </VueMultiselect>
-
-        <Toggle @change="ChangeCollaborative" v-model="group.collaborative" label="Общая" color="green" />
-      </div>
-    </template>
-
-    <template #footer>
-      <div class="flex flex-row-reverse justify-between">
-        <VueButton @click="Close" color="alternative">
-          Закрыть
-        </VueButton>
-      </div>
-    </template>
-  </Modal>
+    </div>
+  </Transition>
 </template>

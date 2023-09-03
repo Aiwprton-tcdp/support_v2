@@ -119,7 +119,7 @@ export default {
   </div>
 
   <div v-if="!IsResolved && ticket.active != 0" class="relative flex flex-row h-[60px] items-center gap-1 px-3 py-2">
-    <textarea v-model="CreatingMessage" @keydown.ctrl.enter.exact="CreateMessage()" rows="1"
+    <textarea v-model="CreatingMessage" @keydown.ctrl.enter.exact="CreateMessage()" v-focus rows="1"
       class="resize-none block overflow-hidden p-2.5 pr-4 w-full text-sm text-gray-900 bg-white rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
       placeholder="Отправить: Ctrl+Enter" />
     <div v-if="CreatingMessage.length > 0" @click="CreatingMessage = ''"

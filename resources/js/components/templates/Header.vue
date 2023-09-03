@@ -8,7 +8,6 @@ export default {
   setup() {
     const ActiveTab = inject('ActiveTab')
     const UserData = inject('UserData')
-    console.log(UserData)
 
     return { ActiveTab, UserData }
   },
@@ -21,7 +20,7 @@ export default {
 </script>
 
 <template>
-  <Tabs variant="underline" v-model="ActiveTab" @click:pane="ChangeRoute()">
+  <Tabs variant="underline" v-model="ActiveTab" @click:pane="ChangeRoute()" role="navigation">
     <Tab name="tickets" title="Тикеты" />
     <Tab name="archive" title="Архив" />
 

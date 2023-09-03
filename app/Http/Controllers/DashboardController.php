@@ -61,7 +61,6 @@ class DashboardController extends Controller
     public function redistribute(RedistributionRequest $request)
     {
         $validated = $request->validated();
-        // 59 + (28 + 35,5)
         $result = TicketTrait::TryToRedistributeByReason(
             $validated['reason_id'],
             $validated['user_crm_id'],
@@ -91,7 +90,6 @@ class DashboardController extends Controller
         ]);
     }
 
-    // Обновление кеша
     public function getTicketsCountByReasons()
     {
         $resolved_tickets = DB::table('resolved_tickets')
@@ -108,10 +106,66 @@ class DashboardController extends Controller
             ->orderBy('name')
             ->get();
 
-        // dd($data);
-
         return response()->json([
             'data' => $data
+        ]);
+    }
+
+    public function getTicketsByGroups()
+    {
+        $resolved_tickets = DB::table('resolved_tickets')
+            ->join('reasons', 'reasons.id', 'resolved_tickets.reason_id')
+            ->join('groups', 'groups.id', 'reasons.group_id')
+            ->selectRaw('resolved_tickets.old_ticket_id AS id,
+                reasons.group_id AS group_id,
+                groups.name AS group_name,
+                -1 AS status');
+        $tickets = DB::table('tickets')
+            ->join('reasons', 'reasons.id', 'tickets.reason_id')
+            ->join('groups', 'groups.id', 'reasons.group_id')
+            ->selectRaw('tickets.id AS id,
+                reasons.group_id AS group_id,
+                groups.name AS group_name,
+                tickets.active AS status')
+            ->union($resolved_tickets);
+
+        $data = DB::query()->fromSub($tickets, 't')
+            ->selectRaw('COUNT(t.id) AS value, t.status, t.group_id, t.group_name')
+            ->groupBy('t.group_id', 't.group_name', 't.status')
+            ->orderBy('t.group_name')
+            ->get();
+
+        $result = [];
+        foreach ($data as $d) {
+            $result[$d->group_name][$d->status] = $d->value;
+        }
+
+        return response()->json([
+            'data' => $result
+        ]);
+    }
+
+    public function getMarksPercentage()
+    {
+        $data = DB::table('resolved_tickets AS rt')
+            ->selectRaw('COUNT(rt.old_ticket_id) AS count, rt.mark')
+            ->groupBy('rt.mark')
+            ->get();
+
+        $map = array_map(fn($d) => $d->count, $data->all());
+        $sum = array_sum($map);
+        $statuses = ['Без оценки', 'Плохо', 'Нормально', 'Отлично'];
+        // $sum = array_sum(array_filter($map, fn($f, $key) => $key != 0, ARRAY_FILTER_USE_BOTH));
+        $res = [];
+        foreach ($map as $key => $value) {
+            $res[$statuses[$key]] = number_format($value / $sum * 100, 2, '.', '');
+        }
+        // dd($res);
+        $result = $res;
+        // $result = array_reverse($res);
+
+        return response()->json([
+            'data' => $result
         ]);
     }
 }

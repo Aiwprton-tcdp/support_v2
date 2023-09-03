@@ -22,7 +22,7 @@ class UpdateTemplateMessageRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'content' => 'required|string',
+            'content' => 'required|string|unique:template_messages|min:2',
         ];
     }
 }

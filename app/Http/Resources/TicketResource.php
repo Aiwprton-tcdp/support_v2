@@ -21,12 +21,14 @@ class TicketResource extends JsonResource
             'reason_id' => $this->reason_id,
             'weight' => $this->weight,
             'active' => $this->active,
+            'anydesk' => @$this->anydesk,
             'created_at' => $this->created_at,
             'reason' => $this->reason,
             'user' => $this->user,
             'manager' => $this->manager,
             'last_message_crm_id' => $this->last_message_crm_id,
             'last_message_date' => $this->last_message_date,
+            'last_system_message_date' => @$this->last_system_message_date,
             // 'messages_count' => $this->messages_count,
         ];
         // return parent::toArray($request);

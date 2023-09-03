@@ -99,12 +99,11 @@ trait TicketTrait
 
     Storage::disk('local')->put($path, $file);
 
-    $new_data = [
+    $attachment = \App\Models\Attachment::create([
       'message_id' => $message_id,
       'name' => $content['name'],
       'link' => Storage::url($path),
-    ];
-    $attachment = \App\Models\Attachment::create($new_data);
+    ]);
 
     return \App\Http\Resources\AttachmentResource::make($attachment);
   }

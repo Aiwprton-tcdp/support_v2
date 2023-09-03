@@ -1,5 +1,5 @@
 <script>
-import { inject } from 'vue'
+import { inject, defineAsyncComponent } from 'vue'
 import {
   Table as VueTable, TableHead,
   TableBody, TableHeadCell,
@@ -9,7 +9,8 @@ import {
 } from 'flowbite-vue'
 
 import { StringVal } from '@utils/validation.js'
-import GroupPatchModal from '@temps/GroupPatchModal.vue'
+
+const GroupPatchModal = defineAsyncComponent(() => import('@temps/GroupPatchModal.vue'))
 
 export default {
   name: 'GroupsPage',
@@ -140,7 +141,7 @@ export default {
   <!-- Search -->
   <div class="fixed top-1 right-1">
     <div v-if="AllGroups.length > 0" class="flex flex-row space-x-2">
-      <VueInput @keyup.enter="Search()" v-model="search" placeholder="Поиск" label="" class="w-64">
+      <VueInput @keyup.enter="Search()" v-model="search" v-focus placeholder="Поиск" label="" class="w-64">
         <template #prefix v-if="search.length == 0">
           <svg aria-hidden="true" class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor"
             viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -203,7 +204,9 @@ export default {
     </TableBody>
   </VueTable>
 
-  <GroupPatchModal ref="GroupPatch" />
+  <Teleport to="body">
+    <GroupPatchModal ref="GroupPatch" />
+  </Teleport>
 
   <div v-if="errored || groups.length == 0" class="flex flex-col gap-3 mt-3">
     <p v-if="errored" class="mx-auto text-center text-gray-400 w-full lg:w-2/3">

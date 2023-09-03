@@ -106,9 +106,9 @@ class ManagerGroupController extends Controller
             ]);
         }
 
-        $user = Manager::with(['user:id,name'])->findOrFail($data->manager_id);
+        $manager = Manager::with(['user:crm_id,name'])->findOrFail($data->manager_id);
         $group = Group::findOrFail($data->group_id);
-        $message = '`' . $user->name . '` удалён из группы `' . $group->name . '`';
+        $message = '`' . $manager->user->name . '` удалён из группы `' . $group->name . '`';
         Log::info($message);
 
         $result = $data->delete();

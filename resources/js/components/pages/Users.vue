@@ -171,14 +171,14 @@ export default {
   <template v-if="!only_with_roles && AllUsers.length > 0 || only_with_roles && AllUsersWithRoles.length > 0">
     <div class="fixed top-1 right-1 space-y-4">
       <div class="flex flex-wrap space-x-4">
-        <button v-if="only_with_roles || !only_with_roles && this.AllUsersWithRoles.length > 0" @click="GetManagesOrAll()"
+        <button v-focus v-if="only_with_roles || !only_with_roles && this.AllUsersWithRoles.length > 0" @click="GetManagesOrAll()"
           class="text-sm pb-1 no-underline hover:underline border-0 focus:outline-none bg-transparent decoration-dotted underline-offset-4">
           <p v-if="!only_with_roles">показать только с ролями</p>
           <p v-else>показать всех</p>
         </button>
 
         <div class="flex flex-row space-x-2">
-          <VueInput @keyup.enter="Search()" v-model="search" placeholder="Поиск" label="" class="w-48">
+          <VueInput @keyup.enter="Search()" v-model="search" v-focus placeholder="Поиск" label="" class="w-48">
             <template #prefix v-if="search.length == 0">
               <svg aria-hidden="true" class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor"
                 viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

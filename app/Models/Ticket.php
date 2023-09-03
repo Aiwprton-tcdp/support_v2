@@ -15,6 +15,7 @@ class Ticket extends Model
     'reason_id',
     'weight',
     'active',
+    'anydesk',
     'created_at',
   ];
 
@@ -57,15 +58,19 @@ class Ticket extends Model
           ->whereRaw('hidden_chat_messages.id IN (SELECT MAX(m.id) FROM hidden_chat_messages m join tickets t on t.id = m.ticket_id WHERE m.content LIKE "%пометил тикет как решённый" GROUP BY t.id)');
       })
       ->whereNotNull('tickets.id')
-      // ->when($tickets_ids[0] != 0, fn($q) => $q->whereIn('tickets.id', $tickets_ids))
       ->when($weights[0] != 0, fn($q) => $q->whereIn('tickets.weight', $weights))
       ->when(!empty($reasons[0]), fn($q) => $q->whereIn('tickets.reason_id', $reasons))
-      ->where(
-        fn($q) => $q
-          ->where('tickets.active', intval($active))
+      ->when(
+        $active || $inactive,
+        fn($r) => $r
+          ->where('tickets.active', $active)
           ->orWhere('tickets.active', !$inactive)
-        // ->when($active, fn($r) => $r->where('tickets.active', 1))
-        // ->when($inactive, fn($r) => $r->orWhere('tickets.active', 0))
+      )
+      ->when(
+        !$active && !$inactive,
+        fn($r) => $r
+          ->whereNot('tickets.active', $active)
+          ->whereNot('tickets.active', !$inactive)
       )
       ->when(
         !empty($users[0]),

@@ -27,7 +27,7 @@ class DetalizationController extends Controller
     $reasons = explode(',', $this->prepare(request('reasons')));
     $from_date = $this->prepare(request('from_date'));
     $to_date = $this->prepare(request('to_date'));
-    
+
     $tickets_ids = range($min_id, $max_id <= $min_id ? $min_id + 1 : $max_id);
     $weights = range($min_w, $max_w <= $min_w ? $min_w + 1 : $max_w);
     $from_date = date("Y-m-d", strtotime($from_date));
@@ -40,7 +40,7 @@ class DetalizationController extends Controller
         NULL AS active, resolved_tickets.weight, resolved_tickets.created_at,
         reasons.id AS reason_id, reasons.name AS reason, NULL AS user, NULL AS manager,
         messages.created_at AS start_date,
-        TIMEDIFF(hidden_chat_messages.created_at, messages.created_at) AS time');
+        TIMEDIFF(IFNULL(hidden_chat_messages.created_at, NOW()), messages.created_at) AS time');
 
     $data = \App\Models\Ticket::filter($user_id, $tickets_ids, $weights, $users, $reasons, $dates, $active, $inactive, $search)
       ->selectRaw('tickets.user_id, tickets.manager_id, tickets.id AS tid, NULL AS mark,
@@ -53,6 +53,7 @@ class DetalizationController extends Controller
       // ->paginate();
       ->paginate($limit < 1 ? 100 : $limit);
 
+    // dd($data);
     $users_collection = array();
 
     foreach (UserTrait::search()->data as $user) {
@@ -65,8 +66,9 @@ class DetalizationController extends Controller
         continue;
       }
       $ticket->user = $users_collection[$ticket->user_id]
-        ?? ['name' => 'Удалённый пользователь'];
-      $ticket->manager = $users_collection[$ticket->manager_id];
+        ?? ['name' => 'Неопределённый пользователь'];
+      $ticket->manager = $users_collection[$ticket->manager_id]
+        ?? ['name' => 'Неопределённый менеджер'];
     }
     unset($users_collection);
 
