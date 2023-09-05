@@ -21,21 +21,80 @@ trait TicketTrait
     return $reason;
   }
 
-  public static function GetManagersForReason($reason_id)
+  public static function GetManagersForReason(int $reason_id): mixed
   {
-    return \App\Models\Reason::join('groups', 'groups.id', 'reasons.group_id')
+    $managers = \App\Models\Reason::rightJoin('groups', 'groups.id', 'reasons.group_id')
       ->join('manager_groups', 'manager_groups.group_id', 'groups.id')
       ->join('managers', 'managers.id', 'manager_groups.manager_id')
       ->join('users', 'users.crm_id', 'managers.crm_id')
       ->where('reasons.id', $reason_id)
-      ->select('managers.crm_id', 'users.name', 'reasons.weight', 'reasons.name AS reason')
+      ->where('managers.in_work', true)
+      ->orWhere('groups.default', 1)
+      ->select('managers.crm_id', 'users.name', 'reasons.id AS reason_id', 'reasons.weight', 'reasons.name AS reason')
       ->groupBy('reasons.id', 'groups.id', 'manager_groups.id', 'managers.id', 'users.id')
       ->get();
+
+    //TODO фильтруем менеджеров из актуальной группы
+    $fromCurrent = array_filter($managers->all(), fn($m) => isset($m['reason']));
+    // dd($managers, $fromCurrent, $managers[0]);
+
+    //TODO если там пусто, то берём активных из оставшихся (из дефолтной группы)
+    $map = $fromCurrent;
+    if (count($map) == 0) {
+      $map = $managers;
+    }
+    //TODO если таких нет, то берём всех
+    $count = count($map);
+    if ($count == 0) {
+      return null;
+    } elseif ($count == 1) {
+      // dd($map[array_key_first($map)]);
+      return $map;
+      // return $map[array_key_first($map)]->toArray();
+    }
+    //TODO считаем веса и возвращаем менеджера с меньшим весом
+
+    $reason = \App\Models\Reason::findOrFail($reason_id);
+    foreach ($map as $m) {
+      $m['reason_id'] = $reason->id;
+      $m['weight'] = $reason->weight;
+      $m['reason'] = $reason->name;
+    }
+    // dd($reason, $map);
+    return $map;
+    // dd(array_map(fn($m) => $m['crm_id'], $map));
+    // $reasons = \Illuminate\Support\Facades\DB::table('reasons')
+    //   ->rightJoin('groups', 'groups.id', 'reasons.group_id')
+    //   ->join('manager_groups', 'manager_groups.group_id', 'groups.id')
+    //   ->join('managers', 'managers.id', 'manager_groups.manager_id')
+    //   // ->where('groups.default', 1)
+    //   // ->whereIn('managers.crm_id', array_map(fn($m) => $m['crm_id'], $map))
+    //   // ->select('managers.crm_id', 'reasons.id AS reason_id', 'reasons.weight', 'reasons.name AS reason')
+    //   // ->groupBy('reasons.id', 'managers.id')
+    //   ->get();
+    dd($map);
+    // $sums = array();
+    // foreach ($map as $value) {
+    //   if (array_key_exists($value['manager_id'], $sums)) {
+    //     $sums[$value['manager_id']] += $value['weight'];
+    //   } else {
+    //     $sums[$value['manager_id']] = $value['weight'];
+    //   }
+    // }
+
+    // dd($sums);
+    // $responsive_ids = array_keys($sums, min($sums));
+
+    // $responsive_id = count($responsive_ids) > 0 ? $responsive_ids[0] : $responsive_ids;
+
+    // dd($responsive_id);
+    // return $responsive_id;
   }
 
   public static function SelectResponsiveId($managers): int
   {
-    $m = array_map(fn($e) => $e['crm_id'], $managers->toArray());
+    // dd($managers);
+    $m = array_map(fn($e) => $e['crm_id'], $managers);
     $data = \Illuminate\Support\Facades\DB::table('tickets')
       ->join('managers', 'managers.crm_id', 'tickets.manager_id')
       ->leftJoin(

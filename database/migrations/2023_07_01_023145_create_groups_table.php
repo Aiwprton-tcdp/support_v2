@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('name', 150)->unique();
             $table->boolean('alone')->default(false)
                 ->comment('Именная группа специально для одного менеджера');
+            $table->boolean('default')->nullable();
             $table->boolean('collaborative')->default(false)
                 ->comment('Все видят тикеты всех в рамках группы');
             $table->timestamps();

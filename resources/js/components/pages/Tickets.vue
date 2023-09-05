@@ -246,8 +246,8 @@ export default {
           - (t2.last_message_crm_id == t2.user_id && t2.manager_id == user_id)) {
           return -1;
         }
-        if ((t1.last_message_crm_id == t1.manager_id && t1.manager_id == user_id)
-          - (t2.last_message_crm_id == t2.manager_id && t2.manager_id == user_id)) {
+        if ((t1.last_message_crm_id != t1.user_id && t1.manager_id == user_id)
+          - (t2.last_message_crm_id != t2.user_id && t2.manager_id == user_id)) {
           return 1;
         }
         // a должно быть равным b
@@ -423,6 +423,16 @@ export default {
         this.Get(++this.page)
       }
     },
+    StartOrStopWorking() {
+      this.ax.patch(`users/${this.UserData.user_id}`, {
+        in_work: !this.UserData.in_work
+      }).then(r => {
+        this.toast(r.data.message, r.data.status ? 'success' : 'error')
+        this.UserData.in_work = !this.UserData.in_work
+      }).catch(e => {
+        this.toast(e.response.data.message, 'error')
+      })
+    },
   }
 }
 </script>
@@ -469,6 +479,16 @@ export default {
     <VueButton :disabled="errored || waiting" @click="GoToNewTicket()" color="default">
       <span class="items-center font-bold dark:text-gray-900">&#10010;&nbsp;&nbsp;Новое обращение</span>
     </VueButton>
+
+    <template v-if="UserData.role_id == 2">
+      <!-- <template v-if="UserData.role_id == 2 && UserData.in_work"> -->
+      <VueButton v-if="!UserData.in_work" @click="StartOrStopWorking()" color="green">
+        <span class="items-center font-bold dark:text-gray-900">Начать работу</span>
+      </VueButton>
+      <VueButton v-else @click="StartOrStopWorking()" color="red">
+        <span class="items-center font-bold dark:text-gray-900">Прекратить работу</span>
+      </VueButton>
+    </template>
   </div>
 
   <div class="grid divide-x max-h-[calc(100vh-55px)]"

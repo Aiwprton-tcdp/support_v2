@@ -12,6 +12,7 @@ class Group extends Model
     protected $fillable = [
         'name',
         'alone',
+        'default',
         'collaborative',
     ];
 

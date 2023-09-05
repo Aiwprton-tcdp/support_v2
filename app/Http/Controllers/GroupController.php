@@ -90,6 +90,10 @@ class GroupController extends Controller
             ]);
         }
 
+        if (isset($validated['default']) && $validated['default'] == true) {
+            Group::whereDefault(true)->update(['default' => null]);
+        }
+
         $data->fill($validated);
         $data->save();
 

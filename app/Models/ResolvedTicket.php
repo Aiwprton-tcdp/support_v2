@@ -43,10 +43,11 @@ class ResolvedTicket extends Model
     $query->join('reasons', 'reasons.id', 'resolved_tickets.reason_id')
       ->rightJoin('users AS u', 'u.crm_id', 'resolved_tickets.manager_id')
       ->rightJoin('users AS m', 'm.crm_id', 'resolved_tickets.manager_id')
-      ->leftJoin('participants', function ($q) use ($user_id) {
-        $q->on('participants.ticket_id', 'resolved_tickets.old_ticket_id')
-          ->where('participants.user_crm_id', $user_id);
-      })
+      ->leftJoin('participants', 'participants.ticket_id', 'resolved_tickets.old_ticket_id')
+      // ->leftJoin('participants', function ($q) use ($user_id) {
+      //   $q->on('participants.ticket_id', 'resolved_tickets.old_ticket_id')
+      //     ->where('participants.user_crm_id', $user_id);
+      // })
       ->leftJoin('messages', function ($q) {
         $q->on('messages.ticket_id', 'resolved_tickets.old_ticket_id')
           ->whereRaw('messages.id IN (SELECT MIN(m.id) FROM messages m join resolved_tickets t on t.old_ticket_id = m.ticket_id GROUP BY t.old_ticket_id)');

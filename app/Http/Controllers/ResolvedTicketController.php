@@ -28,10 +28,11 @@ class ResolvedTicketController extends Controller
       ->join('reasons', 'reasons.id', 'resolved_tickets.reason_id')
       ->rightJoin('users AS u', 'u.crm_id', 'resolved_tickets.manager_id')
       ->rightJoin('users AS m', 'm.crm_id', 'resolved_tickets.manager_id')
-      ->leftJoin('participants', function ($q) use ($user_crm_id) {
-        $q->on('participants.ticket_id', 'resolved_tickets.old_ticket_id')
-          ->where('participants.user_crm_id', $user_crm_id);
-      })
+      ->leftJoin('participants', 'participants.ticket_id', 'resolved_tickets.old_ticket_id')
+      // ->leftJoin('participants', function ($q) use ($user_crm_id) {
+      //   $q->on('participants.ticket_id', 'resolved_tickets.old_ticket_id')
+      //     ->where('participants.user_crm_id', $user_crm_id);
+      // })
       ->where(function ($q) use ($user_crm_id) {
         $q->whereManagerId($user_crm_id)
           ->orWhere('user_id', $user_crm_id)

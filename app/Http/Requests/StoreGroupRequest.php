@@ -23,6 +23,7 @@ class StoreGroupRequest extends FormRequest
     {
         return [
             'name' => 'required|string|min:3|max:150',
+            'default' => 'sometimes|required|boolean',
             'collaborative' => 'sometimes|required|boolean',
         ];
     }

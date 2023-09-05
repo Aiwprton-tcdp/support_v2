@@ -35,6 +35,7 @@ class IndexAPIController extends Controller
         $auth->save();
         $token = $auth->createToken("auth")->plainTextToken;
       }
+      $user['user_id'] = $auth->id;
 
       $user['is_admin'] = BX::call('user.admin')['result'];
       $manager = \App\Models\Manager::whereCrmId($auth->crm_id)
@@ -42,6 +43,7 @@ class IndexAPIController extends Controller
         ->first();
       if (!empty($manager)) {
         $user['role_id'] = $manager->role_id;
+        $user['in_work'] = $manager->in_work;
       }
 
       return view('welcome', compact('user', 'token', 'ticket_id'));

@@ -45,10 +45,11 @@ class Ticket extends Model
     $query->join('reasons', 'reasons.id', 'tickets.reason_id')
       ->rightJoin('users AS u', 'u.crm_id', 'tickets.manager_id')
       ->rightJoin('users AS m', 'm.crm_id', 'tickets.manager_id')
-      ->leftJoin('participants', function ($q) use ($user_id) {
-        $q->on('participants.ticket_id', 'tickets.id')
-          ->where('participants.user_crm_id', $user_id);
-      })
+      ->leftJoin('participants', 'participants.ticket_id', 'tickets.id')
+      // ->leftJoin('participants', function ($q) use ($user_id) {
+      //   $q->on('participants.ticket_id', 'tickets.id')
+      //     ->where('participants.user_crm_id', $user_id);
+      // })
       ->leftJoin('messages', function ($q) {
         $q->on('messages.ticket_id', 'tickets.id')
           ->whereRaw('messages.id IN (SELECT MIN(m.id) FROM messages m join tickets t on t.id = m.ticket_id GROUP BY t.id)');
@@ -60,24 +61,33 @@ class Ticket extends Model
       ->whereNotNull('tickets.id')
       ->when($weights[0] != 0, fn($q) => $q->whereIn('tickets.weight', $weights))
       ->when(!empty($reasons[0]), fn($q) => $q->whereIn('tickets.reason_id', $reasons))
+      // ->when(
+      //   $active || $inactive,
+      //   fn($r) => $r
+      //     ->where('tickets.active', $active)
+      //     ->orWhere('tickets.active', !$inactive)
+      // )
       ->when(
         $active || $inactive,
-        fn($r) => $r
-          ->where('tickets.active', $active)
-          ->orWhere('tickets.active', !$inactive)
+        fn($r) => $r->where(
+          fn($e) => $e
+            ->where('tickets.active', $active)
+            ->orWhere('tickets.active', !$inactive)
+        )
       )
-      ->when(
-        !$active && !$inactive,
-        fn($r) => $r
-          ->whereNot('tickets.active', $active)
-          ->whereNot('tickets.active', !$inactive)
-      )
+      // ->when(
+      //   !$active && !$inactive,
+      //   fn($r) => $r
+      //     ->whereNot('tickets.active', $active)
+      //     ->whereNot('tickets.active', !$inactive)
+      // )
       ->when(
         !empty($users[0]),
-        fn($q) =>
-        $q->whereIn('manager_id', $users)
-          ->orWhereIn('user_id', $users)
-          ->orWhereIn('participants.user_crm_id', $users)
+        fn($r) => $r->where(
+          fn($e) => $e->whereIn('manager_id', $users)
+            ->orWhereIn('user_id', $users)
+            ->orWhereIn('participants.user_crm_id', $users)
+        )
       )
       ->when($dates[0] != '1970-01-01', fn($q) => $q->whereBetween('messages.created_at', $dates))
       ->when(!empty($search), function ($q) use ($search) {

@@ -160,12 +160,31 @@ class TicketController extends Controller
     $data['reason_id'] = $reason_id;
     $managers = TicketTrait::GetManagersForReason($reason_id);
 
+    if (!isset($managers)) {
+      return response()->json([
+        'status' => false,
+        'data' => $reason,
+        'message' => 'Нет ни одного менеджера, способного принять тикет',
+      ]);
+    }
+
+    $current_manager = [];
     if (count($managers) > 1) {
       $id = TicketTrait::SelectResponsiveId($managers);
-      $current_manager = $managers->when($id > 0, fn($m) => $m->where('crm_id', $id))->first();
-    } else {
-      $current_manager = $managers->first();
+      // dd($id, $managers);
+      if ($id > 0) {
+        $current_manager = array_filter($managers, fn($m) => $m['crm_id'] == $id);
+      }
+      // $current_manager = $id > 0
+      //   ? array_filter($managers, fn($m) => $m['crm_id'] == $id)
+      //   : $managers[array_key_first($managers)];
+      // $current_manager = $managers->when($id > 0, fn($m) => $m->where('crm_id', $id))->first();
+    // } else {
+    //   $current_manager = $managers[array_key_first($managers)];
+    //   // $current_manager = $managers->first();
     }
+    $current_manager = $current_manager[array_key_first($current_manager)];
+    // dd($current_manager);
     $manager_id = $current_manager->crm_id;
 
     $data['manager_id'] = $manager_id;

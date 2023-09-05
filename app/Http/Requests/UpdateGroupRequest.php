@@ -23,6 +23,7 @@ class UpdateGroupRequest extends FormRequest
     {
         return [
             'name' => 'sometimes|required|string|min:3|max:150',
+            'default' => 'sometimes|required|boolean',
             'collaborative' => 'sometimes|required_if:alone,true|boolean',
         ];
     }

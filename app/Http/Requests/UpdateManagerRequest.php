@@ -24,6 +24,7 @@ class UpdateManagerRequest extends FormRequest
         return [
             'name' => 'sometimes|required|string',
             'role_id' => 'sometimes|required|int|min:2',
+            'in_work' => 'sometimes|required|boolean',
         ];
     }
 }

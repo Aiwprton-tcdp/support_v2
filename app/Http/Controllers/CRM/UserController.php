@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Traits\BX;
 use App\Traits\UserTrait;
+use Illuminate\Support\Facades\DB;
 
 class UserController extends Controller
 {
@@ -39,8 +40,16 @@ class UserController extends Controller
       'crm_id' => $user['crm_id'],
       'name' => $user['name'],
     ]);
+    $user['user_id'] = $auth->id;
 
     $user['is_admin'] = BX::call('user.admin')['result'];
+    $manager = \App\Models\Manager::whereCrmId($auth->crm_id)
+      ->orderBy(DB::raw("CASE WHEN role_id = 2 THEN 1 WHEN role_id = 3 THEN 2 ELSE 3 END"))
+      ->first();
+    if (!empty($manager)) {
+      $user['role_id'] = $manager->role_id;
+      $user['in_work'] = $manager->in_work;
+    }
 
     return response()->json([
       'status' => true,

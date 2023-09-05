@@ -38,7 +38,13 @@ class DashboardController extends Controller
 
         foreach ($tickets as $ticket) {
             if (in_array($ticket->manager_id, $managers)) {
-                $ticket->manager = $users[$ticket->manager_id];
+                $user = UserTrait::tryToDefineUserEverywhere($ticket->manager_id);
+                $ticket->manager = $user //;
+                    // $ticket->manager = $users[$ticket->manager_id]
+                    ?? [
+                        'crm_id' => $ticket->manager_id,
+                        'name' => 'Неопределённый менеджер',
+                    ];
                 unset($ticket->manager_id);
                 array_push($active, $ticket);
             } else {

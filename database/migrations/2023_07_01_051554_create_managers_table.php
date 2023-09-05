@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->unsignedInteger('crm_id');
             $table->foreignId('role_id')->constrained();
+            $table->boolean('in_work')->default(false);
             $table->timestamps();
         });
     }

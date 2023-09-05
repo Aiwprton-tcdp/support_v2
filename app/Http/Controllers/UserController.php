@@ -51,7 +51,7 @@ class UserController extends Controller
         $message = "Сотрудник `{$user->name}` crm_id: {$user->crm_id} добавлен с ролью `" .
             \App\Models\Role::find($user->role_id)->name . '`';
         Log::info($message);
-        
+
         if ($user->role_id == 2) {
             $group = Group::firstOrNew(['name' => $user->name]);
             $group->alone = true;
@@ -84,8 +84,32 @@ class UserController extends Controller
     {
         $validated = $request->validated();
 
-        $user = User::findOrFail($id);
+        $user = User::join('managers', 'managers.crm_id', 'users.crm_id')
+            ->select('users.*', 'managers.role_id')
+            ->findOrFail($id);
+        // dd($user);
         $message = "Сотрудник `{$user->name}` crm_id:{$user->crm_id}";
+
+        if ($user->role_id == 2 && isset($validated['in_work'])) {
+            $in_work = $validated['in_work'];
+
+            $manager = \App\Models\Manager::join('users', 'users.crm_id', 'managers.crm_id')
+                ->select('managers.*', 'users.name')
+                ->where('users.id', $id)
+                ->first();
+            $message = 'Сотрудник `' . $manager->name . '` crm_id:' . $manager->crm_id
+                . ($in_work ? ' возобновил' : ' завершил') . ' работу';
+
+            $manager->in_work = $in_work;
+            $manager->save();
+            Log::info($message);
+
+            return response()->json([
+                'status' => true,
+                'data' => UserResource::make($user),
+                'message' => $in_work ? 'Работа возобновлена' : 'Работа завершена',
+            ]);
+        }
 
         if ($user->role_id != 2 && $validated['role_id'] == 2) {
             $group = Group::firstOrNew(['name' => $user->name]);
@@ -126,11 +150,11 @@ class UserController extends Controller
         if ($data != null) {
             return response()->json($data);
         }
-        
+
         $message = "Сотрудник `{$user->name}` crm_id:{$user->crm_id} удалён";
         $result = $user->delete();
         Log::info($message);
-        
+
         return response()->json([
             'status' => true,
             'data' => $result,

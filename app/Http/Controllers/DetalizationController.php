@@ -53,7 +53,6 @@ class DetalizationController extends Controller
       // ->paginate();
       ->paginate($limit < 1 ? 100 : $limit);
 
-    // dd($data);
     $users_collection = array();
 
     foreach (UserTrait::search()->data as $user) {

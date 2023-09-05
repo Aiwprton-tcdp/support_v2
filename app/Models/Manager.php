@@ -12,6 +12,7 @@ class Manager extends Model
     protected $fillable = [
         'crm_id',
         'role_id',
+        'in_work',
     ];
 
     protected $hidden = [

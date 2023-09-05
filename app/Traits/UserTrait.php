@@ -37,7 +37,8 @@ trait UserTrait
     $manager = !empty($managers) ? $managers[0] : null;
 
     if (!isset($manager)) {
-      $withFired = self::withFired(true);
+      $withFired = self::withFired();
+      // $withFired = self::withFired(true);
       $managers = array_values(array_filter($withFired->data, fn($e) => $e->crm_id == $user_id));
       unset($withFired);
     }

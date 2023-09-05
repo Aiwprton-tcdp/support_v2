@@ -28,6 +28,7 @@ export default {
   },
   methods: {
     GetUsers() {
+      console.log(this.group)
       this.ax.get('managers?role=2').then(r => {
         this.managers = r.data.data.data
         this.managers.forEach(u => u.value = u.id)
@@ -79,6 +80,13 @@ export default {
         } else {
           this.OnlyInGroup.push(data)
         }
+      }).catch(e => {
+        this.toast(e.response.data.message, 'error')
+      })
+    },
+    ChangeDefault() {
+      this.ax.patch(`groups/${this.group.id}`, this.group).then(r => {
+        this.toast(r.data.message, r.data.status ? 'success' : 'error')
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
       })
@@ -138,7 +146,8 @@ export default {
               </template>
             </VueMultiselect>
 
-            <Toggle @change="ChangeCollaborative" v-model="group.collaborative" label="Общая" color="green" />
+            <Toggle @change="ChangeDefault" v-model="group.default" label="Дефолтная" color="green" />
+            <!-- <Toggle @change="ChangeCollaborative" v-model="group.collaborative" label="Общая" color="green" /> -->
           </div>
         </div>
 

@@ -18,6 +18,7 @@ return new class extends Migration
             $table->foreignId('reason_id')->constrained();
             $table->unsignedTinyInteger('weight')->default(1);
             $table->boolean('active')->default(true);
+            $table->string('anydesk', 13)->nullable();
             $table->timestamps();
         });
     }

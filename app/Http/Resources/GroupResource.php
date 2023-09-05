@@ -18,6 +18,7 @@ class GroupResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'alone' => $this->alone,
+            'default' => $this->default,
             'collaborative' => $this->collaborative,
         ];
     }
