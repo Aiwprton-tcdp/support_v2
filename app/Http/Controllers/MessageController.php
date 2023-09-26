@@ -9,6 +9,7 @@ use App\Models\Message;
 use App\Models\Participant;
 use App\Traits\TicketTrait;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class MessageController extends Controller
@@ -18,8 +19,8 @@ class MessageController extends Controller
      */
     public function index()
     {
-        $ticket_id = intval(htmlspecialchars(trim(request('ticket'))));
-        $limit = intval(htmlspecialchars(trim(request('limit'))));
+        $ticket_id = intval($this->prepare(request('ticket')));
+        $limit = intval($this->prepare(request('limit')));
 
         $data = Message::with('attachments')
             ->when(!empty($ticket_id), fn($q) => $q->whereTicketId($ticket_id))
@@ -47,10 +48,17 @@ class MessageController extends Controller
 
         $validated = $request->validated();
         $validated['content'] ??= '';
-        $validated['user_crm_id'] = Auth::user()->crm_id;
+        $validated['new_user_id'] = Auth::user()->id;
+        $user_with_email = DB::table('users')
+          ->join('bx_users', 'bx_users.user_id', 'users.id')
+          ->where('users.id', $validated['new_user_id'])
+          ->select('users.id', 'users.email', 'bx_users.crm_id')
+          ->first();
+        $validated['user_crm_id'] = $user_with_email->crm_id;
         $ticket = \App\Models\Ticket::whereId($validated['ticket_id'])
             ->whereActive(true)->first();
 
+            // dd($ticket);
         if (!isset($ticket)) {
             return response()->json([
                 'status' => false,
@@ -68,34 +76,44 @@ class MessageController extends Controller
         }
         $data->attachments = collect($attachments);
 
-        $recipient_ids = [];
-        if (!in_array($data->user_crm_id, [$ticket->user_id, $ticket->manager_id])) {
-            $recipient_ids = [$ticket->user_id, $ticket->manager_id];
-        } else {
-            array_push($recipient_ids, $ticket->user_id == $data->user_crm_id ? $ticket->manager_id : $ticket->user_id);
-        }
+        
+        $recipient_ids = DB::table('users')
+            ->join('bx_users', 'bx_users.user_id', 'users.id')
+            ->whereIn('users.id', [$ticket->new_user_id, $ticket->new_manager_id])
+            ->select('users.id', 'users.email', 'bx_users.crm_id')
+            ->get();
+    
+        $creator = $recipient_ids->where('id', $ticket->new_user_id)->first();
+        $manager = $recipient_ids->where('id', $ticket->new_manager_id)->first();
 
         $message = "Новое сообщение в тикете №{$ticket->id}";
         $resource = MessageResource::make($data);
 
-        foreach ($recipient_ids as $id) {
-            TicketTrait::SendMessageToWebsocket("{$id}.message", [
+        if ($ticket->new_user_id != $data->new_user_id) {
+            TicketTrait::SendMessageToWebsocket("{$creator->crm_id}.message", [
                 'message' => $resource,
             ]);
-            TicketTrait::SendNotification($id, $message, $ticket->id);
+            TicketTrait::SendNotification($creator->crm_id, $message, $ticket->id);
+        }
+        if ($ticket->new_manager_id != $data->new_user_id) {
+            TicketTrait::SendMessageToWebsocket("{$manager->crm_id}.message", [
+                'message' => $resource,
+            ]);
+            TicketTrait::SendNotification($manager->crm_id, $message, $ticket->id);
         }
 
         $another_recipients = Participant::whereTicketId($ticket->id)
-            ->whereNot('user_crm_id', $data->user_crm_id)
-            ->get('user_crm_id');
-        foreach ($another_recipients as $rec) {
-            $id = $rec->user_crm_id;
+            ->whereNot('user_id', $data->new_user_id)
+            ->join('users', 'users.id', 'participants.user_id')
+            ->join('bx_users', 'bx_users.user_id', 'users.id')
+            ->pluck('bx_users.crm_id')->toArray();
+        foreach ($another_recipients as $id) {
             TicketTrait::SendMessageToWebsocket("{$id}.message", [
                 'message' => $resource,
             ]);
-            TicketTrait::SendNotification($id, $message, $ticket->id);
+            // TicketTrait::SendNotification($id, $message, $ticket->id);
         }
-
+        
         return response()->json([
             'status' => true,
             'data' => $resource

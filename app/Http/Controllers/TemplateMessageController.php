@@ -14,7 +14,7 @@ class TemplateMessageController extends Controller
      */
     public function index()
     {
-        $limit = intval(htmlspecialchars(trim(request('limit'))));
+        $limit = intval($this->prepare(request('limit')));
 
         $data = \Illuminate\Support\Facades\DB::table('template_messages')
             ->paginate($limit < 1 ? 100 : $limit);

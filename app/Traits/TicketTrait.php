@@ -7,6 +7,8 @@ use App\Models\HiddenChatMessage;
 use App\Models\Manager;
 use App\Models\Participant;
 use App\Models\Ticket;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
@@ -23,17 +25,30 @@ trait TicketTrait
 
   public static function GetManagersForReason(int $reason_id): mixed
   {
-    $managers = \App\Models\Reason::rightJoin('groups', 'groups.id', 'reasons.group_id')
+    $managers = \App\Models\Reason::join('groups', 'groups.id', 'reasons.group_id')
       ->join('manager_groups', 'manager_groups.group_id', 'groups.id')
       ->join('managers', 'managers.id', 'manager_groups.manager_id')
-      ->join('users', 'users.crm_id', 'managers.crm_id')
+      ->rightJoin('users', 'users.id', 'managers.user_id')
+      ->join('bx_users', 'bx_users.user_id', 'users.id')
       ->where('reasons.id', $reason_id)
       ->where('managers.in_work', true)
-      ->orWhere('groups.default', 1)
-      ->select('managers.crm_id', 'users.name', 'reasons.id AS reason_id', 'reasons.weight', 'reasons.name AS reason')
-      ->groupBy('reasons.id', 'groups.id', 'manager_groups.id', 'managers.id', 'users.id')
+      // ->orWhere('groups.default', 1)
+      ->select('bx_users.crm_id', 'managers.user_id', 'users.name', 'reasons.id AS reason_id', 'reasons.weight', 'reasons.name AS reason')
+      ->groupBy('reasons.id', 'groups.id', 'manager_groups.id', 'managers.id', 'users.id', 'bx_users.id')
       ->get();
 
+    if (count($managers) == 0) {
+      $managers = \App\Models\Reason::join('groups', 'groups.id', 'reasons.group_id')
+        ->join('manager_groups', 'manager_groups.group_id', 'groups.id')
+        ->join('managers', 'managers.id', 'manager_groups.manager_id')
+        ->rightJoin('users', 'users.id', 'managers.user_id')
+        ->join('bx_users', 'bx_users.user_id', 'users.id')
+        ->where('groups.default', 1)
+        ->select('bx_users.crm_id', 'managers.user_id', 'users.name', 'reasons.id AS reason_id', 'reasons.weight', 'reasons.name AS reason')
+        ->groupBy('users.id', 'groups.id', 'manager_groups.id', 'managers.id', 'reasons.id', 'bx_users.id')
+        ->get();
+    }
+    // dd($managers);
     //TODO фильтруем менеджеров из актуальной группы
     $fromCurrent = array_filter($managers->all(), fn($m) => isset($m['reason']));
     // dd($managers, $fromCurrent, $managers[0]);
@@ -58,7 +73,7 @@ trait TicketTrait
     foreach ($map as $m) {
       $m['reason_id'] = $reason->id;
       $m['weight'] = $reason->weight;
-      $m['reason'] = $reason->name;
+      // $m['reason'] = $reason->name;
     }
     // dd($reason, $map);
     return $map;
@@ -72,7 +87,6 @@ trait TicketTrait
     //   // ->select('managers.crm_id', 'reasons.id AS reason_id', 'reasons.weight', 'reasons.name AS reason')
     //   // ->groupBy('reasons.id', 'managers.id')
     //   ->get();
-    dd($map);
     // $sums = array();
     // foreach ($map as $value) {
     //   if (array_key_exists($value['manager_id'], $sums)) {
@@ -94,9 +108,9 @@ trait TicketTrait
   public static function SelectResponsiveId($managers): int
   {
     // dd($managers);
-    $m = array_map(fn($e) => $e['crm_id'], $managers);
+    $m = array_map(fn($e) => $e['user_id'], $managers);
     $data = \Illuminate\Support\Facades\DB::table('tickets')
-      ->join('managers', 'managers.crm_id', 'tickets.manager_id')
+      ->join('managers', 'managers.user_id', 'tickets.new_manager_id')
       ->leftJoin(
         'messages',
         fn($q) => $q
@@ -104,14 +118,14 @@ trait TicketTrait
           ->whereRaw('messages.id IN (SELECT MAX(m2.id) FROM messages as m2 join tickets as t2 on t2.id = m2.ticket_id GROUP BY t2.id)')
       )
       ->where('tickets.active', true)
-      ->whereIn('tickets.manager_id', $m)
-      ->whereNotIn('messages.user_crm_id', $m)
+      ->whereIn('tickets.new_manager_id', $m)
+      ->whereNotIn('messages.new_user_id', $m)
       ->select(
         'tickets.id',
         'tickets.weight',
-        'tickets.manager_id',
+        'tickets.new_manager_id',
         'messages.id',
-        'messages.user_crm_id AS last_message_user_id'
+        'messages.new_user_id AS last_message_user_id'
       )
       ->get()->toArray();
 
@@ -119,10 +133,14 @@ trait TicketTrait
       return 0;
     } elseif (count($data) < count($m)) {
       foreach ($data as $ticket) {
-        $key = array_search($ticket->manager_id, $m);
-        if ($key === false) {
-          return 0;
-        } else {
+        $key = array_search($ticket->new_manager_id, $m);
+        // var_dump($key === false);
+        // if ($key === false) {
+        //   return 0;
+        // } else {
+        //   unset($m[$key]);
+        // }
+        if ($key === true) {
           unset($m[$key]);
         }
       }
@@ -132,10 +150,10 @@ trait TicketTrait
 
     $sums = array();
     foreach ($data as $value) {
-      if (array_key_exists($value->manager_id, $sums)) {
-        $sums[$value->manager_id] += $value->weight;
+      if (array_key_exists($value->new_manager_id, $sums)) {
+        $sums[$value->new_manager_id] += $value->weight;
       } else {
-        $sums[$value->manager_id] = $value->weight;
+        $sums[$value->new_manager_id] = $value->weight;
       }
     }
 
@@ -175,13 +193,13 @@ trait TicketTrait
 
     foreach ($tickets as $id) {
       $result = static::FinishTicket($id);
-      Log::info('MarkedTicketsPreparing:' . $result['message']);
     }
   }
 
   public static function FinishTicket($old_ticket_id, $mark = 0)
   {
     $ticket = Ticket::findOrFail($old_ticket_id);
+    // dd($ticket);
     $data = clone ($ticket);
     $data->old_ticket_id = $data->id;
     $data->mark = $mark;
@@ -190,13 +208,17 @@ trait TicketTrait
       'old_ticket_id' => 'required|integer|min:1',
       'user_id' => 'required|integer|min:1',
       'manager_id' => 'required|integer|min:1',
+      'new_user_id' => 'required|integer|min:1',
+      'new_manager_id' => 'required|integer|min:1',
       'reason_id' => 'required|integer|min:1',
       'weight' => 'required|integer|min:1',
       'mark' => 'required|integer|min:0|max:3',
     ])->validate();
-
     $validated['mark'] = strval($validated['mark']);
-    $resolved = \App\Models\ResolvedTicket::firstOrNew($validated);
+
+    $resolved = \App\Models\ResolvedTicket::firstOrNew([
+      'old_ticket_id' => $validated['old_ticket_id']
+    ]);
     if ($resolved->exists) {
       return [
         'status' => false,
@@ -205,26 +227,40 @@ trait TicketTrait
       ];
     }
 
+    $resolved->fill($validated);
     $resolved->save();
     $result = $ticket->delete();
 
     HiddenChatMessage::create([
       'content' => 'Тикет завершён',
       'user_crm_id' => 0,
+      'new_user_id' => 1,
       'ticket_id' => $ticket->id,
     ]);
 
+    $users_with_emails = \Illuminate\Support\Facades\DB::table('users')
+      ->join('bx_users', 'bx_users.user_id', 'users.id')
+      ->whereIn('users.id', [$ticket->new_user_id, $ticket->new_manager_id])
+      ->select('users.id', 'users.email', 'bx_users.crm_id')
+      ->get();
+
+    $u = $users_with_emails->where('id', $ticket->new_user_id)->first();
+    $m = $users_with_emails->where('id', $ticket->new_manager_id)->first();
+    unset($users_with_emails);
+
     $message = "Тикет №{$ticket->id} успешно завершён";
-    self::SendMessageToWebsocket("{$ticket->manager_id}.ticket.delete", [
+    self::SendMessageToWebsocket("{$m->crm_id}.ticket.delete", [
       'id' => $ticket->id,
       'message' => $message,
     ]);
-    self::SendMessageToWebsocket("{$ticket->user_id}.ticket.delete", [
+    self::SendMessageToWebsocket("{$u->crm_id}.ticket.delete", [
       'id' => $ticket->id,
       'message' => $message,
     ]);
     $part_ids = Participant::whereTicketId($ticket->id)
-      ->pluck('user_crm_id')->toArray();
+      ->join('users', 'users.id', 'participants.user_id')
+      ->join('bx_users', 'bx_users.user_id', 'users.id')
+      ->pluck('bx_users.crm_id')->toArray();
     foreach ($part_ids as $id) {
       self::SendMessageToWebsocket("{$id}.ticket.delete", [
         'id' => $ticket->id,
@@ -239,19 +275,23 @@ trait TicketTrait
     ];
   }
 
-  public static function TryToRedistributeByReason($reason_id, $old_crm_id, $new_crm_ids, $count)
+  public static function TryToRedistributeByReason($reason_id, $old_user_id, $new_users_ids, $count)
   {
-    $tickets = Ticket::whereManagerId($old_crm_id)
+    $tickets = Ticket::whereNewManagerId($old_user_id)
       ->whereReasonId($reason_id)->orderByDesc('id')->take($count)->get();
 
-    $managers = Manager::join('users', 'users.crm_id', 'managers.crm_id')
-      ->whereRoleId(2)->whereIn('managers.crm_id', $new_crm_ids)->get();
+    $managers = Manager::join('users', 'users.id', 'managers.user_id')
+      // ->join('bx_users', 'bx_users.user_id', 'users.id')
+      ->whereRoleId(2)
+      ->whereIn('user_id', $new_users_ids)
+      ->pluck('users.name', 'user_id');
 
+    // dd($managers);
     $tickets_ids = array_map(fn($e) => $e['id'], $tickets->toArray());
     $participants = Participant::whereIn('ticket_id', $tickets_ids)
-      ->whereIn('user_crm_id', $new_crm_ids)->get();
+      ->whereIn('user_id', $new_users_ids)->get();
 
-    $managersCount = count($new_crm_ids);
+    $managersCount = count($new_users_ids);
     $currentKey = 0;
     $hiddenChatMessages = [];
     $participants_ids = [];
@@ -259,8 +299,16 @@ trait TicketTrait
     $users_collection = array();
 
     foreach (UserTrait::search()->data as $user) {
-      $users_collection[$user->crm_id] = $user;
+      $users_collection[$user->email] = $user;
     }
+
+    $all_ids = array_merge(...array_map(fn($t) => [$t->new_user_id, $t->new_manager_id], $tickets->all()));
+    $users_with_emails = DB::table('users')
+      ->join('bx_users', 'bx_users.user_id', 'users.id')
+      ->whereIn('users.id', array_values(array_unique($all_ids)))
+      ->select('users.id', 'users.email', 'bx_users.crm_id')
+      ->get();
+    unset($all_ids);
 
     foreach ($tickets as $key => $ticket) {
       if ($key == $count)
@@ -268,32 +316,40 @@ trait TicketTrait
       if ($currentKey == $managersCount)
         $currentKey = 0;
 
-      $manager_id = $new_crm_ids[$currentKey++];
+      $manager_id = $new_users_ids[$currentKey++];
 
       array_push($hiddenChatMessages, [
-        'content' => "Новый ответственный: {$managers->where('crm_id', $manager_id)->first()->name}",
+        'content' => "Новый ответственный: {$managers[$manager_id]}",
         'user_crm_id' => 0,
+        'new_user_id' => 1,
         'ticket_id' => $ticket->id,
       ]);
 
       $participant = $participants->where('ticket_id', $ticket->id)
-        ->where('user_crm_id', $manager_id)->first();
-      if (isset($participant))
+        ->where('user_id', $manager_id)->first();
+      if (isset($participant)) {
         array_push($participants_ids, $participant->id);
+      }
+
+      $u = $users_with_emails->where('id', $ticket->new_user_id)->first();
+      $m = $users_with_emails->where('id', $ticket->new_manager_id)->first();
 
       $new_participant = Participant::firstOrNew([
         'ticket_id' => $ticket->id,
-        'user_crm_id' => $ticket->manager_id,
+        // 'user_crm_id' => $ticket->manager_id,
+        'user_id' => $ticket->new_manager_id,
       ]);
-      if (!$new_participant->exists)
+      if (!$new_participant->exists) {
+        $new_participant->user_crm_id = $m->crm_id;
         $new_participant->save();
+      }
 
-      $ticket->manager_id = $manager_id;
+      $ticket->new_manager_id = $manager_id;
       $ticket->save();
 
       $ticket->reason = \App\Models\Reason::find($ticket->reason_id)->name;
-      $ticket->user = $users_collection[$ticket->user_id];
-      $ticket->manager = $users_collection[$ticket->manager_id];
+      $ticket->user = $users_collection[$u->email];
+      $ticket->manager = $users_collection[$m->email];
 
       self::SendNotification($manager_id, "Вы стали ответственным за тикет №{$ticket->id}", $ticket->id);
       self::SendMessageToWebsocket("{$manager_id}.ticket", [
@@ -303,17 +359,19 @@ trait TicketTrait
       $result = [
         'ticket_id' => $ticket->id,
         'new_manager' => $ticket->manager,
-        'new_participant_id' => $new_participant->user_crm_id,
+        'new_participant_id' => $m->crm_id,
       ];
-      self::SendMessageToWebsocket("{$ticket->manager_id}.participant", [
+      self::SendMessageToWebsocket("{$m->crm_id}.participant", [
         'participant' => $result,
       ]);
-      self::SendMessageToWebsocket("{$ticket->user_id}.participant", [
+      self::SendMessageToWebsocket("{$u->crm_id}.participant", [
         'participant' => $result,
       ]);
-      $part_ids = Participant::whereTicketId($ticket->id)
-        ->pluck('user_crm_id')->toArray();
-      foreach ($part_ids as $id) {
+      $another_recipients = Participant::whereTicketId($ticket->id)
+          ->join('users', 'users.id', 'participants.user_id')
+          ->join('bx_users', 'bx_users.user_id', 'users.id')
+          ->pluck('bx_users.crm_id')->toArray();
+      foreach ($another_recipients as $id) {
         self::SendMessageToWebsocket("{$id}.participant", [
           'participant' => $result,
         ]);

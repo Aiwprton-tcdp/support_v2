@@ -14,16 +14,23 @@ class DashboardController extends Controller
     // Детализация по активным тикетам
     public function getActiveTickets()
     {
-        $managers = \App\Models\Manager::pluck('crm_id')->toArray();
+        // $managers = \App\Models\Manager::join('bx_users', 'bx_users.user_id', 'managers.user_id')
+        //     ->pluck('bx_users.crm_id')->toArray();
+        $managers = \App\Models\Manager::leftJoin('users', 'users.id', 'managers.user_id')
+            ->whereNot('users.email', '')
+            ->pluck('user_id', 'users.email')->toArray();
 
-        $tickets = Ticket::join('reasons', 'reasons.id', 'tickets.reason_id')
-            ->selectRaw('reasons.id reason_id, reasons.name reason_name, manager_id, COUNT(tickets.id) tickets_count')
-            ->groupBy('manager_id', 'reasons.id')->get();
+        // dd($managers);
+        $tickets = DB::table('tickets')
+            ->join('reasons', 'reasons.id', 'tickets.reason_id')
+            ->selectRaw('reasons.id reason_id, reasons.name reason_name, tickets.new_manager_id, COUNT(tickets.id) tickets_count')
+            ->groupBy('tickets.new_manager_id', 'reasons.id')->get();
 
+        $map = array_keys($managers);
         $search_users = array_values(
             array_filter(
                 UserTrait::search()->data,
-                fn($e) => in_array($e->crm_id, $managers)
+                fn($e) => in_array($e->email, $map)
             )
         );
 
@@ -32,28 +39,39 @@ class DashboardController extends Controller
         $active = [];
 
         foreach ($search_users as $user) {
-            $users[$user->crm_id] = $user;
+            $users[$user->email] = $user;
         }
         unset($search_users);
 
+        $all_ids = array_map(fn($t) => $t->new_manager_id, $tickets->all());
+        $users_with_emails = DB::table('users')
+            ->join('bx_users', 'bx_users.user_id', 'users.id')
+            ->whereIn('users.id', $all_ids)
+            ->select('users.id', 'users.email', 'bx_users.crm_id')
+            ->get();
+        unset($all_ids);
+
         foreach ($tickets as $ticket) {
-            if (in_array($ticket->manager_id, $managers)) {
-                $user = UserTrait::tryToDefineUserEverywhere($ticket->manager_id);
-                $ticket->manager = $user //;
-                    // $ticket->manager = $users[$ticket->manager_id]
-                    ?? [
-                        'crm_id' => $ticket->manager_id,
-                        'name' => 'Неопределённый менеджер',
-                    ];
-                unset($ticket->manager_id);
+            // dd($users, $ticket);
+            // $email = array_values(array_filter($users, fn($u) => $u->crm_id == $ticket->manager_id))[0]->email;
+            // $email = \App\Models\User::find($ticket->new_manager_id)->email;
+            $m = $users_with_emails->where('id', $ticket->new_manager_id)->first();
+            if (in_array($ticket->new_manager_id, $managers)) {
+                $user = UserTrait::tryToDefineUserEverywhere($m->crm_id, $m->email);
+                $ticket->manager = $user ?? [
+                    'crm_id' => $m->crm_id,
+                    'user_id' => $m->id,
+                    'name' => 'Неопределённый менеджер',
+                ];
+                // unset($ticket->new_manager_id);
                 array_push($active, $ticket);
             } else {
-                $user = UserTrait::tryToDefineUserEverywhere($ticket->manager_id);
+                $user = UserTrait::tryToDefineUserEverywhere($m->crm_id, $m->email);
                 $ticket->manager = $user;
                 array_push($lost, $ticket);
             }
         }
-
+        // dd($active, $lost);
         return response()->json([
             'status' => true,
             'data' => [
@@ -69,8 +87,8 @@ class DashboardController extends Controller
         $validated = $request->validated();
         $result = TicketTrait::TryToRedistributeByReason(
             $validated['reason_id'],
-            $validated['user_crm_id'],
-            $validated['new_crm_ids'],
+            $validated['user_id'],
+            $validated['new_users_ids'],
             $validated['count']
         );
         return response()->json($result);
@@ -81,12 +99,12 @@ class DashboardController extends Controller
     {
         Cache::store('file')->forget('crm_users');
         Cache::store('file')->forget('crm_departments');
-        Cache::store('file')->forget('crm_all_users');
+        // Cache::store('file')->forget('crm_all_users');
         info('Кеш очищен');
 
         UserTrait::search();
         UserTrait::departments();
-        UserTrait::withFired();
+        // UserTrait::withFired();
         info('Кеш обновлён');
 
         return response()->json([
@@ -172,6 +190,84 @@ class DashboardController extends Controller
 
         return response()->json([
             'data' => $result
+        ]);
+    }
+
+    public function getAverageSolvingTime()
+    {
+        $data = DB::table('resolved_tickets AS rt')
+            ->join('users', 'users.id', 'rt.new_manager_id')
+            ->selectRaw('users.name, rt.mark, COUNT(rt.mark) AS count')
+            ->groupBy('rt.mark', 'users.id')
+            ->get();
+
+        $statuses = ['Без оценки', 'Плохо', 'Нормально', 'Отлично'];
+        $result = [];
+        foreach ($data as $d) {
+            $result[$d->name][$statuses[$d->mark]] = $d->count;
+        }
+
+        return response()->json([
+            'data' => $result
+        ]);
+    }
+
+    public function getCountOfTicketsByDays()
+    {
+        $data = DB::table('hidden_chat_messages AS hcm')
+            ->where('hcm.content', 'Тикет создан')
+            ->selectRaw('COUNT(hcm.id) AS count, DATE(hcm.created_at) as date')
+            ->groupBy('date')
+            ->get();
+
+        return response()->json([
+            'data' => $data
+        ]);
+    }
+
+    public function getCountOfTicketsByManagers()
+    {
+        $resolved_tickets = \App\Models\ResolvedTicket::join('users', 'users.id', 'resolved_tickets.new_manager_id')
+            ->selectRaw('users.name AS name, COUNT(resolved_tickets.id) AS count')
+            ->groupBy('name');
+
+        $data = Ticket::join('users', 'users.id', 'tickets.new_manager_id')
+            ->selectRaw('users.name AS name, COUNT(tickets.id) AS count')
+            ->groupBy('name')
+            ->union($resolved_tickets)
+            ->get();
+
+        $result = [];
+        foreach ($data as $d) {
+            $result[$d->name] = @$result[$d->name] + $d->count;
+        }
+
+        return response()->json([
+            'data' => $result
+        ]);
+    }
+
+    public function getTicketsSolvingTimeMedian()
+    {
+        $data = DB::table('resolved_tickets AS rt')
+            ->leftJoin('messages', function ($q) {
+                $q->on('messages.ticket_id', 'rt.old_ticket_id')
+                    ->whereRaw('messages.id IN (SELECT MIN(m.id) FROM messages m join resolved_tickets t on t.old_ticket_id = m.ticket_id GROUP BY t.old_ticket_id)');
+            })
+            ->selectRaw('AVG(UNIX_TIMESTAMP(rt.created_at) - UNIX_TIMESTAMP(messages.created_at)) AS time_avg')
+            ->get();
+
+        $start = new \DateTime();
+        $start->setTimestamp(0);
+
+        $end = new \DateTime();
+        $end->setTimestamp($data[0]->time_avg);
+        $median = date_diff($end, $start);
+
+        // dd($data, $median, $median->format('%dд. %h:%I:%S'));
+
+        return response()->json([
+            'data' => $median->format('%dд. %h:%I:%S')
         ]);
     }
 }

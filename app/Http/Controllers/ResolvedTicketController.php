@@ -6,6 +6,7 @@ use App\Http\Requests\StoreResolvedTicketRequest;
 use App\Http\Resources\ResolvedTicketResource;
 use App\Jobs\TicketClosingJob;
 use App\Models\ResolvedTicket;
+use App\Models\User;
 use App\Traits\TicketTrait;
 use App\Traits\UserTrait;
 use Illuminate\Http\Request;
@@ -20,35 +21,46 @@ class ResolvedTicketController extends Controller
    */
   public function index()
   {
-    $search = htmlspecialchars(trim(request('search')));
-    $limit = intval(htmlspecialchars(trim(request('limit'))));
-    $user_crm_id = Auth::user()->crm_id;
+    $search = $this->prepare(request('search'));
+    $limit = intval($this->prepare(request('limit')));
+    $user_id = Auth::user()->id;
+
+    $id = empty($search) ? 0 : intval(trim(preg_replace('/[^0-9]+/', '', $search)));
+    $name = empty($search) ? null : mb_strtolower(trim(preg_replace('/[^А-яA-z ]+/iu', '', $search)));
 
     $data = DB::table('resolved_tickets')
       ->join('reasons', 'reasons.id', 'resolved_tickets.reason_id')
-      ->rightJoin('users AS u', 'u.crm_id', 'resolved_tickets.manager_id')
-      ->rightJoin('users AS m', 'm.crm_id', 'resolved_tickets.manager_id')
-      ->leftJoin('participants', 'participants.ticket_id', 'resolved_tickets.old_ticket_id')
-      // ->leftJoin('participants', function ($q) use ($user_crm_id) {
-      //   $q->on('participants.ticket_id', 'resolved_tickets.old_ticket_id')
-      //     ->where('participants.user_crm_id', $user_crm_id);
-      // })
-      ->where(function ($q) use ($user_crm_id) {
-        $q->whereManagerId($user_crm_id)
-          ->orWhere('user_id', $user_crm_id)
-          ->orWhere('participants.user_crm_id', $user_crm_id);
-      })
-      ->when(!empty($search), function ($q) use ($search) {
-        $id = intval(trim(preg_replace('/[^0-9]+/', '', $search)));
-        $name = mb_strtolower(trim(preg_replace('/[^А-яA-z ]+/iu', '', $search)));
-
-        $q->when($id > 0, fn($r) => $r->where('resolved_tickets.old_ticket_id', $id))
-          ->when(!empty($name), function ($y) use ($name) {
-            $y->orWhereRaw('LOWER(u.name) LIKE ?', ["%{$name}%"])
-              ->orWhereRaw('LOWER(m.name) LIKE ?', ["%{$name}%"]);
-          });
-      })
-      ->select('resolved_tickets.*', 'reasons.name AS reason')
+      ->leftJoin('users AS u', 'u.id', 'resolved_tickets.new_user_id')
+      ->leftJoin('users AS m', 'm.id', 'resolved_tickets.new_manager_id')
+      ->leftJoin('bx_users AS bx', 'bx.user_id', 'u.id')
+      ->leftJoin('bx_crms AS bxc', 'bxc.id', 'bx.bx_crm_id')
+      ->leftJoin(
+        'participants',
+        fn($q) => $q->on('participants.ticket_id', 'resolved_tickets.id')
+          ->where('participants.user_id', $user_id)
+      )
+      ->where(
+        fn($q) => $q->where('resolved_tickets.new_manager_id', $user_id)
+          ->orWhere('resolved_tickets.new_user_id', $user_id)
+          ->orWhere('participants.user_id', $user_id)
+      )
+      ->when($id > 0, fn($q) => $q->where('resolved_tickets.id', $id))
+      ->when(
+        isset($name) && $id == 0,
+        fn($q) => $q
+          ->whereRaw(
+            "LOWER(u.name) LIKE ? OR LOWER(m.name) LIKE ?",
+            ["%{$name}%", "%{$name}%"]
+          )
+      )
+      ->whereNotNull('resolved_tickets.id')
+      ->select(
+        'resolved_tickets.*',
+        'reasons.name AS reason',
+        'bxc.name AS bx_name',
+        'bxc.acronym AS bx_acronym',
+        'bxc.domain AS bx_domain',
+      )
       ->orderBy('resolved_tickets.updated_at')
       ->orderBy('resolved_tickets.id')
       ->paginate($limit < 1 ? 100 : $limit);
@@ -57,15 +69,27 @@ class ResolvedTicketController extends Controller
     $users_collection = array();
 
     foreach ($search->data as $user) {
-      $users_collection[$user->crm_id] = $user;
+      $users_collection[$user->email] = $user;
     }
     unset($search);
 
+    $all_ids = array_merge(...array_map(fn($t) => [$t->new_user_id, $t->new_manager_id], $data->all()));
+    $users_with_emails = DB::table('users')
+      ->join('bx_users', 'bx_users.user_id', 'users.id')
+      ->whereIn('users.id', array_values(array_unique($all_ids)))
+      ->select('users.id', 'users.email', 'bx_users.crm_id')
+      ->get();
+    unset($all_ids);
+
     foreach ($data as $ticket) {
-      $ticket->user = $users_collection[$ticket->user_id]
-        ?? ['name' => 'Неопределённый пользователь'];
-      $ticket->manager = $users_collection[$ticket->manager_id]
-      ?? ['name' => 'Неопределённый менеджер'];
+      $u = $users_with_emails->where('id', $ticket->new_user_id)->first();
+      $m = $users_with_emails->where('id', $ticket->new_manager_id)->first();
+      $ticket->user_crm_id = $u->crm_id;
+      $ticket->user = $users_collection[$u->email]
+        ?? UserTrait::tryToDefineUserEverywhere($u->crm_id, $u->email);
+      $ticket->manager_crm_id = $m->crm_id;
+      $ticket->manager = $users_collection[$m->email]
+        ?? UserTrait::tryToDefineUserEverywhere($m->crm_id, $m->email);
     }
 
     return response()->json([
@@ -81,7 +105,6 @@ class ResolvedTicketController extends Controller
   {
     $val = $request->validated();
     $data = TicketTrait::FinishTicket($val['old_ticket_id'], $val['mark']);
-    Log::info('StoreResolvedTicket: ' . $data['message']);
     return response()->json($data);
   }
 
@@ -102,8 +125,18 @@ class ResolvedTicketController extends Controller
       ]);
     }
 
-    $data->user = UserTrait::tryToDefineUserEverywhere($data->user_id);
-    $data->manager = UserTrait::tryToDefineUserEverywhere($data->manager_id);
+    $users_with_emails = DB::table('users')
+      ->join('bx_users', 'bx_users.user_id', 'users.id')
+      ->whereIn('users.id', [$data->new_user_id, $data->new_manager_id])
+      ->select('users.id', 'users.email', 'bx_users.crm_id')
+      ->get();
+    $u = $users_with_emails->where('id', $data->new_user_id)->first();
+    $m = $users_with_emails->where('id', $data->new_manager_id)->first();
+
+    $data->user_crm_id = $u->crm_id;
+    $data->user_crm_id = $m->crm_id;
+    $data->user = UserTrait::tryToDefineUserEverywhere($u->crm_id, $u->email);
+    $data->manager = UserTrait::tryToDefineUserEverywhere($m->crm_id, $m->email);
 
     return response()->json([
       'status' => true,

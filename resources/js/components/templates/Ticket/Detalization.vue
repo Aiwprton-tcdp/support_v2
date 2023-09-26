@@ -87,7 +87,7 @@ export default {
       this.ax.get('managers?role=2').then(r => {
         this.AllManagers = r.data.data.data
         this.AllManagers.forEach(u => u.value = u.id)
-        this.Managers = this.AllManagers.filter(m => ![this.ticket.user_id, this.ticket.manager_id].includes(m.crm_id))
+        this.Managers = this.AllManagers.filter(m => ![this.ticket.new_user_id, this.ticket.new_manager_id].includes(m.user_id))
         this.EditParticipants = true
 
         if (this.AllManagers.length == 0) {
@@ -117,7 +117,7 @@ export default {
 
       this.ax.post('participants', {
         ticket_id: this.ticket.id,
-        user_crm_id: data.crm_id,
+        user_id: data.user_id,
       }).then(r => {
         if (!r.data.status) {
           this.toast(r.data.message, 'warning')
@@ -127,16 +127,16 @@ export default {
         this.NewParticipant(r.data.data)
 
         this.BusyManagers = [...this.AllBusyManagers]
-        this.Managers = this.AllManagers.filter(m => this.ticket.manager_id != m.crm_id)
+        this.Managers = this.AllManagers.filter(m => this.ticket.new_manager_id != m.user_id)
 
-        let index = this.BusyManagers.findIndex(({ crm_id }) => crm_id == this.ticket.manager_id)
+        let index = this.BusyManagers.findIndex(({ user_id }) => user_id == this.ticket.new_manager_id)
         if (index > -1) {
           this.BusyManagers.splice(index, 1)
         }
 
-        index = this.BusyManagers.findIndex(({ crm_id }) => crm_id == r.data.data.new_participant_id)
+        index = this.BusyManagers.findIndex(({ user_id }) => user_id == r.data.data.new_participant_id)
         if (index == -1) {
-          const m_index = this.Managers.findIndex(({ crm_id }) => crm_id == r.data.data.new_participant_id)
+          const m_index = this.Managers.findIndex(({ user_id }) => user_id == r.data.data.new_participant_id)
           this.BusyManagers.push(this.Managers[m_index])
         }
         this.EditParticipants = false
@@ -147,6 +147,7 @@ export default {
     },
     NewParticipant(data) {
       this.ticket.manager = data.new_manager
+      this.ticket.new_manager_id = data.new_manager_id
       this.ticket.manager_id = data.new_manager.crm_id
     },
     PatchTicket(data) {
@@ -175,9 +176,9 @@ export default {
       })
     },
     ChangeReason(data) {
-      if (!window.confirm("Вы уверены, что хотите сменить тему?")) {
-        return
-      }
+      // if (!window.confirm("Вы уверены, что хотите сменить тему?")) {
+      //   return
+      // }
 
       this.ax.patch(`tickets/${this.ticket.id}`, {
         reason_id: data.id
@@ -194,7 +195,12 @@ export default {
     CopyTicketId() {
       this.copy(`${this.VITE_CRM_URL}marketplace/app/${this.VITE_CRM_MARKETPLACE_ID}/?id=${this.ticket.old_ticket_id ?? this.ticket.id}`)
     },
-    CopyData(data) {
+    CopyData(data, is_bio = false) {
+      if (is_bio) {
+        let r = data.split(' ')
+        data = `${r[0]} ${r[1]}`
+      }
+
       this.copy(data)
     },
   },
@@ -206,7 +212,8 @@ export default {
       this.AllBusyManagers = newValue
       this.BusyManagers = this.AllBusyManagers
 
-      this.Managers = this.AllManagers.filter(m => ![this.ticket.user_id, this.ticket.manager_id].includes(m.crm_id))
+      // this.Managers = this.AllManagers.filter(m => ![this.ticket.user_id, this.ticket.manager_id].includes(m.crm_id))
+      this.Managers = this.AllManagers.filter(m => ![this.ticket.new_user_id, this.ticket.new_manager_id].includes(m.user_id))
       // this.Managers = this.AllManagers.filter(m => this.ticket.manager_id != m.crm_id
       //   && !this.BusyManagers.some(bm => bm.crm_id == m.crm_id))
     }
@@ -275,7 +282,7 @@ export default {
           <Avatar rounded size="sm" alt="avatar"
             :img="ticket.manager?.avatar ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
         </a>
-        <p @click="CopyData(ticket.manager.name)" class="cursor-pointer hover:text-sky-500" title="Скопировать ФИО">
+        <p @click="CopyData(ticket.manager.name, true)" class="cursor-pointer hover:text-sky-500" title="Скопировать ФИО">
           {{ ticket.manager?.name }}
         </p>
       </div>
@@ -295,7 +302,7 @@ export default {
           <Avatar rounded size="sm" alt="avatar"
             :img="ticket.user?.avatar ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
         </a>
-        <p @click="CopyData(ticket.user.name)" class="cursor-pointer hover:text-sky-500" title="Скопировать ФИО">
+        <p @click="CopyData(ticket.user.name, true)" class="cursor-pointer hover:text-sky-500" title="Скопировать ФИО">
           {{ ticket.user?.name }}
         </p>
       </div>
@@ -323,8 +330,8 @@ export default {
         <p class="text-sm text-gray-400">Внутренний номер: {{ ticket.user.inner_phone }}</p>
       </template>
 
-      <VueMultiselect v-if="!IsResolved && EditParticipants" :options="Managers" placeholder="Выберите менеджера"
-        @select="AddParticipant" label="name" track-by="name" :show-labels="false" />
+      <!-- <VueMultiselect v-if="!IsResolved && EditParticipants" :options="Managers" placeholder="Выберите менеджера"
+        @select="AddParticipant" label="name" track-by="name" :show-labels="false" /> -->
     </div>
 
     <div v-if="BusyManagers.length > 0"
@@ -345,7 +352,7 @@ export default {
         <p>{{ ticket.mark > 0 ? 'с оценкой ' + ticket.mark + '/3' : 'без оценки' }}</p>
       </template>
       <template v-else>
-        <VueButton v-if="ticket.user_id != UserData.crm_id" @click="CloseTicket()" color="red">Завершить тикет</VueButton>
+        <VueButton v-if="ticket.new_user_id != UserData.user_id" @click="CloseTicket()" color="red">Завершить тикет</VueButton>
       </template>
     </div>
   </div>

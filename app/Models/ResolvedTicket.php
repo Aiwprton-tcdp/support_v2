@@ -13,6 +13,8 @@ class ResolvedTicket extends Model
     'old_ticket_id',
     'user_id',
     'manager_id',
+    'new_user_id',
+    'new_manager_id',
     'reason_id',
     'weight',
     'mark',
@@ -41,13 +43,11 @@ class ResolvedTicket extends Model
     string $search
   ): void {
     $query->join('reasons', 'reasons.id', 'resolved_tickets.reason_id')
-      ->rightJoin('users AS u', 'u.crm_id', 'resolved_tickets.manager_id')
-      ->rightJoin('users AS m', 'm.crm_id', 'resolved_tickets.manager_id')
-      ->leftJoin('participants', 'participants.ticket_id', 'resolved_tickets.old_ticket_id')
-      // ->leftJoin('participants', function ($q) use ($user_id) {
-      //   $q->on('participants.ticket_id', 'resolved_tickets.old_ticket_id')
-      //     ->where('participants.user_crm_id', $user_id);
-      // })
+      // ->rightJoin('users AS u', 'u.crm_id', 'resolved_tickets.manager_id')
+      // ->rightJoin('users AS m', 'm.crm_id', 'resolved_tickets.manager_id')
+      ->rightJoin('users AS u', 'u.id', 'resolved_tickets.new_user_id')
+      ->rightJoin('users AS m', 'm.id', 'resolved_tickets.new_manager_id')
+      // ->leftJoin('participants', 'participants.ticket_id', 'resolved_tickets.old_ticket_id')
       ->leftJoin('messages', function ($q) {
         $q->on('messages.ticket_id', 'resolved_tickets.old_ticket_id')
           ->whereRaw('messages.id IN (SELECT MIN(m.id) FROM messages m join resolved_tickets t on t.old_ticket_id = m.ticket_id GROUP BY t.old_ticket_id)');
@@ -62,18 +62,18 @@ class ResolvedTicket extends Model
       ->when(!empty($reasons[0]), fn($q) => $q->whereIn('resolved_tickets.reason_id', $reasons))
       ->when(
         !empty($users[0]),
-        fn($q) => $q->whereIn('manager_id', $users)
-          ->orWhereIn('user_id', $users)
-          ->orWhereIn('participants.user_crm_id', $users)
+        fn($q) => $q->whereIn('resolved_tickets.new_manager_id', $users)
+          ->orWhereIn('resolved_tickets.new_user_id', $users)
+          // ->orWhereIn('participants.user_crm_id', $users)
       )
-      ->when($dates[0] != '1970-01-01', fn($q) => $q->whereBetween('messages.created_at', $dates))
-      ->when(!empty($search), function ($q) use ($search) {
-        $name = mb_strtolower(trim(preg_replace('/[^А-яA-z -]+/iu', '', $search)));
+      ->when($dates[0] != '1970-01-01', fn($q) => $q->whereBetween('messages.created_at', $dates));
+      // ->when(!empty($search), function ($q) use ($search) {
+      //   $name = mb_strtolower(trim(preg_replace('/[^А-яA-z -]+/iu', '', $search)));
 
-        $q->when(!empty($name), function ($r) use ($name) {
-          $r->whereRaw('LOWER(u.name) LIKE ?', ["%{$name}%"])
-            ->orWhereRaw('LOWER(m.name) LIKE ?', ["%{$name}%"]);
-        });
-      });
+      //   $q->when(!empty($name), function ($r) use ($name) {
+      //     $r->whereRaw('LOWER(u.name) LIKE ?', ["%{$name}%"])
+      //       ->orWhereRaw('LOWER(m.name) LIKE ?', ["%{$name}%"]);
+      //   });
+      // });
   }
 }

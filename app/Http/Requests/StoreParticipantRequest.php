@@ -24,7 +24,8 @@ class StoreParticipantRequest extends FormRequest
     {
         return [
             'ticket_id' => 'required|int|min:1',
-            'user_crm_id' => 'required|int|min:1',
+            // 'user_crm_id' => 'required|int|min:1',
+            'user_id' => 'required|int|min:1',
             // 'user_crm_id' => [
             //     'required',
             //     'numeric',

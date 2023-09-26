@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Manager;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -12,7 +13,10 @@ class ManagerSeeder extends Seeder
      */
     public function run(): void
     {
-        \App\Models\Manager::create([
+        if (Manager::count() > 0)
+            return;
+
+        Manager::create([
             'crm_id' => 0,
             'role_id' => 1,
         ]);

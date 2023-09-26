@@ -40,7 +40,7 @@ class RoleController extends Controller
     public function store(StoreRoleRequest $request)
     {
         $data = Role::create($request->validated());
-        $message = 'Создана роль `' . $data->name . '`';
+        $message = "Создана роль {$data->name}";
 
         Log::info($message);
         Cache::store('file')->forget('roles');
@@ -69,7 +69,7 @@ class RoleController extends Controller
         $name = $data->name;
         $data->fill($request->validated());
         $data->save();
-        $message = 'Название роли `' . $name . '` изменено на `' . $data->name . '`';
+        $message = "Название роли {$name} изменено на {$data->name}";
 
         Log::info($message);
         Cache::store('file')->forget('roles');
@@ -90,7 +90,7 @@ class RoleController extends Controller
         $data = Role::findOrFail($id);
         $name = $data->name;
         $result = $data->delete();
-        $message = 'Удалена роль `' . $name . '`';
+        $message = "Удалена роль {$name}";
         
         Log::info($message);
         Cache::store('file')->forget('roles');

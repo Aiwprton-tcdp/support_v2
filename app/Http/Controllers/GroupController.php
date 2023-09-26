@@ -16,14 +16,15 @@ class GroupController extends Controller
      */
     public function index()
     {
-        $name = Str::lower(htmlspecialchars(trim(request('name'))));
-        $id = intval(htmlspecialchars(trim(request('id'))));
-        $limit = intval(htmlspecialchars(trim(request('limit'))));
+        $name = Str::lower($this->prepare(request('name')));
+        $id = intval($this->prepare(request('id')));
+        $limit = intval($this->prepare(request('limit')));
 
         $data = \Illuminate\Support\Facades\DB::table('groups')
-            ->when(!empty($id) || !empty($name), function ($q) use ($id, $name) {
-                $q->whereId($id)->orWhereRaw('LOWER(name) LIKE ?', ['%{$name}%']);
-            })
+            ->when(
+                !empty($id) || !empty($name),
+                fn($q) => $q->whereId($id)->orWhereRaw('LOWER(name) LIKE ?', ['%{$name}%'])
+            )
             ->paginate($limit < 1 ? 100 : $limit);
 
         return response()->json([
@@ -130,7 +131,7 @@ class GroupController extends Controller
 
         \App\Models\ManagerGroup::whereGroupId($data->id)->delete();
         $result = $data->delete();
-        $message = 'Группа `' . $data->name . '` успешно удалена';
+        $message = "Группа `{$data->name}` успешно удалена";
         Log::info($message);
 
         return response()->json([

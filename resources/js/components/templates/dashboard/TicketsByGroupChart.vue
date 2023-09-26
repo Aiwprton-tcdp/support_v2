@@ -79,7 +79,6 @@ export default {
             data: row
           })
         })
-        console.log(data)
 
         const darkThemeMq = window.matchMedia("(prefers-color-scheme: dark)")
         let theme = darkThemeMq.matches ? 'dark' : ''

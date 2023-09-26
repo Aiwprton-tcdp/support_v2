@@ -11,6 +11,7 @@ class Manager extends Model
 
     protected $fillable = [
         'crm_id',
+        'user_id',
         'role_id',
         'in_work',
     ];
@@ -31,6 +32,6 @@ class Manager extends Model
     
     public function user()
     {
-        return $this->hasOne(User::class, 'crm_id', 'crm_id');
+        return $this->hasOne(User::class, 'id', 'user_id');
     }
 }

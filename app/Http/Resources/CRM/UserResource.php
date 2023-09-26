@@ -16,9 +16,10 @@ class UserResource extends JsonResource
     {
         return [
             'crm_id' => $this['ID'],
-            'name' => trim($this['LAST_NAME'] . " " . $this['NAME'] . " " . $this['SECOND_NAME']),
-            'avatar' => $this['PERSONAL_PHOTO'] ?? null,
-            'post' => trim($this['WORK_POSITION'] ?? null),
+            'name' => trim(@$this['LAST_NAME'] . " " . @$this['NAME'] . " " . @$this['SECOND_NAME']),
+            'avatar' => @$this['PERSONAL_PHOTO'],
+            'email' => $this['EMAIL'],
+            'post' => trim(@$this['WORK_POSITION']),
             'departments' => $this['UF_DEPARTMENT'] ?? 0,
             'inner_phone' => $this['UF_PHONE_INNER'] ?? 0,
         ];

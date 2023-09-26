@@ -6,6 +6,7 @@ use App\Http\Requests\StoreReasonRequest;
 use App\Http\Requests\UpdateReasonRequest;
 use App\Http\Resources\ReasonResource;
 use App\Models\Reason;
+use App\Models\Ticket;
 use App\Traits\ReasonTrait;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
@@ -18,9 +19,9 @@ class ReasonController extends Controller
      */
     public function index()
     {
-        $name = Str::lower(htmlspecialchars(trim(request('name'))));
-        $id = intval(htmlspecialchars(trim(request('id'))));
-        $limit = intval(htmlspecialchars(trim(request('limit'))));
+        $name = Str::lower($this->prepare(request('name')));
+        $id = intval($this->prepare(request('id')));
+        $limit = intval($this->prepare(request('limit')));
 
         $checksum = ReasonTrait::Checksum();
 
@@ -33,13 +34,14 @@ class ReasonController extends Controller
         }
 
         $data = \Illuminate\Support\Facades\DB::table('reasons')
-            ->when(!empty($id) || !empty($name), function ($q) use ($id, $name) {
-                $q->whereId($id)->orWhereRaw('LOWER(name) LIKE ?', ["%{$name}%"]);
-            })
+            ->when(
+                !empty($id) || !empty($name),
+                fn($q) => $q->whereId($id)->orWhereRaw('LOWER(name) LIKE ?', ["%{$name}%"])
+            )
             ->paginate($limit < 1 ? 100 : $limit);
         $resource = ReasonResource::collection($data)->response()->getData();
         Cache::store('file')->forever('reasons', $resource);
-        
+
         return response()->json([
             'status' => count($checksum) == 0,
             'checksum' => $checksum,
@@ -55,7 +57,7 @@ class ReasonController extends Controller
         $validated = $request->validated();
         $reason = Reason::firstOrCreate(['name' => $validated['name']], $validated);
 
-        $message = 'Тема `' . $reason->name .'` успешно создана';
+        $message = "Тема {$reason->name} успешно создана";
         Log::info($message);
         Cache::store('file')->forget('reasons');
 
@@ -81,8 +83,7 @@ class ReasonController extends Controller
     {
         $validated = $request->validated();
 
-        $SameName = Reason::whereName($validated['name'])->whereNot('id', $id)->exists();
-        if ($SameName) {
+        if (Reason::whereName($validated['name'])->whereNot('id', $id)->exists()) {
             return response()->json([
                 'status' => false,
                 'data' => null,
@@ -91,20 +92,18 @@ class ReasonController extends Controller
         }
 
         $reason = Reason::findOrFail($id);
-        $message = 'Тема `' . $reason->name . '` успешно изменена';
-        
+        $message = "Тема {$reason->name} успешно изменена";
+
         $reason->fill($validated);
         $reason->save();
         $data = Reason::findOrFail($id);
         Log::info($message);
         Cache::store('file')->forget('reasons');
 
-        $checksum = ReasonTrait::Checksum();
-
         return response()->json([
             'status' => true,
             'data' => ReasonResource::make($data),
-            'checksum' => $checksum,
+            'checksum' => ReasonTrait::Checksum(),
             'message' => $message
         ]);
     }
@@ -116,27 +115,23 @@ class ReasonController extends Controller
     {
         $reason = Reason::findOrFail($id);
 
-        $has_active_tickets = \App\Models\Ticket::whereActive(true)
-            ->whereReasonId($id)->exists();
-        if ($has_active_tickets) {
+        if (Ticket::whereActive(true)->whereReasonId($id)->exists()) {
             return response()->json([
                 'status' => false,
                 'data' => null,
                 'message' => 'С данной темой есть открытые тикеты'
             ]);
         }
-        
+
         $result = $reason->delete();
-        $message = 'Тема `' . $reason->name . '` успешно удалена';
+        $message = "Тема {$reason->name} успешно удалена";
         Log::info($message);
         Cache::store('file')->forget('reasons');
-
-        $checksum = ReasonTrait::Checksum();
 
         return response()->json([
             'status' => true,
             'data' => $result,
-            'checksum' => $checksum,
+            'checksum' => ReasonTrait::Checksum(),
             'message' => $message
         ]);
     }

@@ -131,11 +131,11 @@ export default {
       const id = data.replaceAll(/[^0-9]+/g, '').trim()
       const text = data.replaceAll(/[^А-яA-z ]+/g, '').trim().toLowerCase()
 
-      this.tickets = this.AllTickets.filter(g =>
-        id.length > 0 && g.id.toString().includes(id) ||
-        text.length > 0 && g.reason.toLowerCase().includes(text) ||
-        g.user.name.toLowerCase().includes(text) ||
-        g.manager.name.toLowerCase().includes(text)
+      this.tickets = this.AllTickets.filter(t =>
+        id.length > 0 && t.id.toString().includes(id) ||
+        text.length > 0 && t.reason.toLowerCase().includes(text) ||
+        t.user.name.toLowerCase().includes(text) ||
+        t.manager.name.toLowerCase().includes(text)
       )
     },
     ClearSearch() {
@@ -216,14 +216,14 @@ export default {
         <div v-for="t in tickets" v-bind:key="t" class="p-1"
           :class="t.old_ticket_id == CurrentTicket?.old_ticket_id ? 'bg-blue-200 dark:bg-blue-500' : 'bg-white hover:bg-gray-100 dark:bg-gray-600 dark:hover:bg-gray-800'">
           <div @click.self="GoTo(t)" class="flex flex-row items-center w-full gap-2 cursor-pointer">
-            <a :href="VITE_CRM_URL + 'company/personal/user/' + (UserData.crm_id == t.user_id ? t.manager_id : t.user_id) + '/'"
+            <a :href="VITE_CRM_URL + 'company/personal/user/' + (UserData.user_id == t.user_id ? t.manager_crm_id : t.user_crm_id) + '/'"
               target="_blank">
-              <Avatar rounded size="sm" alt="avatar" :title="UserData.crm_id == t.user_id ? t.manager.name : t.user.name"
-                :img="(UserData.crm_id == t.user_id ? t.manager.avatar : t.user.avatar) ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
+              <Avatar rounded size="sm" alt="avatar" :title="UserData.user_id == t.user_id ? t.manager.name : t.user.name"
+                :img="(UserData.user_id == t.user_id ? t.manager.avatar : t.user.avatar) ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
             </a>
             <div @click="GoTo(t)" class="max-w-[80%] flex flex-col cursor-pointer">
-              <p class="truncate" :title="UserData.crm_id == t.user_id ? t.manager.name : t.user.name">
-                {{ UserData.crm_id == t.user_id ? t.manager.name : t.user.name }}
+              <p class="truncate" :title="UserData.user_id == t.user_id ? t.manager.name : t.user.name">
+                {{ UserData.user_id == t.user_id ? t.manager.name : t.user.name }}
               </p>
               <p class="truncate" :title="t.reason">{{ t.reason }}</p>
             </div>

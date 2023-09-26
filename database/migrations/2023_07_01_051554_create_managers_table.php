@@ -14,6 +14,8 @@ return new class extends Migration
         Schema::create('managers', function (Blueprint $table) {
             $table->id();
             $table->unsignedInteger('crm_id');
+            // $table->foreignId('bx_crm_id')->constrained();
+            $table->foreignId('user_id')->constrained();
             $table->foreignId('role_id')->constrained();
             $table->boolean('in_work')->default(false);
             $table->timestamps();

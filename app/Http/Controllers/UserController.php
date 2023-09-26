@@ -20,19 +20,18 @@ class UserController extends Controller
      */
     public function index()
     {
-        $name = Str::lower(htmlspecialchars(trim(request('name'))));
-        $id = intval(htmlspecialchars(trim(request('id'))));
-        $role = intval(htmlspecialchars(trim(request('role'))));
-        $limit = intval(htmlspecialchars(trim(request('limit'))));
+        $name = Str::lower($this->prepare(request('name')));
+        $id = intval($this->prepare(request('id')));
+        $role = intval($this->prepare(request('role')));
+        $limit = intval($this->prepare(request('limit')));
 
         $data = DB::table('users')
             ->where('role_id', '>', 1)
-            ->when(!empty($role), function ($q) use ($role) {
-                $q->whereRoleId($role);
-            })
-            ->when(!empty($id) || !empty($name), function ($q) use ($id, $name) {
-                $q->whereId($id)->orWhereRaw('LOWER(name) LIKE ?', ["%{$name}%"]);
-            })
+            ->when(!empty($role), fn($q) => $q->whereRoleId($role))
+            ->when(
+                !empty($id) || !empty($name),
+                fn($q) => $q->whereId($id)->orWhereRaw('LOWER(name) LIKE ?', ["%{$name}%"])
+            )
             ->paginate($limit < 1 ? 10 : $limit);
 
         return response()->json([
@@ -46,9 +45,24 @@ class UserController extends Controller
      */
     public function store(StoreManagerRequest $request)
     {
-        $user = User::firstOrCreate($request->validated());
+        $validated = $request->validated();
+        $user = User::firstOrNew([
+            'email' => $validated['email']
+        ]);
 
-        $message = "Сотрудник `{$user->name}` crm_id: {$user->crm_id} добавлен с ролью `" .
+        if (!$user->exists) {
+            return response()->json([
+                'status' => false,
+                'data' => null,
+                'message' => 'Данный пользователь ещё не прошёл аутентификацию в интеграции',
+            ]);
+        }
+        // $user->fill([
+        //     'crm_id' => 
+        // ]);
+        // $user->save();
+
+        $message = "Сотрудник `{$user->name}` добавлен с ролью `" .
             \App\Models\Role::find($user->role_id)->name . '`';
         Log::info($message);
 
@@ -84,21 +98,21 @@ class UserController extends Controller
     {
         $validated = $request->validated();
 
-        $user = User::join('managers', 'managers.crm_id', 'users.crm_id')
+        $user = User::join('managers', 'managers.user_id', 'users.id')
             ->select('users.*', 'managers.role_id')
             ->findOrFail($id);
         // dd($user);
-        $message = "Сотрудник `{$user->name}` crm_id:{$user->crm_id}";
+        $message = "Сотрудник `{$user->name}`";
 
         if ($user->role_id == 2 && isset($validated['in_work'])) {
             $in_work = $validated['in_work'];
 
-            $manager = \App\Models\Manager::join('users', 'users.crm_id', 'managers.crm_id')
+            $manager = \App\Models\Manager::join('users', 'users.id', 'managers.user_id')
                 ->select('managers.*', 'users.name')
                 ->where('users.id', $id)
                 ->first();
-            $message = 'Сотрудник `' . $manager->name . '` crm_id:' . $manager->crm_id
-                . ($in_work ? ' возобновил' : ' завершил') . ' работу';
+            $message = 'Сотрудник `' . $manager->name . '` '
+                . ($in_work ? 'возобновил' : 'завершил') . ' работу';
 
             $manager->in_work = $in_work;
             $manager->save();
@@ -151,7 +165,7 @@ class UserController extends Controller
             return response()->json($data);
         }
 
-        $message = "Сотрудник `{$user->name}` crm_id:{$user->crm_id} удалён";
+        $message = "Сотрудник `{$user->name}` удалён";
         $result = $user->delete();
         Log::info($message);
 

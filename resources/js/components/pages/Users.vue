@@ -44,6 +44,8 @@ export default {
     Get() {
       this.ax.get('bx/users').then(r => {
         this.AllUsers = r.data.data.data
+        // console.log('this.AllUsers')
+        // console.log(this.AllUsers)
         this.users = this.AllUsers
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
@@ -62,6 +64,8 @@ export default {
         }
 
         this.AllUsersWithRoles.forEach(u => u.new_role_id = u.role_id)
+        // console.log('this.AllUsersWithRoles')
+        // console.log(this.AllUsersWithRoles)
         this.users = this.AllUsersWithRoles
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
@@ -79,6 +83,9 @@ export default {
     Create(data) {
       if (!this.only_with_roles && data.new_role_id == 0) {
         return
+      } else if (data.user_id == null) {
+        this.toast('Данный пользователь ещё не прошёл аутентификацию в интеграции', 'error')
+        return
       } else if (data.new_role_id < 2) {
         this.Delete(data)
         return
@@ -89,14 +96,21 @@ export default {
 
       this.ax.post('managers', {
         name: data.name,
-        crm_id: data.crm_id,
+        email: data.email,
+        // crm_id: data.crm_id,
         role_id: data.new_role_id,
       }).then(r => {
         this.toast(r.data.message, r.data.status ? 'success' : 'error')
+        if (!r.data.status) {
+          const index = this.users.findIndex(({ user_id }) => user_id == data.user_id)
+          this.users[index].new_role_id = 0
+        }
 
         this.AllUsersWithRoles.push(r.data.data)
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
+        const index = this.users.findIndex(({ user_id }) => user_id == data.user_id)
+        this.users[index].new_role_id = 0
       })
     },
     Patch(data) {
@@ -150,7 +164,7 @@ export default {
       const id = data.replaceAll(/[^0-9]+/g, '').trim()
       const text = data.replaceAll(/[^А-я ]+/g, '').trim().toLowerCase()
       const expression = u =>
-        id.length > 0 && u.crm_id.toString().includes(id)
+        id.length > 0 && u.user_id.toString().includes(id)
         || text.length > 0
         && (u.name.toLowerCase().includes(text)
           || u?.post.toLowerCase().includes(text))
@@ -171,7 +185,8 @@ export default {
   <template v-if="!only_with_roles && AllUsers.length > 0 || only_with_roles && AllUsersWithRoles.length > 0">
     <div class="fixed top-1 right-1 space-y-4">
       <div class="flex flex-wrap space-x-4">
-        <button v-focus v-if="only_with_roles || !only_with_roles && this.AllUsersWithRoles.length > 0" @click="GetManagesOrAll()"
+        <button v-focus v-if="only_with_roles || !only_with_roles && this.AllUsersWithRoles.length > 0"
+          @click="GetManagesOrAll()"
           class="text-sm pb-1 no-underline hover:underline border-0 focus:outline-none bg-transparent decoration-dotted underline-offset-4">
           <p v-if="!only_with_roles">показать только с ролями</p>
           <p v-else>показать всех</p>
@@ -204,7 +219,7 @@ export default {
     <VueTable
       class="max-h-[calc(100vh-54px)] overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch">
       <TableHead>
-        <TableHeadCell>Crm_id</TableHeadCell>
+        <!-- <TableHeadCell>Crm_id</TableHeadCell> -->
         <TableHeadCell>ФИО</TableHeadCell>
         <TableHeadCell v-if="!only_with_roles">Должность</TableHeadCell>
         <TableHeadCell v-if="!only_with_roles">Внутренний номер</TableHeadCell>
@@ -213,7 +228,7 @@ export default {
 
       <TableBody>
         <TableRow v-for="u in users" v-bind:key="u">
-          <TableCell>{{ u.crm_id }}</TableCell>
+          <!-- <TableCell>{{ u.crm_id }}</TableCell> -->
           <TableCell>{{ u.name }}</TableCell>
           <TableCell v-if="!only_with_roles">{{ u.post }}</TableCell>
           <TableCell v-if="!only_with_roles">{{ u.inner_phone }}</TableCell>

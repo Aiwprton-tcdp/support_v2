@@ -22,11 +22,11 @@ class RedistributionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'user_crm_id' => 'required|int|min:1',
             'reason_id' => 'required|int|min:1',
+            'user_id' => 'required|int|min:1',
+            'new_users_ids' => 'required|array|min:1',
+            'new_users_ids.*' => 'int',
             'count' => 'required|int|min:1',
-            'new_crm_ids' => 'required|array|min:1',
-            'new_crm_ids.*' => 'int',
         ];
     }
 }

@@ -15,6 +15,8 @@ return new class extends Migration
             $table->id();
             $table->unsignedInteger('user_id')->constrained('users', 'crm_id');
             $table->unsignedInteger('manager_id')->constrained('users', 'crm_id');
+            $table->unsignedInteger('new_user_id')->constrained('users');
+            $table->unsignedInteger('new_manager_id')->constrained('users');
             $table->foreignId('reason_id')->constrained();
             $table->unsignedTinyInteger('weight')->default(1);
             $table->boolean('active')->default(true);

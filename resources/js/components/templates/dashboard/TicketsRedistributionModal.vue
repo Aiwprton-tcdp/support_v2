@@ -65,12 +65,16 @@ export default {
       } else if (this.count > this.ticket.tickets_count) {
         this.count = this.ticket.tickets_count
       }
+      // console.log(this.ticket)
+      // console.log(this.SelectedManagers)
+      // console.log(this.SelectedManagers.map(m => m.user_id))
+      // return
 
       this.ax.post('statistics/redistribute', {
-        user_crm_id: this.ticket.manager.crm_id,
         reason_id: this.ticket.reason_id,
+        user_id: this.ticket.new_manager_id,
+        new_users_ids: this.SelectedManagers.map(m => m.user_id),
         count: this.count,
-        new_crm_ids: this.SelectedManagers.map(m => m.crm_id),
       }).then(r => {
         if (r.data.status == true) {
           this.toast(r.data.message, 'success')

@@ -26,11 +26,12 @@ export default {
 
     <template v-if="UserData.is_admin
       || [2, 3, 4].includes(UserData?.role_id)
-      || ['4942', '126404'].includes(UserData.crm_id)">
+      || ['goncov@юдл.рф', 'mehonoshina_nina_527@udl.ru'].includes(UserData.email)">
       <Tab name="details" title="Детализация" />
       <Tab name="dashboard" title="Статистика" />
       <!-- <Tab name="coupons" title="Купоны" /> -->
-      <template v-if="UserData.is_admin || ['4942', '126404'].includes(UserData.crm_id)">
+      <template v-if="UserData.is_admin
+        || ['goncov@юдл.рф', 'mehonoshina_nina_527@udl.ru'].includes(UserData.email)">
         <Tab name="reasons" title="Темы" />
         <Tab name="groups" title="Группы" />
         <Tab name="users" title="Пользователи" />

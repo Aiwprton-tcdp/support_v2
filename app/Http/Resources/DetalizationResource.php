@@ -16,8 +16,8 @@ class DetalizationResource extends JsonResource
     {
         return [
             'id' => $this->tid,
-            'user_id' => $this->user_id,
-            'manager_id' => $this->manager_id,
+            'new_user_id' => $this->new_user_id,
+            'new_manager_id' => $this->new_manager_id,
             'reason_id' => $this->reason_id,
             'weight' => $this->weight,
             'mark' => $this->mark,

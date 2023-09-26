@@ -65,6 +65,7 @@ export default {
     this.emitter.on('NewHiddenMessage', this.NewHiddenMessage)
     this.emitter.on('DeleteTicket', this.DeleteTicket)
     this.emitter.on('NewParticipant', this.NewParticipant)
+    console.log(this.UserData)
   },
   methods: {
     Get(page = 1) {
@@ -98,8 +99,9 @@ export default {
         }
 
         this.AllTickets.forEach(t => {
-          t.unread_messages = t.last_message_crm_id != this.UserData.crm_id
-          t.marked_as_deleted = t.active == 0
+          t.im_only_participant = ![t.new_user_id, t.new_manager_id].includes(this.UserData.user_id)
+          t.unread_messages = t.last_message_user_id != this.UserData.user_id
+          t.user_marked_as_deleted = t.active == 0
           t.unread_system_messages = t.last_system_message_date != null && new Date(t.last_system_message_date).getTime() - new Date(t.last_message_date).getTime() < 24 * 60 * 60 * 1000
         })
         this.tickets = this.AllTickets
@@ -107,7 +109,7 @@ export default {
         const index = this.AllTickets.findIndex(({ id }) => id == this.CurrentTicket.id)
         if (index > -1) {
           this.AllTickets[index].unread_messages
-            = this.AllTickets[index].last_message_crm_id != this.UserData.crm_id
+            = this.AllTickets[index].last_message_user_id != this.UserData.user_id
         }
 
         this.errored = false
@@ -158,7 +160,7 @@ export default {
         const message = msg.data.message
 
         if (['tickets', 'ticket', 'new_ticket'].includes(this.$route.name)
-          && message.user_id != this.UserData.crm_id) {
+          && message.new_user_id != this.UserData.user_id) {
           if (message.ticket_id == this.CurrentTicket.id) {
             this.emitter.emit('NewMessage', message)
           } else {
@@ -171,7 +173,7 @@ export default {
         const message = msg.data.message
 
         if (['tickets', 'ticket'].includes(this.$route.name)
-          && message.user_id != this.UserData.crm_id) {
+          && message.new_user_id != this.UserData.user_id) {
           if (message.ticket_id == this.CurrentTicket.id) {
             this.emitter.emit('NewHiddenMessage', message)
           } else {
@@ -184,7 +186,7 @@ export default {
         const ticket = msg.data.ticket
         if (['tickets', 'ticket', 'new_ticket'].includes(this.$route.name)) {
           if (this.$route.name == 'new_ticket'
-            && ticket.user_id == this.UserData.crm_id) return
+            && ticket.new_user_id == this.UserData.user_id) return
           this.emitter.emit('NewTicket', ticket)
         }
       })
@@ -219,6 +221,7 @@ export default {
 
       sub_participant.on('publication', msg => {
         const participant = msg.data.participant
+
         if (['tickets', 'ticket', 'new_ticket'].includes(this.$route.name)) {
           // if (this.$route.name == 'tickets'
           //   || this.$route.name == 'ticket'
@@ -228,6 +231,7 @@ export default {
       })
 
       sub_message.subscribe()
+      sub_hidden_message.subscribe()
       sub_ticket.subscribe()
       sub_patch_ticket.subscribe()
       sub_delete_ticket.subscribe()
@@ -240,14 +244,14 @@ export default {
     },
     TicketsSorting() {
       console.log(this.UserData)
-      const user_id = this.UserData.crm_id
+      const user_id = this.UserData.user_id
       const last_message = (t1, t2) => {
-        if ((t1.last_message_crm_id == t1.user_id && t1.manager_id == user_id)
-          - (t2.last_message_crm_id == t2.user_id && t2.manager_id == user_id)) {
+        if ((t1.last_message_user_id == t1.new_user_id && t1.new_manager_id == user_id)
+          - (t2.last_message_user_id == t2.new_user_id && t2.new_manager_id == user_id)) {
           return -1;
         }
-        if ((t1.last_message_crm_id != t1.user_id && t1.manager_id == user_id)
-          - (t2.last_message_crm_id != t2.user_id && t2.manager_id == user_id)) {
+        if ((t1.last_message_user_id != t1.new_user_id && t1.new_manager_id == user_id)
+          - (t2.last_message_user_id != t2.new_user_id && t2.new_manager_id == user_id)) {
           return 1;
         }
         // a должно быть равным b
@@ -257,7 +261,7 @@ export default {
       this.AllTickets = this.AllTickets.sort((t1, t2) =>
         (t1.unread_messages < t2.unread_messages) - (t1.unread_messages > t2.unread_messages)
         || last_message(t1, t2)
-        // || (t1.last_message_crm_id == user_id) - (t2.last_message_crm_id == user_id)
+        // || (t1.last_message_user_id == user_id) - (t2.last_message_user_id == user_id)
         || (t2.weight - t1.weight)
         || (new Date(t1.last_message_date) - new Date(t2.last_message_date)))
 
@@ -275,9 +279,11 @@ export default {
 
       const index = this.AllTickets.findIndex(({ id }) => id == data.ticket_id)
 
+      console.log('NewMessage.ticket')
       if (index == -1) {
         this.ax.get(`tickets/${data.ticket_id}`).then(r => {
           const ticket = r.data.data.data
+          ticket.im_only_participant = ![ticket.new_user_id, ticket.new_manager_id].includes(this.UserData.user_id)
           ticket.unread_messages = true
           ticket.unread_system_messages = data.last_system_message_date != null && new Date(data.last_system_message_date).getTime() - new Date(data.last_message_date).getTime() < 24 * 60 * 60 * 1000
           this.AllTickets.push(ticket)
@@ -286,6 +292,9 @@ export default {
           this.toast(e.response.data.message, 'error')
         })
       } else {
+        // По идее не надо, но на всякий пусть будет, если при смене ответственного сокет не отработает
+        this.AllTickets[index].im_only_participant = ![this.AllTickets[index].new_user_id, this.AllTickets[index].new_manager_id].includes(this.UserData.user_id)
+
         this.AllTickets[index].unread_messages = true
         this.AllTickets[index].unread_system_messages = data.last_system_message_date != null && new Date(data.last_system_message_date).getTime() - new Date(data.last_message_date).getTime() < 24 * 60 * 60 * 1000
         this.TicketsSorting()
@@ -313,7 +322,7 @@ export default {
       }
     },
     NewTicket(data) {
-      data.unread_messages = data.user_id != this.UserData.crm_id
+      data.unread_messages = data.new_user_id != this.UserData.user_id
       const index = this.AllTickets.findIndex(({ id }) => id == data.id)
       if (index == -1) {
         this.AllTickets.push(data)
@@ -339,29 +348,27 @@ export default {
 
       this.toast(message, 'success')
 
-      console.log(this.AllTickets.length)
-      console.log(this.TicketsCount)
       if (this.AllTickets.length < this.TicketsCount--) {
         let page = Math.floor(index / this.limit) + 1
         this.ax.get(`tickets?page=${page}&limit=${this.limit}`).then(r => {
           this.TicketsUnion(r.data.data.data)
-          this.AllTickets.forEach(t => t.unread_messages = t.last_message_crm_id != this.UserData.crm_id)
+          this.AllTickets.forEach(t => t.unread_messages = t.last_message_user_id != this.UserData.user_id)
           this.TicketsSorting()
         })
       }
 
-      const is_current_ticket = this.CurrentTicket.id == ticket_id
-      this.CurrentTicket.id = 0
-      this.TicketsHistory.delete(ticket_id)
-
-      if (this.$route.name == 'ticket' && is_current_ticket) {
+      if (this.$route.name == 'ticket' && this.CurrentTicket.id == ticket_id) {
+        this.CurrentTicket.id = 0
+        this.TicketsHistory.delete(ticket_id)
         this.$router.push('tickets')
       }
       this.tickets = this.AllTickets
     },
     NewParticipant(data) {
       const index = this.tickets.findIndex(({ id }) => id == data.ticket_id)
+      if (index == -1) return
       this.tickets[index].manager = data.new_manager
+      this.tickets[index].new_manager_id = data.new_manager_id
       this.tickets[index].manager_id = data.new_manager.crm_id
     },
     TryToGoToForcedTicket() {
@@ -402,7 +409,7 @@ export default {
         const index = this.AllTickets.findIndex(({ id }) => id == t.id)
         if (index > -1) {
           this.AllTickets[index].unread_messages = false
-          // = this.AllTickets[index].last_message_crm_id != this.UserData.crm_id
+          // = this.AllTickets[index].last_message_user_id != this.UserData.id
         }
         this.$router.push({ name: 'ticket', params: { id: t.id } })
       }
@@ -442,7 +449,7 @@ export default {
   <div class="fixed top-1 right-1 flex flex-row space-x-4 z-10">
     <div v-if="AllTickets.length > 0" class="flex flex-wrap space-x-2">
       <div class="relative" @click="ShowHistoryInfo = !ShowHistoryInfo" @mouseleave="ShowHistoryInfo = false">
-        <VueInput @keyup.enter="Get()" v-model="search" v-focus placeholder="Поиск" label="" class="flex-1">
+        <VueInput @keyup.enter="Get()" v-model="search" placeholder="Поиск" label="" class="flex-1">
           <template #prefix>
             <svg aria-hidden="true" class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor"
               viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -525,14 +532,18 @@ export default {
         <div v-for="t in tickets" v-bind:key="t" class="p-1"
           :class="t.id == CurrentTicket?.id ? 'bg-blue-200 dark:bg-blue-500' : 'bg-white hover:bg-gray-100 dark:bg-gray-600 dark:hover:bg-gray-800'">
           <div @click.self="GoTo(t)" class="relative flex flex-row items-center w-full gap-2 cursor-pointer">
-            <a :href="VITE_CRM_URL + 'company/personal/user/' + (UserData.crm_id == t.user_id ? t.manager_id : t.user_id) + '/'"
-              target="_blank">
+            <a :href="'https://' + t.bx_domain + '/company/personal/user/' + (UserData.user_id == t.new_user_id ? t.manager_id : t.user_id) + '/'"
+              target="_blank" class="relative">
               <Avatar rounded size="sm" alt="avatar" :title="'Id тикета: ' + t.id"
-                :img="(UserData.crm_id == t.user_id ? t.manager?.avatar : t.user?.avatar) ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
+                :img="(UserData.user_id == t.new_user_id ? t.manager?.avatar : t.user?.avatar) ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
+              <div v-if="!VITE_CRM_URL.includes(t.bx_domain)" :title="t.bx_name"
+                class="absolute inline-flex items-center justify-center w-full h-4 text-xs font-bold text-white bg-red-500 border-2 border-white rounded-full -bottom-2 dark:border-gray-900">
+                {{ t.bx_acronym }}
+              </div>
             </a>
             <div @click="GoTo(t)" class="max-w-[80%] flex flex-col cursor-pointer">
-              <p class="truncate" :title="UserData.crm_id == t.user_id ? t.manager?.name : t.user?.name">
-                {{ UserData.crm_id == t.user_id ? t.manager?.name : t.user?.name }}
+              <p class="truncate" :title="UserData.user_id == t.new_user_id ? t.manager?.name : t.user?.name">
+                {{ UserData.user_id == t.new_user_id ? t.manager?.name : t.user?.name }}
               </p>
               <p class="truncate" :title="t.reason">{{ t.reason }}</p>
             </div>
@@ -544,6 +555,10 @@ export default {
             <div v-else-if="t.marked_as_deleted" class="absolute inline-flex items-center justify-center right-0">
               <span title="Ответственный пометил данный тикет на удаление"
                 class="flex w-2.5 h-2.5 bg-yellow-300 rounded-full flex-shrink-0"></span>
+            </div>
+            <div v-else-if="t.im_only_participant" class="absolute inline-flex items-center justify-center right-0">
+              <span title="Вы в данном тикете являетесь лишь участником"
+                class="flex w-2.5 h-2.5 bg-gray-200 rounded-full flex-shrink-0"></span>
             </div>
             <div v-else-if="t.unread_messages" class="absolute inline-flex items-center justify-center right-0">
               <span title="Есть сообщение, ожидающее Вашего ответа"
@@ -560,7 +575,7 @@ export default {
 
     <div class="h-[calc(100vh-55px)] flex flex-col items-center" :class="[UserData.is_admin || UserData.role_id == 2 ? 'col-span-5' : 'col-span-4',
     { 'justify-center': $route.name == 'tickets' }]">
-      <div v-if="waiting" class="flex flex-col">
+      <div v-if="waiting && tickets.length == 0" class="flex flex-col">
         <p class="mx-auto">Идёт загрузка данных...</p>
       </div>
 

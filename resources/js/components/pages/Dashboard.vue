@@ -3,9 +3,12 @@ import { inject, defineAsyncComponent } from 'vue'
 import { Button as VueButton, Avatar } from 'flowbite-vue'
 
 const TicketsRedistributionModal = defineAsyncComponent(() => import('@temps/dashboard/TicketsRedistributionModal.vue'))
+const CountOfTicketsByDaysChartComponent = defineAsyncComponent(() => import('@temps/dashboard/CountOfTicketsByDaysChart.vue'))
+const CountOfTicketsByManagersChartComponent = defineAsyncComponent(() => import('@temps/dashboard/CountOfTicketsByManagersChart.vue'))
 const TicketsByGroupChartComponent = defineAsyncComponent(() => import('@temps/dashboard/TicketsByGroupChart.vue'))
 const TicketsByReasonsChartComponent = defineAsyncComponent(() => import('@temps/dashboard/TicketsByReasonsChart.vue'))
 const MarksPercentageChartComponent = defineAsyncComponent(() => import('@temps/dashboard/MarksPercentageChart.vue'))
+const AverageSolvingTimeChartComponent = defineAsyncComponent(() => import('@temps/dashboard/AverageSolvingTimeChart.vue'))
 
 // import TicketsRedistributionModal from '@temps/dashboard/TicketsRedistributionModal.vue'
 // import TicketsByGroupChartComponent from '@temps/dashboard/TicketsByGroupChart.vue'
@@ -16,16 +19,20 @@ export default {
   name: 'DashboardPage',
   components: {
     VueButton, Avatar,
-    TicketsByGroupChartComponent,
     TicketsRedistributionModal,
+    CountOfTicketsByDaysChartComponent,
+    CountOfTicketsByManagersChartComponent,
+    TicketsByGroupChartComponent,
     TicketsByReasonsChartComponent,
     MarksPercentageChartComponent,
+    AverageSolvingTimeChartComponent,
   },
   data() {
     return {
       lostTickets: Array(),
       activeTickets: Array(),
       AllTickets: Array(),
+      median: String(),
       waiting: Boolean(),
       VITE_CRM_URL: String(import.meta.env.VITE_CRM_URL),
     }
@@ -36,6 +43,7 @@ export default {
   },
   mounted() {
     this.GetActiveTickets()
+    this.GetTicketsSolvingTimeMedian()
   },
   methods: {
     GetActiveTickets() {
@@ -47,6 +55,19 @@ export default {
         this.lostTickets = r.data.data.lost
         this.activeTickets = r.data.data.active
         this.AllTickets = this.lostTickets.concat(this.activeTickets)
+        this.errored = false
+      }).catch(e => {
+        this.toast(e.response.data.message, 'error')
+        this.errored = true
+      })
+    },
+    GetTicketsSolvingTimeMedian() {
+      this.ax.get('statistics/tickets_solving_time_median').then(r => {
+        if (r.data.status == false) {
+          this.toast(r.data.message, 'error')
+        }
+
+        this.median = r.data.data
         this.errored = false
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
@@ -117,17 +138,30 @@ export default {
       </div>
     </div>
 
-    <div class="col-span-2 lg:col-span-3 xl:col-span-4">
-      <MarksPercentageChartComponent />
+    <div class="col-span-2 lg:col-span-3 xl:col-span-4 flex space-x-2">
+      <p>Медиана времени решения тикетов: </p>
+      <p class="underline font-bold">{{ median }}</p>
     </div>
   </div>
 
   <div class="grid grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 m-2">
     <div class="col-span-3 lg:col-span-4 xl:col-span-5">
+      <CountOfTicketsByDaysChartComponent />
+    </div>
+    <div class="col-span-3 lg:col-span-4 xl:col-span-5">
+      <CountOfTicketsByManagersChartComponent />
+    </div>
+    <div class="col-span-3 lg:col-span-4 xl:col-span-5">
+      <MarksPercentageChartComponent />
+    </div>
+    <div class="col-span-3 lg:col-span-4 xl:col-span-5">
       <TicketsByReasonsChartComponent />
     </div>
     <div class="col-span-3 lg:col-span-4 xl:col-span-5">
       <TicketsByGroupChartComponent />
+    </div>
+    <div class="col-span-3 lg:col-span-4 xl:col-span-5">
+      <AverageSolvingTimeChartComponent />
     </div>
   </div>
 

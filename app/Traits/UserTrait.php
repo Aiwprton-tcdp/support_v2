@@ -26,30 +26,32 @@ trait UserTrait
    * Else returns default data
    * 
    * @param integer $user_id
+   * @param string $email
    * @return object
    */
-  public static function tryToDefineUserEverywhere($user_id): object
+  public static function tryToDefineUserEverywhere($user_id, $email): object
   {
     $search = self::search();
-    $managers = array_values(array_filter($search->data, fn($e) => $e->crm_id == $user_id));
+    $managers = array_values(array_filter($search->data, fn($e) => $e->email == $email));
     unset($search);
 
-    $manager = !empty($managers) ? $managers[0] : null;
+    // $manager = !empty($managers) ? $managers[0] : null;
 
-    if (!isset($manager)) {
-      $withFired = self::withFired();
-      // $withFired = self::withFired(true);
-      $managers = array_values(array_filter($withFired->data, fn($e) => $e->crm_id == $user_id));
-      unset($withFired);
-    }
+    // if (!isset($manager)) {
+    //   $withFired = self::withFired();
+    //   // $withFired = self::withFired(true);
+    //   $managers = array_values(array_filter($withFired->data, fn($e) => $e->email == $email));
+    //   unset($withFired);
+    // }
 
     $manager = !empty($managers)
       ? $managers[0]
-      : User::firstWhere('crm_id', $user_id);
+      : User::firstWhere('email', $email);
 
     if (!isset($manager)) {
       $manager = [
         'crm_id' => $user_id,
+        'email' => $email,
         'name' => 'Неопределённый пользователь',
       ];
     }
@@ -73,20 +75,20 @@ trait UserTrait
     return $resource;
   }
 
-  public static function withFired($force = false)
-  {
-    if (!$force && Cache::store('file')->has('crm_all_users')) {
-      return Cache::store('file')->get('crm_all_users');
-    }
+  // public static function withFired($force = false)
+  // {
+  //   if (!$force && Cache::store('file')->has('crm_all_users')) {
+  //     return Cache::store('file')->get('crm_all_users');
+  //   }
 
-    $data = BX::firstBatch('user.get', [
-      'USER_TYPE' => 'employee',
-    ]);
-    $resource = \App\Http\Resources\CRM\UserResource::collection($data)->response()->getData();
-    Cache::store('file')->forever('crm_all_users', $resource);
+  //   $data = BX::firstBatch('user.get', [
+  //     'USER_TYPE' => 'employee',
+  //   ]);
+  //   $resource = \App\Http\Resources\CRM\UserResource::collection($data)->response()->getData();
+  //   Cache::store('file')->forever('crm_all_users', $resource);
 
-    return $resource;
-  }
+  //   return $resource;
+  // }
 
   public static function departments()
   {

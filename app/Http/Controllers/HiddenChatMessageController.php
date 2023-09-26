@@ -7,7 +7,9 @@ use App\Http\Requests\UpdateHiddenChatMessageRequest;
 use App\Http\Resources\MessageResource;
 use App\Models\HiddenChatMessage;
 use App\Traits\TicketTrait;
+use App\Traits\UserTrait;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class HiddenChatMessageController extends Controller
 {
@@ -16,25 +18,34 @@ class HiddenChatMessageController extends Controller
      */
     public function index()
     {
-        $ticket_id = intval(htmlspecialchars(trim(request('ticket'))));
-        $limit = intval(htmlspecialchars(trim(request('limit'))));
+        $ticket_id = intval($this->prepare(request('ticket')));
+        $limit = intval($this->prepare(request('limit')));
 
-        $data = \Illuminate\Support\Facades\DB::table('hidden_chat_messages')
+        $data = DB::table('hidden_chat_messages')
             ->when(!empty($ticket_id), fn($q) => $q->whereTicketId($ticket_id))
             ->paginate($limit < 1 ? 100 : $limit);
 
-        $search = \App\Traits\UserTrait::search();
+        $search = UserTrait::search();
         $users_collection = array();
 
+        $all_ids = array_values(array_unique(array_map(fn($t) => $t->new_user_id, $data->all())));
+        $users_with_emails = DB::table('users')
+            ->join('bx_users', 'bx_users.user_id', 'users.id')
+            ->whereIn('users.id', $all_ids)
+            ->select('users.id', 'users.email', 'bx_users.crm_id')
+            ->get();
         foreach ($search->data as $user) {
-            $users_collection[$user->crm_id] = $user;
+            $users_collection[$user->email] = $user;
         }
         unset($search);
+        // dd($data, $users_with_emails, $users_collection);
 
         foreach ($data as $message) {
-            if ($message->user_crm_id == 0)
+            if ($message->new_user_id == 1)
                 continue;
-            $message->user = $users_collection[$message->user_crm_id];
+            $u = $users_with_emails->where('id', $message->new_user_id)->first();
+            $message->user = @$users_collection[$u->email] ?? UserTrait::tryToDefineUserEverywhere($u->crm_id, $u->email);
+            $message->user_crm_id = $u->crm_id; // чтобы отвязаться от одноимённого поля в таблице 'hidden_chat_messages'
         }
         unset($users_collection);
 
@@ -61,33 +72,45 @@ class HiddenChatMessageController extends Controller
             ]);
         }
 
-        $validated['user_crm_id'] = Auth::user()->crm_id;
+        $validated['new_user_id'] = Auth::user()->id;
+        $user_with_email = DB::table('users')
+          ->join('bx_users', 'bx_users.user_id', 'users.id')
+          ->where('users.id', $validated['new_user_id'])
+          ->select('users.id', 'users.email', 'bx_users.crm_id')
+          ->first();
+        $validated['user_crm_id'] = $user_with_email->crm_id;
         $data = HiddenChatMessage::create($validated);
-        $data->user = \App\Traits\UserTrait::tryToDefineUserEverywhere($data->user_crm_id);
 
-        $recipient_ids = $ticket->manager_id != $data->user_crm_id
-            ? [$ticket->manager_id]
-            : [];
+        $recipient_ids = DB::table('users')
+            ->join('bx_users', 'bx_users.user_id', 'users.id')
+            ->whereIn('users.id', [$data->new_user_id, $ticket->new_manager_id])
+            ->select('users.id', 'users.email', 'bx_users.crm_id')
+            ->get();
+        $sender = $recipient_ids->where('id', $data->new_user_id)->first();
+        $manager = $recipient_ids->where('id', $ticket->new_manager_id)->first();
+
+        $data->user = UserTrait::tryToDefineUserEverywhere($sender->crm_id, $sender->email);
 
         $message = "Новое сообщение в системном чате тикета №{$ticket->id}";
         $resource = MessageResource::make($data);
 
-        foreach ($recipient_ids as $id) {
-            TicketTrait::SendMessageToWebsocket("{$id}.message", [
+        if ($ticket->new_manager_id != $data->new_user_id) {
+            TicketTrait::SendMessageToWebsocket("{$manager->crm_id}.hidden_message", [
                 'message' => $resource,
             ]);
-            TicketTrait::SendNotification($id, $message, $ticket->id);
+            TicketTrait::SendNotification($manager->crm_id, $message, $ticket->id);
         }
 
         $another_recipients = \App\Models\Participant::whereTicketId($ticket->id)
-            ->whereNot('user_crm_id', $data->user_crm_id)
-            ->get('user_crm_id');
-        foreach ($another_recipients as $rec) {
-            $id = $rec->user_crm_id;
+            ->whereNot('participants.user_id', $data->new_user_id)
+            ->join('users', 'users.id', 'participants.user_id')
+            ->join('bx_users', 'bx_users.user_id', 'users.id')
+            ->pluck('bx_users.crm_id')->toArray();
+        foreach ($another_recipients as $id) {
             TicketTrait::SendMessageToWebsocket("{$id}.hidden_message", [
                 'message' => $resource,
             ]);
-            TicketTrait::SendNotification($id, $message, $ticket->id);
+            // TicketTrait::SendNotification($id, $message, $ticket->id);
         }
 
         return response()->json([

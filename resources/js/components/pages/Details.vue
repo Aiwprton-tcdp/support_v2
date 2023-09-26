@@ -57,6 +57,9 @@ export default {
         resolved: Boolean(true),
         date_range: Array(),
       }),
+      Orders: Object({
+        time: '',
+      }),
       file: String(),
       dragging: Boolean(),
       VITE_CRM_URL: String(import.meta.env.VITE_CRM_URL),
@@ -86,7 +89,7 @@ export default {
 &max_id=${this.Filters.id_range[1]}
 &min_w=${this.Filters.weight_range[0]}
 &max_w=${this.Filters.weight_range[1]}
-&users=${this.Filters.users.map(({ crm_id }) => crm_id)}
+&users=${this.Filters.users.map(({ user_id }) => user_id)}
 &reasons=${this.Filters.reasons.map(({ id }) => id)}
 &from_date=${new Date(this.Filters.date_range[0]).toDateString()}
 &to_date=${new Date(this.Filters.date_range[1]).toDateString()}`
@@ -97,6 +100,7 @@ export default {
 &active=${this.Filters.active}
 &inactive=${this.Filters.inactive}
 &resolved=${this.Filters.resolved}
+&order_by_time=${this.Orders.time}
 ${this.FirstTry ? '' : url_filters}`).then(r => {
         this.Tickets = r.data.data.data//.filter(t => t.id != null)
         this.Tickets.forEach(t => t.created_at = FormatDateTime(t.created_at))
@@ -144,10 +148,25 @@ ${this.FirstTry ? '' : url_filters}`).then(r => {
       this.$refs.PaginationTemplate.results_info = `Результаты ${meta.from}-${meta.to} из ${meta.total}`
       this.$refs.PaginationTemplate.PrepareAvailablePages()
     },
-    Filter() {
-      console.log(this.Filters)
+    Order(name) {
+      let order = this.Orders[name]
+
+      if (order == true) {
+        order = false
+      } else if (order == false && typeof order != 'string') {
+        order = ''
+      } else {
+        order = true
+      }
+
+      this.Orders[name] = order
       this.page = 1
       this.Get(this.page)
+    },
+    Filter() {
+      this.page = 1
+      this.Get(this.page)
+      this.ShowFilters = false
     },
     ClearFilters() {
       // const now = new Date().toDateString()
@@ -218,7 +237,7 @@ ${this.FirstTry ? '' : url_filters}`).then(r => {
       </button>
 
       <div :class="ShowFilters ? 'visible opacity-100' : 'invisible opacity-0'"
-        class="absolute flex flex-col gap-2 !w-[98vw] left-[calc(-99vw+120px)] right-0 p-3 inline-block text-sm font-light text-gray-500 transition-opacity duration-300 bg-white border border-gray-200 rounded-lg shadow-sm w-fit dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400">
+        class="absolute flex flex-col gap-2 !w-[98vw] left-[calc(-99vw+120px)] right-0 p-3 text-sm font-light text-gray-500 transition-opacity duration-300 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400">
         <div class="grid grid-cols-4 gap-2">
           <!-- Ids range -->
           <!-- <div v-if="Filters.from_id != Filters.to_id" class="col-span-1">
@@ -306,7 +325,17 @@ ${this.FirstTry ? '' : url_filters}`).then(r => {
           <TableHeadCell>Вес</TableHeadCell>
           <TableHeadCell>Статус/Оценка</TableHeadCell>
           <TableHeadCell>Дата создания</TableHeadCell>
-          <TableHeadCell>Время</TableHeadCell>
+          <TableHeadCell>
+            <div @click="Order('time')" class="flex gap-1 cursor-pointer" title="Сортировать">
+              <p>Время</p>
+              <div v-if="typeof Orders.time == 'boolean'" :class="{ 'rotate-180': Orders.time }">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                  stroke="currentColor" class="w-4 h-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+                </svg>
+              </div>
+            </div>
+          </TableHeadCell>
           <TableHeadCell><span class="sr-only">Edit</span></TableHeadCell>
         </TableHead>
 

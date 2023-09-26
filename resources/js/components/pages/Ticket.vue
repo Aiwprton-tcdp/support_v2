@@ -91,7 +91,7 @@ export default {
   },
   mounted() {
     this.IsResolved = this.ticket?.old_ticket_id > 0
-    this.IsParticipant = this.ticket.user_id == this.UserData.crm_id || this.ticket.manager_id == this.UserData.crm_id
+    this.IsParticipant = this.ticket.new_user_id == this.UserData.user_id || this.ticket.new_manager_id == this.UserData.user_id
     this.GetParticipants()
     this.emitter.on('NewMessage', this.NewMessage)
     this.emitter.on('NewParticipant', this.GetParticipants)
@@ -131,10 +131,10 @@ export default {
       this.ax.get(`participants?ticket_id=${this.ticket.id}`).then(r => {
         this.participants_data = r.data.data
         this.participants = this.PrepareParticipants([...this.participants_data])
-        this.IsParticipant = this.ticket.user_id == this.UserData.crm_id || this.ticket.manager_id == this.UserData.crm_id
+        this.IsParticipant = this.ticket.new_user_id == this.UserData.user_id || this.ticket.new_manager_id == this.UserData.user_id
 
         if (!this.IsParticipant) {
-          this.IsParticipant = this.participants_data.some(p => p.crm_id == this.UserData.crm_id)
+          this.IsParticipant = this.participants_data.some(p => p.user_id == this.UserData.user_id)
         }
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
@@ -143,9 +143,9 @@ export default {
     PrepareParticipants(BusyManagers) {
       let y = {}
 
-      BusyManagers.forEach(e => y[e.user_crm_id] = e)
-      y[this.ticket.user_id] = this.ticket.user
-      y[this.ticket.manager_id] = this.ticket.manager
+      BusyManagers.forEach(e => y[e.user_id] = e)
+      y[this.ticket.new_user_id] = this.ticket.user
+      y[this.ticket.new_manager_id] = this.ticket.manager
 
       return y
     },
@@ -337,9 +337,9 @@ export default {
       <!-- Messaging block -->
       <div v-if="!dragging" @dragenter="dragging = true" id="messages"
         class="flex flex-col h-full gap-1 z-1 content-end py-1 px-2 overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch"
-        :class="['3', '53083'].includes(UserData.crm_id) ? 'custom-chat-bg-stepan bg-cover' : 'custom-chat-bg'">
+        :class="[2].includes(UserData.user_id) ? 'custom-chat-bg-stepan bg-cover' : 'custom-chat-bg'">
         <template v-for="m in messages" v-bind:key="m">
-          <div v-if="m.user_id != UserData.crm_id" class="chat-message">
+          <div v-if="m.user_id != UserData.user_id" class="chat-message">
             <div class="flex items-end">
               <div
                 class="flex flex-col space-y-2 text-sm max-w-sm xl:max-w-md 2xl:max-w-lg mx-2 order-2 items-start text-left opacity-90">
@@ -353,7 +353,7 @@ export default {
                 </span>
               </div>
               <div class="order-1">
-                <a :href="`${VITE_CRM_URL}company/personal/user/${m.user_id}/`" target="_blank">
+                <a :href="`${VITE_CRM_URL}company/personal/user/${participants[m.user_id]?.crm_id}/`" target="_blank">
                   <Avatar rounded size="sm" alt="avatar" :title="participants[m.user_id]?.name"
                     :img="participants[m.user_id]?.avatar ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
                 </a>
@@ -374,9 +374,9 @@ export default {
                 </span>
               </div>
               <div class="order-1">
-                <a :href="`${VITE_CRM_URL}company/personal/user/${m.user_id}/`" target="_blank">
-                  <Avatar rounded size="sm" :title="participants[m.user_id]?.name" alt="avatar"
-                    :img="participants[m.user_id]?.avatar ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
+                <a :href="`${VITE_CRM_URL}company/personal/user/${UserData.crm_id}/`" target="_blank">
+                  <Avatar rounded size="sm" :title="UserData.name" alt="avatar"
+                    :img="UserData?.avatar ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
                 </a>
               </div>
             </div>
@@ -384,7 +384,7 @@ export default {
         </template>
 
         <!-- Mark Selecting -->
-        <template v-if="UserData.crm_id == ticket.user_id && (ticket?.active == 0 || marking)">
+        <template v-if="UserData.user_id == ticket.new_user_id && (ticket?.active == 0 || marking)">
           <div class="chat-message">
             <div class="flex items-end">
               <div class="flex text-sm max-w-sm xl:max-w-md 2xl:max-w-lg mx-2 items-start text-left opacity-90">
@@ -453,7 +453,7 @@ export default {
         </div>
         <div v-else class="relative flex flex-col divide-y">
           <div v-if="UserData.role_id == 2 && showTempMessages || files.length > 0"
-            class="absolute bottom-[59px] flex flex-col opacity-80 flex flex-wrap space-y-3 divide-y align-bottom p-2 bg-gray-50 dark:bg-gray-700">
+            class="absolute bottom-[59px] flex flex-col opacity-80 flex-wrap space-y-3 divide-y align-bottom p-2 bg-gray-50 dark:bg-gray-700">
             <!-- Template Messages list -->
             <div v-if="UserData.role_id == 2 && showTempMessages">
               <TemplateMessages />
@@ -470,7 +470,8 @@ export default {
 
           <div class="flex flex-row items-center gap-1 px-3 py-2 bg-gray-50 dark:bg-gray-700">
             <!-- Template messages button -->
-            <div class="border-none bg-transparent cursor-pointer p-2 hover:border-none focus:border-none">
+            <div v-if="UserData.role_id == 2"
+              class="border-none bg-transparent cursor-pointer p-2 hover:border-none focus:border-none">
               <div @click="showTempMessages = !showTempMessages" class="cursor-pointer" title="Шаблоны сообщений">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
                   stroke="currentColor" class="w-6 h-6">
@@ -513,7 +514,7 @@ export default {
               class="border-none hover:border-none focus:border-none" color="default">
               Отправить
             </VueButton>
-            <VueButton v-if="ticket.user_id == UserData.crm_id && !marking" @click="MarkShowing()"
+            <VueButton v-if="ticket.new_user_id == UserData.user_id && !marking" @click="MarkShowing()"
               class="border-none hover:border-none focus:border-none" color="red">
               Завершить тикет
             </VueButton>
@@ -543,7 +544,7 @@ export default {
   </div>
 
   <!-- Attachments slider modal -->
-  <Transition name="modal">
+  <!-- <Transition name="modal"> -->
     <div v-if="showModal" @click.self="showModal = false" class="modal-mask">
       <div @click.self="showModal = false" class="modal-body">
         <Swiper :slides-per-view="1" :space-between="50" :modules="modules" @afterInit="SlideTo"
@@ -557,7 +558,7 @@ export default {
         </Swiper>
       </div>
     </div>
-  </Transition>
+  <!-- </Transition> -->
 </template>
 
 <style>

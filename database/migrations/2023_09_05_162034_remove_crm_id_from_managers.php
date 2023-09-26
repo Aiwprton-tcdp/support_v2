@@ -11,7 +11,7 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::table('managers', function (Blueprint $table) {
-            $table->boolean('in_work')->default(false)->after('role_id');
+            $table->foreignId('user_id')->nullable()->after('id')->constrained()->nullOnDelete();
         });
     }
 
@@ -21,7 +21,8 @@ return new class extends Migration {
     public function down(): void
     {
         Schema::table('managers', function (Blueprint $table) {
-            $table->dropColumn('in_work');
+            $table->dropForeign('managers_user_id_foreign');
+            $table->dropColumn('user_id');
         });
     }
 };

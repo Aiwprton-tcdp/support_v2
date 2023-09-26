@@ -12,6 +12,7 @@ class HiddenChatMessage extends Model
     protected $fillable = [
         'content',
         'user_crm_id',
+        'new_user_id',
         'ticket_id',
         'created_at',
         'updated_at',

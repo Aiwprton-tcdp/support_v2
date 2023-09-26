@@ -5,13 +5,10 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Model //Authenticatable
 {
-    // use HasApiTokens, HasFactory, Notifiable;
     use HasApiTokens, HasFactory;
 
     /**
@@ -21,10 +18,9 @@ class User extends Model //Authenticatable
      */
     protected $fillable = [
         'name',
+        'email',
         'crm_id',
-        // 'role_id',
-        // 'email',
-        // 'password',
+        // 'bx_crm_id',
     ];
 
     /**
@@ -33,8 +29,6 @@ class User extends Model //Authenticatable
      * @var array<int, string>
      */
     protected $hidden = [
-        // 'password',
-        // 'remember_token',
         'created_at',
         'updated_at',
         'deleted_at',
@@ -46,12 +40,10 @@ class User extends Model //Authenticatable
      * @var array<string, string>
      */
     protected $casts = [
-        // 'email_verified_at' => 'datetime',
-        // 'password' => 'hashed',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
     ];
-    
+
     protected $table = 'users';
 }

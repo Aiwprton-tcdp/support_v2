@@ -9,7 +9,6 @@ use App\Models\Group;
 use App\Models\Manager;
 use App\Models\User;
 use App\Traits\UserTrait;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 
 class ManagerController extends Controller
@@ -19,20 +18,20 @@ class ManagerController extends Controller
      */
     public function index()
     {
-        $name = Str::lower(htmlspecialchars(trim(request('name'))));
-        $id = intval(htmlspecialchars(trim(request('id'))));
-        $role = intval(htmlspecialchars(trim(request('role'))));
-        $limit = intval(htmlspecialchars(trim(request('limit'))));
+        $name = \Illuminate\Support\Str::lower($this->prepare(request('name')));
+        $id = intval($this->prepare(request('id')));
+        $role = intval($this->prepare(request('role')));
+        $limit = intval($this->prepare(request('limit')));
 
         $data = \Illuminate\Support\Facades\DB::table('managers')
-            ->join('users', 'users.crm_id', 'managers.crm_id')
+            ->join('users', 'users.id', 'managers.user_id')
             ->where('role_id', '>', 1)
-            ->when(!empty($role), function ($q) use ($role) {
-                $q->whereRoleId($role);
-            })
-            ->when(!empty($id) || !empty($name), function ($q) use ($id, $name) {
-                $q->whereId($id)->orWhereRaw('LOWER(users.name) LIKE ?', ["%{$name}%"]);
-            })
+            ->when($role > 1, fn($q) => $q->whereRoleId($role))
+            ->when(
+                !empty($id) || !empty($name),
+                fn($q) => $q->where('managers.id', $id)
+                    ->orWhereRaw('LOWER(users.name) LIKE ?', ["%{$name}%"])
+            )
             ->select('managers.*', 'users.name')
             ->paginate($limit < 1 ? 100 : $limit);
 
@@ -63,8 +62,25 @@ class ManagerController extends Controller
      */
     public function store(StoreManagerRequest $request)
     {
-        $user = User::firstOrNew($request->except(['role_id']));
-        $manager = Manager::firstOrNew($request->except(['name']));
+        // dd(\App\Models\BxCrm::where('domain', env('CRM_DOMAIN'))->first());
+        $validated = $request->validated();
+        $user = User::firstWhere('email', $validated['email']);
+
+        if (!isset($user)) {
+            return response()->json([
+                'status' => false,
+                'data' => null,
+                'message' => 'Данный пользователь не прошёл аутентификацию в интеграции',
+            ]);
+        }
+
+        $manager = Manager::firstOrNew([
+            'user_id' => $user->id,
+            'role_id' => $validated['role_id'],
+        ]);
+        // $manager = Manager::firstOrNew($request->except(['crm_id', 'name']));
+        // $user->fill($validated);
+        // dd($user, $manager);
         // $user = Manager::with('user:id,name')->firstOrCreate($request->validated());
         // return response()->json([
         //     'status' => true,
@@ -79,12 +95,21 @@ class ManagerController extends Controller
                 'message' => 'Данному пользователю уже выдана такая роль',
             ]);
         }
+
+        $bx_user = \App\Models\BxUser::join('bx_crms', 'bx_crms.id', 'bx_users.bx_crm_id')
+            ->whereUserId($user->id)
+            ->where('domain', env('CRM_DOMAIN'))->first();
+        // dd($bx_user);
+
+        $validated['crm_id'] = $bx_user->crm_id;
+        $user->fill($validated);
+        $manager->fill($validated);
+        // dd($user, $manager);
         $user->save();
         $manager->save();
 
-        $message = 'Сотрудник `' . $user->name . '` crm_id:' .
-            $manager->crm_id . ' добавлен с ролью `' .
-            \App\Models\Role::findOrFail($manager->role_id)->name . '`';
+        $message = "{$user->name} добавлен с ролью " .
+            \App\Models\Role::findOrFail($manager->role_id)->name;
         Log::info($message);
 
         if ($manager->role_id == 2) {
@@ -119,10 +144,10 @@ class ManagerController extends Controller
     {
         $validated = $request->validated();
 
-        $user = Manager::join('users', 'users.crm_id', 'managers.crm_id')
-            ->select('managers.*', 'users.name')
+        $user = Manager::join('users', 'users.id', 'managers.user_id')
+            ->select('managers.*', 'users.name')//, 'users.crm_id')
             ->findOrFail($id);
-        $message = 'Сотрудник `' . $user->name . '` crm_id:' . $user->crm_id;
+        $message = $user->name;
 
         if ($user->role_id != 2 && $validated['role_id'] == 2) {
             $group = Group::firstOrNew(['name' => $user->name]);
@@ -157,7 +182,7 @@ class ManagerController extends Controller
      */
     public function destroy($id)
     {
-        $manager = Manager::join('users', 'users.crm_id', 'managers.crm_id')
+        $user = Manager::join('users', 'users.id', 'managers.user_id')
             ->select('managers.*', 'users.name')
             ->findOrFail($id);
 
@@ -167,8 +192,8 @@ class ManagerController extends Controller
             return response()->json($data);
         }
 
-        $message = '`' . $manager->name . '` crm_id:' . $manager->crm_id . ' удалён';
-        $result = $manager->delete();
+        $message = "{$user->name} удалён";
+        $result = $user->delete();
         Log::info($message);
 
         return response()->json([

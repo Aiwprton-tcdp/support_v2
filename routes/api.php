@@ -47,7 +47,7 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
     'reasons' => \App\Http\Controllers\ReasonController::class,
     'groups' => \App\Http\Controllers\GroupController::class,
     'messages' => \App\Http\Controllers\MessageController::class,
-    'users' => \App\Http\Controllers\UserController::class,
+    // 'users' => \App\Http\Controllers\UserController::class,
     'managers' => \App\Http\Controllers\ManagerController::class,
     'template_messages' => \App\Http\Controllers\TemplateMessageController::class,
   ], [
@@ -88,12 +88,27 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
   });
 });
 
-  Route::prefix('statistics')->group(function () {
-    Route::get('/active_tickets', [DashboardController::class, 'getActiveTickets']);
-    Route::post('/redistribute', [DashboardController::class, 'redistribute']);
-    Route::get('/cache_reload', [DashboardController::class, 'cacheReload']);
+Route::prefix('statistics')->group(function () {
+  Route::get('/active_tickets', [DashboardController::class, 'getActiveTickets']);
+  Route::post('/redistribute', [DashboardController::class, 'redistribute']);
+  Route::get('/cache_reload', [DashboardController::class, 'cacheReload']);
 
-    Route::get('/tickets_by_reasons', [DashboardController::class, 'getTicketsCountByReasons']);
-    Route::get('/tickets_by_groups', [DashboardController::class, 'getTicketsByGroups']);
-    Route::get('/marks_percentage', [DashboardController::class, 'getMarksPercentage']);
-  });
+  Route::get('/tickets_by_reasons', [DashboardController::class, 'getTicketsCountByReasons']);
+  Route::get('/tickets_by_groups', [DashboardController::class, 'getTicketsByGroups']);
+  Route::get('/marks_percentage', [DashboardController::class, 'getMarksPercentage']);
+  Route::get('/average_solving_time', [DashboardController::class, 'getAverageSolvingTime']);
+
+  Route::get('/count_of_tickets_by_days', [DashboardController::class, 'getCountOfTicketsByDays']);
+  Route::get('/count_of_tickets_by_managers', [DashboardController::class, 'getCountOfTicketsByManagers']);
+  Route::get('/fastest_and_slowest_tickets', [DashboardController::class, 'getFastestAndSlowestTickets']);
+  Route::get('/tickets_solving_time_median', [DashboardController::class, 'getTicketsSolvingTimeMedian']);
+});
+
+Route::get('/set_users_ids', [CRMUserController::class, 'setUsersIds']);
+
+
+
+// Route::get('/count_of_tickets_by_days', [DashboardController::class, 'getCountOfTicketsByDays']);
+// Route::get('/count_of_tickets_by_managers', [DashboardController::class, 'getCountOfTicketsByManagers']);
+// Route::get('/fastest_and_slowest_tickets', [DashboardController::class, 'getFastestAndSlowestTickets']);
+// Route::get('/tickets_solving_time_median', [DashboardController::class, 'getTicketsSolvingTimeMedian']);

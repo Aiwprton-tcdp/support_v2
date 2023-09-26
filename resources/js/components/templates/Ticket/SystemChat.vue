@@ -22,12 +22,19 @@ export default {
   setup() {
     const UserData = inject('UserData')
     const toast = inject('createToast')
+    const emitter = inject('emitter')
 
-    return { UserData, toast }
+    return {
+      UserData,
+      toast,
+      emitter
+    }
   },
   mounted() {
     this.IsResolved = this.ticket?.old_ticket_id > 0
     this.GetHiddenChatMessages()
+
+    this.emitter.on('NewHiddenMessage', this.NewHiddenMessage)
   },
   methods: {
     GetHiddenChatMessages() {
@@ -78,6 +85,12 @@ export default {
         this.toast(e.response.data.message, 'error')
       }).finally(() => this.waiting = false)
     },
+    NewHiddenMessage(data) {
+      data.created_at = FormatDateTime(data.created_at)
+      data.content = FormatLinks(data.content)
+      this.Messages.push(data)
+      this.ScrollChat()
+    },
     ScrollChat() {
       const el = document.getElementById('system_chat_messages')
       setTimeout(() => {
@@ -107,8 +120,8 @@ export default {
             </span>
           </div>
           <div class="order-1">
-            <Avatar v-if="m.user_id == 0" rounded size="sm" title="Система" />
-            <a v-else :href="`${VITE_CRM_URL}company/personal/user/${m.user_id}/`" target="_blank">
+            <Avatar v-if="m.user_crm_id == 0" rounded size="sm" title="Система" />
+            <a v-else :href="`${VITE_CRM_URL}company/personal/user/${m.user_crm_id}/`" target="_blank">
               <Avatar rounded size="sm" alt="avatar" :title="m.user?.name"
                 :img="m.user?.avatar ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
             </a>

@@ -15,12 +15,11 @@ class ManagerGroupController extends Controller
      */
     public function index()
     {
-        $group = intval(htmlspecialchars(trim(request('group'))));
+        $group = intval($this->prepare(request('group')));
+
         $data = \Illuminate\Support\Facades\DB::table('manager_groups')
             ->join('groups', 'groups.id', 'manager_groups.group_id')
-            ->when(!empty($group), function ($q) use ($group) {
-                $q->whereGroupId($group);
-            })
+            ->when($group > 0, fn($q) => $q->whereGroupId($group))
             ->select('manager_groups.*', 'groups.name AS group_name')
             ->get();
 
@@ -36,7 +35,7 @@ class ManagerGroupController extends Controller
     public function store(StoreManagerGroupRequest $request)
     {
         $validated = $request->validated();
-        $manager = Manager::with(['user:crm_id,name'])->findOrFail($validated['manager_id']);
+        $manager = Manager::with(['user:id,name'])->findOrFail($validated['manager_id']);
 
         if ($manager->role_id != 2) {
             return response()->json([
@@ -50,9 +49,8 @@ class ManagerGroupController extends Controller
         $data = ManagerGroup::firstOrNew($validated);
         $is_old = $data->exists;
 
-        $message = 'Менеджер `' . $manager->user->name . '`' .
-            ($is_old ? ' уже' : '') .
-            ' добавлен в группу `' . $group->name . '`';
+        $message = "Менеджер {$manager->user->name}" .
+            ($is_old ? ' уже' : '') . " добавлен в группу {$group->name}";
 
         if ($group->alone) {
             return response()->json([
@@ -106,9 +104,9 @@ class ManagerGroupController extends Controller
             ]);
         }
 
-        $manager = Manager::with(['user:crm_id,name'])->findOrFail($data->manager_id);
+        $manager = Manager::with(['user:id,name'])->findOrFail($data->manager_id);
         $group = Group::findOrFail($data->group_id);
-        $message = '`' . $manager->user->name . '` удалён из группы `' . $group->name . '`';
+        $message = "{$manager->user->name} удалён из группы {$group->name}";
         Log::info($message);
 
         $result = $data->delete();
