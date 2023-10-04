@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->text('content');
             $table->unsignedInteger('user_crm_id');
-            $table->unsignedInteger('new_user_id');
+            // $table->unsignedInteger('new_user_id');
             $table->unsignedInteger('ticket_id');
             $table->timestamps();
         });

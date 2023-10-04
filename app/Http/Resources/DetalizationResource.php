@@ -22,12 +22,15 @@ class DetalizationResource extends JsonResource
             'weight' => $this->weight,
             'mark' => $this->mark,
             'active' => $this->active,
+            'crm_id' => $this->crm_id,
             // 'created_at' => $this->created_at,
             'reason' => $this->reason,
             'user' => $this->user,
             'manager' => $this->manager,
             'time' => $this->time,
             'start_date' => $this->start_date,
+            'bx_name' => $this->bx_name,
+            'bx_acronym' => $this->bx_acronym,
         ];
     }
 }

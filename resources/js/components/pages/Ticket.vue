@@ -120,12 +120,13 @@ export default {
         })
 
         this.AllFiles = this.messages.map(m => m.attachments).flat()
+        // this.AllFiles.forEach(f => f.link = this.messages[0].attachments_domain + f.link)
         this.errored = false
-        this.ScrollChat()
+        // this.ScrollChat()
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
         this.errored = true
-      })
+      }).finally(this.ScrollChat)
     },
     GetParticipants() {
       this.ax.get(`participants?ticket_id=${this.ticket.id}`).then(r => {
@@ -307,7 +308,7 @@ export default {
       const el = document.getElementById('messages')
       setTimeout(() => {
         el.scrollTop = el.scrollHeight
-      }, 10)
+      }, 50)
     },
     SlideTo(swiper) {
       const index = this.AllFiles.findIndex(({ id }) => id == this.CurrentAttachmentId)
@@ -337,7 +338,7 @@ export default {
       <!-- Messaging block -->
       <div v-if="!dragging" @dragenter="dragging = true" id="messages"
         class="flex flex-col h-full gap-1 z-1 content-end py-1 px-2 overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch"
-        :class="[2].includes(UserData.user_id) ? 'custom-chat-bg-stepan bg-cover' : 'custom-chat-bg'">
+        :class="UserData.email == 'kromer_stepan_406@udl.ru' ? 'custom-chat-bg-stepan bg-cover' : 'custom-chat-bg'">
         <template v-for="m in messages" v-bind:key="m">
           <div v-if="m.user_id != UserData.user_id" class="chat-message">
             <div class="flex items-end">
@@ -345,7 +346,7 @@ export default {
                 class="flex flex-col space-y-2 text-sm max-w-sm xl:max-w-md 2xl:max-w-lg mx-2 order-2 items-start text-left opacity-90">
                 <span
                   class="flex flex-col w-full px-4 py-2 rounded-lg inline-block rounded-bl-none bg-gray-50 whitespace-pre-wrap dark:text-gray-900 dark:bg-gray-300">
-                  <MessageAttachments v-if="m.attachments.length > 0" :files="m.attachments" :message_id="m.id" />
+                  <MessageAttachments v-if="m.attachments.length > 0" :files="m.attachments" :domain="m.attachments_domain" :message_id="m.id" />
                   <span v-html="m?.content" class="break-words"></span>
                   <span class="text-xs font-light tracking-tighter text-gray-400 dark:text-gray-500">
                     {{ m.created_at }}
@@ -366,7 +367,7 @@ export default {
                 class="flex flex-col space-y-2 text-sm max-w-sm xl:max-w-md 2xl:max-w-lg mx-2 order-1 items-end text-right opacity-90">
                 <span
                   class="flex flex-col w-full px-4 py-2 rounded-lg inline-block rounded-br-none bg-indigo-300 whitespace-pre-wrap dark:text-gray-900 dark:bg-indigo-200">
-                  <MessageAttachments v-if="m.attachments.length > 0" :files="m.attachments" :message_id="m.id" />
+                  <MessageAttachments v-if="m.attachments.length > 0" :files="m.attachments" :domain="m.attachments_domain" :message_id="m.id" />
                   <span v-html="m?.content" class="break-words"></span>
                   <span class="text-xs font-light tracking-tighter text-gray-500 dark:text-gray-600">
                     {{ m.created_at }}
@@ -552,7 +553,7 @@ export default {
           grabCursor centeredSlides mousewheel zoom virtual navigation>
           <SwiperSlide v-for="(file, key) in  AllFiles " :key="key" :virtualIndex="key">
             <div class="swiper-zoom-container">
-              <img :src="file?.link" :alt="file?.name" class="object-contain">
+              <img :src="messages[0].attachments_domain + file?.link" :alt="file?.name" class="object-contain">
             </div>
           </SwiperSlide>
         </Swiper>

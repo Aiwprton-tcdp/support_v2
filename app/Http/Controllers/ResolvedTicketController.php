@@ -4,15 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreResolvedTicketRequest;
 use App\Http\Resources\ResolvedTicketResource;
-use App\Jobs\TicketClosingJob;
 use App\Models\ResolvedTicket;
-use App\Models\User;
 use App\Traits\TicketTrait;
 use App\Traits\UserTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class ResolvedTicketController extends Controller
 {
@@ -32,8 +29,7 @@ class ResolvedTicketController extends Controller
       ->join('reasons', 'reasons.id', 'resolved_tickets.reason_id')
       ->leftJoin('users AS u', 'u.id', 'resolved_tickets.new_user_id')
       ->leftJoin('users AS m', 'm.id', 'resolved_tickets.new_manager_id')
-      ->leftJoin('bx_users AS bx', 'bx.user_id', 'u.id')
-      ->leftJoin('bx_crms AS bxc', 'bxc.id', 'bx.bx_crm_id')
+      ->leftJoin('bx_crms AS bxc', 'bxc.id', 'resolved_tickets.crm_id')
       ->leftJoin(
         'participants',
         fn($q) => $q->on('participants.ticket_id', 'resolved_tickets.id')

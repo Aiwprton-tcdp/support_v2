@@ -61,8 +61,9 @@ trait UserTrait
 
   public static function search()
   {
-    if (Cache::store('file')->has('crm_users')) {
-      return Cache::store('file')->get('crm_users');
+    $prefix = env('APP_PREFIX');
+    if (Cache::store('file')->has("{$prefix}_users")) {
+      return Cache::store('file')->get("{$prefix}_users");
     }
 
     $data = BX::firstBatch('user.search', [
@@ -70,7 +71,7 @@ trait UserTrait
       'ACTIVE' => true,
     ]);
     $resource = \App\Http\Resources\CRM\UserResource::collection($data)->response()->getData();
-    Cache::store('file')->forever('crm_users', $resource);
+    Cache::store('file')->forever("{$prefix}_users", $resource);
 
     return $resource;
   }
@@ -92,13 +93,14 @@ trait UserTrait
 
   public static function departments()
   {
-    if (Cache::store('file')->has('crm_departments')) {
-      return Cache::store('file')->get('crm_departments');
+    $prefix = env('APP_PREFIX');
+    if (Cache::store('file')->has("{$prefix}_departments")) {
+      return Cache::store('file')->get("{$prefix}_departments");
     }
 
     $data = BX::firstBatch('department.get');
     $resource = DepartmentResource::collection($data)->response()->getData();
-    Cache::store('file')->forever('crm_departments', $resource);
+    Cache::store('file')->forever("{$prefix}_departments", $resource);
 
     return $resource;
   }

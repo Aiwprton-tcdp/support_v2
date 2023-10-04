@@ -97,8 +97,9 @@ class DashboardController extends Controller
     // Обновление кеша
     public function cacheReload()
     {
-        Cache::store('file')->forget('crm_users');
-        Cache::store('file')->forget('crm_departments');
+        $prefix = env('APP_PREFIX');
+        Cache::store('file')->forget("{$prefix}_users");
+        Cache::store('file')->forget("{$prefix}_departments");
         // Cache::store('file')->forget('crm_all_users');
         info('Кеш очищен');
 

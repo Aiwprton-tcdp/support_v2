@@ -95,19 +95,20 @@ class HiddenChatMessageController extends Controller
         $resource = MessageResource::make($data);
 
         if ($ticket->new_manager_id != $data->new_user_id) {
-            TicketTrait::SendMessageToWebsocket("{$manager->crm_id}.hidden_message", [
+            TicketTrait::SendMessageToWebsocket("{$manager->email}.hidden_message", [
                 'message' => $resource,
             ]);
-            TicketTrait::SendNotification($manager->crm_id, $message, $ticket->id);
+            TicketTrait::SendNotification($manager->id, $message, $ticket->id);
         }
 
         $another_recipients = \App\Models\Participant::whereTicketId($ticket->id)
             ->whereNot('participants.user_id', $data->new_user_id)
             ->join('users', 'users.id', 'participants.user_id')
-            ->join('bx_users', 'bx_users.user_id', 'users.id')
-            ->pluck('bx_users.crm_id')->toArray();
-        foreach ($another_recipients as $id) {
-            TicketTrait::SendMessageToWebsocket("{$id}.hidden_message", [
+            // ->join('bx_users', 'bx_users.user_id', 'users.id')
+            // ->pluck('bx_users.crm_id')->toArray();
+            ->pluck('users.email')->toArray();
+        foreach ($another_recipients as $email) {
+            TicketTrait::SendMessageToWebsocket("{$email}.hidden_message", [
                 'message' => $resource,
             ]);
             // TicketTrait::SendNotification($id, $message, $ticket->id);

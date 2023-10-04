@@ -37,20 +37,24 @@ class DetalizationController extends Controller
     $to_date = date("Y-m-d", strtotime($to_date));
     $dates = [$from_date, $to_date <= $from_date ? $from_date : $to_date];
 
-    $resolved_tickets = \App\Models\ResolvedTicket::filter($user_id, $tickets_ids, $weights, $users, $reasons, $dates, $search)
+    $resolved_tickets = \App\Models\ResolvedTicket::leftJoin('bx_crms', 'bx_crms.id', 'crm_id')
+      ->filter($user_id, $tickets_ids, $weights, $users, $reasons, $dates, $search)
       ->selectRaw('resolved_tickets.new_user_id, resolved_tickets.new_manager_id,
         resolved_tickets.old_ticket_id AS tid, resolved_tickets.mark AS mark,
-        NULL AS active, resolved_tickets.weight, resolved_tickets.created_at,
+        NULL AS active, resolved_tickets.weight, resolved_tickets.crm_id AS crm_id, resolved_tickets.created_at,
         reasons.id AS reason_id, reasons.name AS reason, NULL AS user, NULL AS manager,
         messages.created_at AS start_date,
-        TIMEDIFF(IFNULL(hidden_chat_messages.created_at, NOW()), messages.created_at) AS time');
+        TIMEDIFF(IFNULL(hidden_chat_messages.created_at, NOW()), messages.created_at) AS time,
+        bx_crms.name AS bx_name, bx_crms.acronym AS bx_acronym');
 
-    $data = \App\Models\Ticket::filter($user_id, $tickets_ids, $weights, $users, $reasons, $dates, $active, $inactive, $search)
+    $data = \App\Models\Ticket::leftJoin('bx_crms', 'bx_crms.id', 'crm_id')
+      ->filter($user_id, $tickets_ids, $weights, $users, $reasons, $dates, $active, $inactive, $search)
       ->selectRaw('tickets.new_user_id, tickets.new_manager_id, tickets.id AS tid, NULL AS mark,
-        tickets.active AS active, tickets.weight, tickets.created_at,
+        tickets.active AS active, tickets.weight, tickets.crm_id AS crm_id, tickets.created_at,
         reasons.id AS reason_id, reasons.name AS reason, NULL AS user, NULL AS manager,
         messages.created_at AS start_date,
-        TIMEDIFF(IFNULL(hidden_chat_messages.created_at, NOW()), messages.created_at) AS time')
+        TIMEDIFF(IFNULL(hidden_chat_messages.created_at, NOW()), messages.created_at) AS time,
+        bx_crms.name AS bx_name, bx_crms.acronym AS bx_acronym')
       ->when($resolved, fn($q) => $q->union($resolved_tickets))
       ->when(isset($order_by_time) && !empty($order_by_time), fn($q) =>
         $q->orderBy('time', filter_var($order_by_time, FILTER_VALIDATE_BOOLEAN) ? 'ASC' : 'DESC'))
@@ -66,7 +70,8 @@ class DetalizationController extends Controller
       ->whereIn('users.email', array_map(fn($d) => $d->email, $search))
       ->pluck('users.id', 'users.email');
     foreach ($search as $user) {
-      if (!isset($users_by_emails[$user->email])) continue;
+      if (!isset($users_by_emails[$user->email]))
+        continue;
       $user->user_id = $users_by_emails[$user->email];
       $users_collection[$user->user_id] = $user;
     }

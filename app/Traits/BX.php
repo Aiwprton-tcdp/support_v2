@@ -24,7 +24,7 @@ use Illuminate\Validation\ValidationException;
 
 trait BX
 {
-  static $VERSION = 'Alexander support test';
+  static $VERSION = 'Support Ваш Юрист';
   static $BATCH_COUNT = 50; //count batch 1 query
   static $TYPE_TRANSPORT = 'json'; // json or xml
 
@@ -36,8 +36,8 @@ trait BX
 
   static $C_REST_WEB_HOOK_URL = ''; //url on creat Webhook
   // or
-  static $C_REST_CLIENT_ID = 'local.64d335d95bffa6.27292576';//'local.64d335d95bffa6.27292576';
-  static $C_REST_CLIENT_SECRET = '4451XwLEHTaRkD3nHpC4v6MY3nG0XxnZw9kbh1M4QFRxChHVQU';//'4451XwLEHTaRkD3nHpC4v6MY3nG0XxnZw9kbh1M4QFRxChHVQU';
+  static $C_REST_CLIENT_ID = 'local.64b11124926226.36764587';
+  static $C_REST_CLIENT_SECRET = 'QlDlj2ymAbuAd3Osh2EMMb8swTTQES4CZXrZIT4firJlvMEKkv';
 
   protected static $dataExt = [
     'access_token' => '',

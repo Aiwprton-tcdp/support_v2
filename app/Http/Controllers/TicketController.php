@@ -37,8 +37,14 @@ class TicketController extends Controller
       ->join('reasons', 'reasons.id', 'tickets.reason_id')
       ->leftJoin('users AS u', 'u.id', 'tickets.new_user_id')
       ->leftJoin('users AS m', 'm.id', 'tickets.new_manager_id')
-      ->leftJoin('bx_users AS bx', 'bx.user_id', 'u.id')
-      ->leftJoin('bx_crms AS bxc', 'bxc.id', 'bx.bx_crm_id')
+      // ->leftJoin(
+      //   'bx_users AS bx',
+      //   fn($q) => $q->on('bx.user_id', 'u.id')
+      //       ->whereRaw('bx.id IN (SELECT MIN(id) FROM bx_users WHERE bx_users.user_id = u.id)')
+      // )
+      // // ->leftJoin('bx_users AS bx', 'bx.user_id', 'u.id')
+      // ->leftJoin('bx_crms AS bxc', 'bxc.id', 'bx.bx_crm_id')
+      ->leftJoin('bx_crms AS bxc', 'bxc.id', 'tickets.crm_id')
       ->leftJoin(
         'participants',
         fn($q) => $q->on('participants.ticket_id', 'tickets.id')
@@ -64,13 +70,11 @@ class TicketController extends Controller
       ->when($id > 0, fn($q) => $q->where('tickets.id', $id))
       ->when(
         isset($name) && $id == 0,
-        fn($q) => $q
-          ->whereRaw(
-            "LOWER(u.name) LIKE ? OR LOWER(m.name) LIKE ?",
-            ["%{$name}%", "%{$name}%"]
-          )
+        fn($q) => $q->whereRaw(
+          "LOWER(u.name) LIKE ? OR LOWER(m.name) LIKE ?",
+          ["%{$name}%", "%{$name}%"]
+        )
       )
-      ->where('tickets.active', true)
       ->whereNotNull('tickets.id')
       ->select(
         'tickets.*',
@@ -215,8 +219,21 @@ class TicketController extends Controller
     $data['manager_id'] = $manager_crm_id;
     $data['new_user_id'] = Auth::user()->id;
     $data['new_manager_id'] = $current_manager->user_id;
+    $bx_user_id = DB::table('bx_crms')
+      ->join('bx_users AS bx', 'bx.bx_crm_id', 'bx_crms.id')
+      ->where('bx.user_id', $data['new_user_id'])
+      ->where('bx_crms.domain', env('CRM_DOMAIN'))
+      ->pluck('bx_crms.id')
+      ->first();
+    $data['crm_id'] = @$bx_user_id ?? 1;
     $data['weight'] = $current_manager->weight;
 
+    // $bx_crm_data = DB::table('bx_crms')
+    //   ->join('bx_users AS bx', 'bx.bx_crm_id', 'bx_crms.id')
+    //   ->where('bx.user_id', $data['new_user_id'])
+    //   ->select('bx_crms.name', 'bx_crms.acronym', 'bx_crms.domain')
+    //   ->first();
+    // dd($bx_crm_data);
     $ticket = Ticket::create($data);
     Message::create([
       'content' => $data['message'],
@@ -227,7 +244,8 @@ class TicketController extends Controller
 
     $ticket->reason = $reason->name;
     $ticket->user = UserTrait::tryToDefineUserEverywhere($user_crm_id, User::find($data['new_user_id'])->email);
-    $ticket->manager = UserTrait::tryToDefineUserEverywhere($manager_crm_id, User::find($data['new_manager_id'])->email);
+    $new_manager_email = User::find($data['new_manager_id'])->email;
+    $ticket->manager = UserTrait::tryToDefineUserEverywhere($manager_crm_id, $new_manager_email);
 
     $bx_crm_data = DB::table('bx_crms')
       ->join('bx_users AS bx', 'bx.bx_crm_id', 'bx_crms.id')
@@ -239,11 +257,11 @@ class TicketController extends Controller
     $ticket->bx_domain = $bx_crm_data->domain;
 
     $resource = TicketResource::make($ticket);
-    TicketTrait::SendMessageToWebsocket("{$manager_crm_id}.ticket", [
+    TicketTrait::SendMessageToWebsocket("{$new_manager_email}.ticket", [
       'ticket' => $resource,
     ]);
     $message = "Новый тикет №{$ticket->id}\nТема: {$ticket->reason}\nСоздатель: {$ticket->user->name}";
-    TicketTrait::SendNotification($manager_crm_id, $message, $ticket->id);
+    TicketTrait::SendNotification($data['new_manager_id'], $message, $ticket->id);
     HiddenChatMessage::create([
       'content' => 'Тикет создан',
       'user_crm_id' => 0,
@@ -316,6 +334,14 @@ class TicketController extends Controller
       ->where('tickets.id', $id)
       ->select('tickets.*', 'reasons.name AS reason')
       ->first();
+    //   dd($ticket);
+    // $bx_user_id = DB::table('bx_crms')
+    //   ->join('bx_users AS bx', 'bx.bx_crm_id', 'bx_crms.id')
+    //   ->where('bx.user_id', $ticket->new_user_id)
+    //   ->where('bx_crms.domain', env('CRM_DOMAIN'))
+    //   ->pluck('bx_crms.id')
+    //   ->first();
+    // $ticket->crm_id = @$bx_user_id ?? 1;
 
     if (!isset($ticket)) {
       return response()->json([
@@ -339,8 +365,7 @@ class TicketController extends Controller
     $manager = UserTrait::tryToDefineUserEverywhere($m->crm_id, $m->email);
 
     $bx_crm_data = DB::table('bx_crms')
-      ->join('bx_users AS bx', 'bx.bx_crm_id', 'bx_crms.id')
-      ->where('bx.user_id', Auth::user()->id)
+      ->where('bx_crms.id', $ticket->crm_id)
       ->select('bx_crms.name', 'bx_crms.acronym', 'bx_crms.domain')
       ->first();
 
@@ -355,12 +380,12 @@ class TicketController extends Controller
         ]);
 
         $message = "Тикет №{$ticket->id} был помечен менеджером как решённый\nПожалуйста, оцените работу менеджера";
-        TicketTrait::SendMessageToWebsocket("{$u->crm_id}.ticket.delete", [
+        TicketTrait::SendMessageToWebsocket("{$u->email}.ticket.delete", [
           'id' => $ticket->id,
           'message' => null,
           'finished' => true,
         ]);
-        TicketTrait::SendNotification($u->crm_id, $message, $ticket->id);
+        TicketTrait::SendNotification($u->id, $message, $ticket->id);
       } else {
         $ticket_data = clone ($ticket);
         $ticket_data->active = 1;
@@ -371,10 +396,10 @@ class TicketController extends Controller
         $ticket_data->bx_domain = $bx_crm_data->domain;
         $message = "Тикет №{$ticket_data->id} был возвращён в работу";
 
-        TicketTrait::SendMessageToWebsocket("{$m->crm_id}.ticket", [
+        TicketTrait::SendMessageToWebsocket("{$m->email}.ticket", [
           'ticket' => TicketResource::make($ticket_data),
         ]);
-        TicketTrait::SendNotification($m->crm_id, $message, $ticket_data->id);
+        TicketTrait::SendNotification($m->id, $message, $ticket_data->id);
         HiddenChatMessage::create([
           'content' => 'Тикет возвращён в работу',
           'user_crm_id' => 0,
@@ -406,18 +431,18 @@ class TicketController extends Controller
     $ticket->bx_domain = $bx_crm_data->domain;
 
     if (!isset($validated['active'])) {
-      $another_recipients = \App\Models\Participant::whereTicketId($ticket->id)
-        ->whereNot('user_id', Auth::user()->id)
-        ->join('users', 'users.id', 'participants.user_id')
-        ->join('bx_users', 'bx_users.user_id', 'users.id')
-        ->pluck('bx_users.crm_id')->toArray();
-      foreach ($another_recipients as $id) {
-        TicketTrait::SendMessageToWebsocket("{$id}.ticket.patch", [
+      $another_recipients = \App\Models\Participant::join('users', 'users.id', 'participants.user_id')
+        // ->join('bx_users', 'bx_users.user_id', 'users.id')
+        ->whereTicketId($ticket->id)
+        ->whereNot('participants.user_id', Auth::user()->id)
+        ->pluck('users.email')->toArray();
+      foreach ($another_recipients as $email) {
+        TicketTrait::SendMessageToWebsocket("{$email}.ticket.patch", [
           'ticket' => $ticket,
         ]);
       }
-      foreach ([$u->crm_id, $m->crm_id] as $id) {
-        TicketTrait::SendMessageToWebsocket("{$id}.ticket.patch", [
+      foreach ([$u->email, $m->email] as $email) {
+        TicketTrait::SendMessageToWebsocket("{$email}.ticket.patch", [
           'ticket' => $ticket,
         ]);
       }

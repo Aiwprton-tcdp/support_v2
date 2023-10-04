@@ -111,7 +111,7 @@ export default {
       <div
         class="flex flex-col gap-1 max-h-[calc(100vh-54px-45px)] overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch">
         <template v-for="t in AllTickets" v-bind:key="t">
-          <div class="flex flex-row gap-1 items-center rounded-xl p-1 bg-gray-100 hover:bg-blue-50">
+          <div class="flex flex-row gap-1 items-center rounded-xl p-1 dark:text-gray-900 bg-gray-100 hover:bg-blue-50">
             <div class="min-w-[40px]">
               <a :href="VITE_CRM_URL + 'company/personal/user/' + t.manager.crm_id + '/'" target="_blank">
                 <Avatar rounded size="sm" alt="avatar" :title="t.manager.name"

@@ -3,12 +3,14 @@
 namespace App\Traits;
 
 use App\Http\Resources\TicketResource;
+use App\Models\BxCrm;
 use App\Models\HiddenChatMessage;
 use App\Models\Manager;
 use App\Models\Participant;
 use App\Models\Ticket;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
@@ -164,14 +166,18 @@ trait TicketTrait
     return $responsive_id;
   }
 
-  public static function SaveAttachment($message_id, $content)
+  public static function SaveAttachment($message_id, $content, $app_domain, $prefix)
   {
-    $attachments_path = 'public/attachments/' . $message_id;
+    if (env('APP_URL') != $app_domain) {
+      return self::SaveAttachmentToAnotherCRM($message_id, $content, $prefix);
+    }
+
+    $attachments_path = "public/attachments/{$message_id}";
     if (!Storage::disk('local')->exists($attachments_path)) {
       Storage::makeDirectory($attachments_path);
     }
 
-    $path = $attachments_path . '/' . $content['name'];
+    $path = "{$attachments_path}/{$content['name']}";
     $file = file_get_contents($content["tmp_name"]);
 
     Storage::disk('local')->put($path, $file);
@@ -180,6 +186,30 @@ trait TicketTrait
       'message_id' => $message_id,
       'name' => $content['name'],
       'link' => Storage::url($path),
+    ]);
+
+    return \App\Http\Resources\AttachmentResource::make($attachment);
+  }
+
+  private static function SaveAttachmentToAnotherCRM($message_id, $content, $prefix)
+  {
+    // $attachments_path = dirname(base_path()) . "/{$prefix}/storage/app/public/attachments";
+    $attachments_path = dirname(base_path()) . "/{$prefix}/storage/app/public/attachments/{$message_id}";
+    // dd($attachments_path, File::isDirectory($attachments_path));
+    if (!File::isDirectory($attachments_path)) {
+      File::makeDirectory($attachments_path, 0700, true, true);
+    }
+
+    $path = "{$attachments_path}/{$content['name']}";
+    $file = file_get_contents($content["tmp_name"]);
+
+    File::put($path, $file);
+
+    $storage_path = "public/attachments/{$message_id}/{$content['name']}";
+    $attachment = \App\Models\Attachment::create([
+      'message_id' => $message_id,
+      'name' => $content['name'],
+      'link' => Storage::url($storage_path),
     ]);
 
     return \App\Http\Resources\AttachmentResource::make($attachment);
@@ -199,7 +229,6 @@ trait TicketTrait
   public static function FinishTicket($old_ticket_id, $mark = 0)
   {
     $ticket = Ticket::findOrFail($old_ticket_id);
-    // dd($ticket);
     $data = clone ($ticket);
     $data->old_ticket_id = $data->id;
     $data->mark = $mark;
@@ -210,6 +239,7 @@ trait TicketTrait
       'manager_id' => 'required|integer|min:1',
       'new_user_id' => 'required|integer|min:1',
       'new_manager_id' => 'required|integer|min:1',
+      'crm_id' => 'required|integer|min:1',
       'reason_id' => 'required|integer|min:1',
       'weight' => 'required|integer|min:1',
       'mark' => 'required|integer|min:0|max:3',
@@ -238,7 +268,7 @@ trait TicketTrait
       'ticket_id' => $ticket->id,
     ]);
 
-    $users_with_emails = \Illuminate\Support\Facades\DB::table('users')
+    $users_with_emails = DB::table('users')
       ->join('bx_users', 'bx_users.user_id', 'users.id')
       ->whereIn('users.id', [$ticket->new_user_id, $ticket->new_manager_id])
       ->select('users.id', 'users.email', 'bx_users.crm_id')
@@ -249,20 +279,21 @@ trait TicketTrait
     unset($users_with_emails);
 
     $message = "Тикет №{$ticket->id} успешно завершён";
-    self::SendMessageToWebsocket("{$m->crm_id}.ticket.delete", [
+    self::SendMessageToWebsocket("{$m->email}.ticket.delete", [
       'id' => $ticket->id,
       'message' => $message,
     ]);
-    self::SendMessageToWebsocket("{$u->crm_id}.ticket.delete", [
+    self::SendMessageToWebsocket("{$u->email}.ticket.delete", [
       'id' => $ticket->id,
       'message' => $message,
     ]);
-    $part_ids = Participant::whereTicketId($ticket->id)
+    $part_emails = Participant::whereTicketId($ticket->id)
       ->join('users', 'users.id', 'participants.user_id')
-      ->join('bx_users', 'bx_users.user_id', 'users.id')
-      ->pluck('bx_users.crm_id')->toArray();
-    foreach ($part_ids as $id) {
-      self::SendMessageToWebsocket("{$id}.ticket.delete", [
+      // ->join('bx_users', 'bx_users.user_id', 'users.id')
+      // ->pluck('bx_users.crm_id')->toArray();
+      ->pluck('users.email')->toArray();
+    foreach ($part_emails as $email) {
+      self::SendMessageToWebsocket("{$email}.ticket.delete", [
         'id' => $ticket->id,
         'message' => $message,
       ]);
@@ -351,8 +382,14 @@ trait TicketTrait
       $ticket->user = $users_collection[$u->email];
       $ticket->manager = $users_collection[$m->email];
 
+      $manager_email = DB::table('users')
+        ->join('bx_users', 'bx_users.user_id', 'users.id')
+        ->where('users.id', $manager_id)
+        ->select('users.id', 'users.email', 'bx_users.crm_id')
+        ->first();
+
       self::SendNotification($manager_id, "Вы стали ответственным за тикет №{$ticket->id}", $ticket->id);
-      self::SendMessageToWebsocket("{$manager_id}.ticket", [
+      self::SendMessageToWebsocket("{$manager_email->email}.ticket", [
         'ticket' => TicketResource::make($ticket),
       ]);
 
@@ -361,18 +398,19 @@ trait TicketTrait
         'new_manager' => $ticket->manager,
         'new_participant_id' => $m->crm_id,
       ];
-      self::SendMessageToWebsocket("{$m->crm_id}.participant", [
+      self::SendMessageToWebsocket("{$m->email}.participant", [
         'participant' => $result,
       ]);
-      self::SendMessageToWebsocket("{$u->crm_id}.participant", [
+      self::SendMessageToWebsocket("{$u->email}.participant", [
         'participant' => $result,
       ]);
       $another_recipients = Participant::whereTicketId($ticket->id)
-          ->join('users', 'users.id', 'participants.user_id')
-          ->join('bx_users', 'bx_users.user_id', 'users.id')
-          ->pluck('bx_users.crm_id')->toArray();
-      foreach ($another_recipients as $id) {
-        self::SendMessageToWebsocket("{$id}.participant", [
+        ->join('users', 'users.id', 'participants.user_id')
+        // ->join('bx_users', 'bx_users.user_id', 'users.id')
+        // ->pluck('bx_users.crm_id')->toArray();
+        ->pluck('users.email')->toArray();
+      foreach ($another_recipients as $email) {
+        self::SendMessageToWebsocket("{$email}.participant", [
           'participant' => $result,
         ]);
       }
@@ -389,11 +427,10 @@ trait TicketTrait
     ];
   }
 
-  public static function SendMessageToWebsocket($recipient_id, $data)
+  public static function SendMessageToWebsocket($recipient_email, $data)
   {
-    // $channel_id = '#support.' . md5($data->user_id) . md5(env('CENTRIFUGE_SALT'));
-    $prefix = env('APP_PREFIX', 'support');
-    $channel_id = "#{$prefix}.{$recipient_id}";
+    $email = preg_replace('/@[А-яA-z]+\.[А-яA-z]+/iu', '', $recipient_email);
+    $channel_id = "#support.{$email}";
     $client = new \phpcent\Client(
       env('CENTRIFUGE_URL') . '/api',
       '8ffaffac-8c9e-4a9c-88ce-54658097096e',
@@ -405,12 +442,21 @@ trait TicketTrait
 
   public static function SendNotification($recipient_id, $message, $ticket_id)
   {
-    $market_id = env('MARKETPLACE_ID');
-    $crm_id = env('CRM_URL');
-    $webhook_id = env('WEBHOOK_ID');
-    $content = "{$message}\r\n[URL=/marketplace/app/{$market_id}/?id={$ticket_id}]Перейти[/URL]";
-    $WEB_HOOK_URL = "{$crm_id}rest/{$webhook_id}/im.message.add.json?USER_ID={$recipient_id}&MESSAGE={$content}&URL_PREVIEW=Y";
+    $bx_data = BxCrm::join('bx_users', 'bx_users.bx_crm_id', 'bx_crms.id')
+      ->where('bx_users.user_id', $recipient_id)
+      ->select('bx_crms.domain', 'bx_crms.marketplace_id', 'bx_crms.webhook_id', 'bx_users.crm_id')
+      ->get();
 
-    \Illuminate\Support\Facades\Http::get($WEB_HOOK_URL);
+    foreach ($bx_data as $bx) {
+      $market_id = $bx->marketplace_id;
+      $crm_id = $bx->domain;
+      $webhook_id = $bx->webhook_id;
+      $user_id = $bx->crm_id;
+
+      $content = "{$message}\r\n[URL=/marketplace/app/{$market_id}/?id={$ticket_id}]Перейти[/URL]";
+      $WEB_HOOK_URL = "https://${crm_id}/rest/{$webhook_id}/im.message.add.json?USER_ID={$user_id}&MESSAGE={$content}&URL_PREVIEW=Y";
+
+      \Illuminate\Support\Facades\Http::get($WEB_HOOK_URL);
+    }
   }
 }

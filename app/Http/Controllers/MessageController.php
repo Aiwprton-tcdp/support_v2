@@ -5,12 +5,12 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreMessageRequest;
 use App\Http\Requests\UpdateMessageRequest;
 use App\Http\Resources\MessageResource;
+use App\Models\BxCrm;
 use App\Models\Message;
 use App\Models\Participant;
 use App\Traits\TicketTrait;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 
 class MessageController extends Controller
 {
@@ -50,15 +50,15 @@ class MessageController extends Controller
         $validated['content'] ??= '';
         $validated['new_user_id'] = Auth::user()->id;
         $user_with_email = DB::table('users')
-          ->join('bx_users', 'bx_users.user_id', 'users.id')
-          ->where('users.id', $validated['new_user_id'])
-          ->select('users.id', 'users.email', 'bx_users.crm_id')
-          ->first();
+            ->join('bx_users', 'bx_users.user_id', 'users.id')
+            ->where('users.id', $validated['new_user_id'])
+            ->select('users.id', 'users.email', 'bx_users.crm_id')
+            ->first();
         $validated['user_crm_id'] = $user_with_email->crm_id;
         $ticket = \App\Models\Ticket::whereId($validated['ticket_id'])
             ->whereActive(true)->first();
 
-            // dd($ticket);
+        // dd($ticket);
         if (!isset($ticket)) {
             return response()->json([
                 'status' => false,
@@ -69,20 +69,24 @@ class MessageController extends Controller
 
         $data = Message::create($validated);
 
+        $app_domain = BxCrm::join('tickets', 'tickets.crm_id', 'bx_crms.id')
+            ->where('tickets.id', $data->ticket_id)
+            ->first()->app_domain;
+        preg_match('#https:\/\/([^\.]*)\.#', $app_domain, $match);
         $attachments = [];
         foreach ($_FILES as $file) {
-            $attachment_path = TicketTrait::SaveAttachment($data->id, $file);
+            $attachment_path = TicketTrait::SaveAttachment($data->id, $file, $app_domain, $match[1]);
             array_push($attachments, $attachment_path);
         }
         $data->attachments = collect($attachments);
 
-        
+
         $recipient_ids = DB::table('users')
             ->join('bx_users', 'bx_users.user_id', 'users.id')
             ->whereIn('users.id', [$ticket->new_user_id, $ticket->new_manager_id])
             ->select('users.id', 'users.email', 'bx_users.crm_id')
             ->get();
-    
+
         $creator = $recipient_ids->where('id', $ticket->new_user_id)->first();
         $manager = $recipient_ids->where('id', $ticket->new_manager_id)->first();
 
@@ -90,30 +94,31 @@ class MessageController extends Controller
         $resource = MessageResource::make($data);
 
         if ($ticket->new_user_id != $data->new_user_id) {
-            TicketTrait::SendMessageToWebsocket("{$creator->crm_id}.message", [
+            TicketTrait::SendMessageToWebsocket("{$creator->email}.message", [
                 'message' => $resource,
             ]);
-            TicketTrait::SendNotification($creator->crm_id, $message, $ticket->id);
+            TicketTrait::SendNotification($creator->id, $message, $ticket->id);
         }
         if ($ticket->new_manager_id != $data->new_user_id) {
-            TicketTrait::SendMessageToWebsocket("{$manager->crm_id}.message", [
+            TicketTrait::SendMessageToWebsocket("{$manager->email}.message", [
                 'message' => $resource,
             ]);
-            TicketTrait::SendNotification($manager->crm_id, $message, $ticket->id);
+            TicketTrait::SendNotification($manager->id, $message, $ticket->id);
         }
 
         $another_recipients = Participant::whereTicketId($ticket->id)
-            ->whereNot('user_id', $data->new_user_id)
+            ->whereNot('participants.user_id', $data->new_user_id)
             ->join('users', 'users.id', 'participants.user_id')
-            ->join('bx_users', 'bx_users.user_id', 'users.id')
-            ->pluck('bx_users.crm_id')->toArray();
-        foreach ($another_recipients as $id) {
-            TicketTrait::SendMessageToWebsocket("{$id}.message", [
+            // ->join('bx_users', 'bx_users.user_id', 'users.id')
+            // ->pluck('bx_users.crm_id')->toArray();
+            ->pluck('users.email')->toArray();
+        foreach ($another_recipients as $email) {
+            TicketTrait::SendMessageToWebsocket("{$email}.message", [
                 'message' => $resource,
             ]);
             // TicketTrait::SendNotification($id, $message, $ticket->id);
         }
-        
+
         return response()->json([
             'status' => true,
             'data' => $resource

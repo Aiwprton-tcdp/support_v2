@@ -22,6 +22,7 @@ class TicketResource extends JsonResource
             // 'manager_crm_id' => $this->manager_crm_id,
             'manager_id' => $this->manager_id,
             'new_manager_id' => $this->new_manager_id,
+            'crm_id' => $this->crm_id,
             'reason_id' => $this->reason_id,
             'weight' => $this->weight,
             'active' => $this->active,

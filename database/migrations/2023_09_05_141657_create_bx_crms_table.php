@@ -16,6 +16,9 @@ return new class extends Migration
             $table->string('name', 50)->unique();
             $table->string('acronym', 30)->unique();
             $table->string('domain', 100)->unique();
+            // $table->string('app_domain', 100)->unique();
+            // $table->unsignedInteger('marketplace_id');
+            // $table->string('webhook_id', 50);
             $table->timestamps();
             $table->softDeletes();
         });

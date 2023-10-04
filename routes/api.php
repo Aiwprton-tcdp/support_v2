@@ -105,10 +105,3 @@ Route::prefix('statistics')->group(function () {
 });
 
 Route::get('/set_users_ids', [CRMUserController::class, 'setUsersIds']);
-
-
-
-// Route::get('/count_of_tickets_by_days', [DashboardController::class, 'getCountOfTicketsByDays']);
-// Route::get('/count_of_tickets_by_managers', [DashboardController::class, 'getCountOfTicketsByManagers']);
-// Route::get('/fastest_and_slowest_tickets', [DashboardController::class, 'getFastestAndSlowestTickets']);
-// Route::get('/tickets_solving_time_median', [DashboardController::class, 'getTicketsSolvingTimeMedian']);

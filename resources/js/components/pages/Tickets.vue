@@ -34,7 +34,7 @@ export default {
       search: String(),
       page: Number(1),
       TicketsCount: Number(),
-      limit: Number(15),
+      limit: Number(30),
       VITE_CRM_URL: String(import.meta.env.VITE_CRM_URL),
       VITE_APP_PREFIX: String(import.meta.env.VITE_APP_PREFIX),
     }
@@ -65,7 +65,6 @@ export default {
     this.emitter.on('NewHiddenMessage', this.NewHiddenMessage)
     this.emitter.on('DeleteTicket', this.DeleteTicket)
     this.emitter.on('NewParticipant', this.NewParticipant)
-    console.log(this.UserData)
   },
   methods: {
     Get(page = 1) {
@@ -89,7 +88,9 @@ export default {
             this.toast(message, 'error')
           }
 
-          this.TicketsCount = r.data.data.meta.total
+          this.TicketsCount = r.data.data.meta.current_page == r.data.data.meta.last_page
+            ? this.AllTickets.length
+            : r.data.data.meta.total
 
           if (this.AllTickets.length == 0) {
             this.AllTickets = r.data.data.data
@@ -98,12 +99,30 @@ export default {
           }
         }
 
-        this.AllTickets.forEach(t => {
-          t.im_only_participant = ![t.new_user_id, t.new_manager_id].includes(this.UserData.user_id)
-          t.unread_messages = t.last_message_user_id != this.UserData.user_id
-          t.user_marked_as_deleted = t.active == 0
-          t.unread_system_messages = t.last_system_message_date != null && new Date(t.last_system_message_date).getTime() - new Date(t.last_message_date).getTime() < 24 * 60 * 60 * 1000
-        })
+        if (this.AllTickets.length == 0) {
+          this.AllTickets = r.data.data.data
+          this.AllTickets.forEach(t => {
+            t.im_only_participant = ![t.new_user_id, t.new_manager_id].includes(this.UserData.user_id)
+            t.unread_messages = t.last_message_user_id != this.UserData.user_id
+            t.marked_as_deleted = t.active == 0
+            t.unread_system_messages = t.last_system_message_date != null && new Date(t.last_system_message_date).getTime() - new Date(t.last_message_date).getTime() < 24 * 60 * 60 * 1000
+          })
+        } else {
+          const tt = r.data.data.data
+          tt.forEach(t => {
+            t.im_only_participant = ![t.new_user_id, t.new_manager_id].includes(this.UserData.user_id)
+            t.unread_messages = t.last_message_user_id != this.UserData.user_id
+            t.marked_as_deleted = t.active == 0
+            t.unread_system_messages = t.last_system_message_date != null && new Date(t.last_system_message_date).getTime() - new Date(t.last_message_date).getTime() < 24 * 60 * 60 * 1000
+          })
+          this.TicketsUnion(tt)
+        }
+        // this.AllTickets.forEach(t => {
+        //   t.im_only_participant = ![t.new_user_id, t.new_manager_id].includes(this.UserData.user_id)
+        //   t.unread_messages = t.last_message_user_id != this.UserData.user_id
+        //   t.user_marked_as_deleted = t.active == 0
+        //   t.unread_system_messages = t.last_system_message_date != null && new Date(t.last_system_message_date).getTime() - new Date(t.last_message_date).getTime() < 24 * 60 * 60 * 1000
+        // })
         this.tickets = this.AllTickets
 
         const index = this.AllTickets.findIndex(({ id }) => id == this.CurrentTicket.id)
@@ -148,7 +167,7 @@ export default {
       centrifuge.on('connect', () => console.log("connected"))
       centrifuge.on('disconnect', () => console.log("disconnected"))
 
-      const name = `#${this.VITE_APP_PREFIX}.${this.UserData.crm_id}`
+      const name = `#support.${this.UserData.email.split('@')[0]}`
       const sub_message = centrifuge.newSubscription(`${name}.message`)
       const sub_hidden_message = centrifuge.newSubscription(`${name}.hidden_message`)
       const sub_ticket = centrifuge.newSubscription(`${name}.ticket`)
@@ -243,27 +262,26 @@ export default {
       this.$router.push({ name: 'new_ticket' })
     },
     TicketsSorting() {
-      console.log(this.UserData)
-      const user_id = this.UserData.user_id
-      const last_message = (t1, t2) => {
-        if ((t1.last_message_user_id == t1.new_user_id && t1.new_manager_id == user_id)
-          - (t2.last_message_user_id == t2.new_user_id && t2.new_manager_id == user_id)) {
-          return -1;
-        }
-        if ((t1.last_message_user_id != t1.new_user_id && t1.new_manager_id == user_id)
-          - (t2.last_message_user_id != t2.new_user_id && t2.new_manager_id == user_id)) {
-          return 1;
-        }
-        // a должно быть равным b
-        return 0;
-      }
+      // const user_id = this.UserData.user_id
+      // const last_message = (t1, t2) => {
+      //   if ((t1.last_message_user_id == t1.new_user_id && t1.new_manager_id == user_id)
+      //     - (t2.last_message_user_id == t2.new_user_id && t2.new_manager_id == user_id)) {
+      //     return -1;
+      //   }
+      //   if ((t1.last_message_user_id != t1.new_user_id && t1.new_manager_id == user_id)
+      //     - (t2.last_message_user_id != t2.new_user_id && t2.new_manager_id == user_id)) {
+      //     return 1;
+      //   }
+      //   // a должно быть равным b
+      //   return 0;
+      // }
 
-      this.AllTickets = this.AllTickets.sort((t1, t2) =>
-        (t1.unread_messages < t2.unread_messages) - (t1.unread_messages > t2.unread_messages)
-        || last_message(t1, t2)
-        // || (t1.last_message_user_id == user_id) - (t2.last_message_user_id == user_id)
-        || (t2.weight - t1.weight)
-        || (new Date(t1.last_message_date) - new Date(t2.last_message_date)))
+      // this.AllTickets = this.AllTickets.sort((t1, t2) =>
+      //   (t1.unread_messages < t2.unread_messages) - (t1.unread_messages > t2.unread_messages)
+      //   || last_message(t1, t2)
+      //   // || (t1.last_message_user_id == user_id) - (t2.last_message_user_id == user_id)
+      //   || (t2.weight - t1.weight)
+      //   || (new Date(t1.last_message_date) - new Date(t2.last_message_date)))
 
       this.TicketsUnion()
     },
@@ -279,11 +297,11 @@ export default {
 
       const index = this.AllTickets.findIndex(({ id }) => id == data.ticket_id)
 
-      console.log('NewMessage.ticket')
       if (index == -1) {
         this.ax.get(`tickets/${data.ticket_id}`).then(r => {
           const ticket = r.data.data.data
-          ticket.im_only_participant = ![ticket.new_user_id, ticket.new_manager_id].includes(this.UserData.user_id)
+          ticket.im_only_participant = ticket.user_id != this.UserData.crm_id && ticket.manager_id != this.UserData.crm_id
+          // ticket.im_only_participant = ![ticket.user_id, ticket.manager_id].includes(this.UserData.crm_id)
           ticket.unread_messages = true
           ticket.unread_system_messages = data.last_system_message_date != null && new Date(data.last_system_message_date).getTime() - new Date(data.last_message_date).getTime() < 24 * 60 * 60 * 1000
           this.AllTickets.push(ticket)
@@ -293,7 +311,8 @@ export default {
         })
       } else {
         // По идее не надо, но на всякий пусть будет, если при смене ответственного сокет не отработает
-        this.AllTickets[index].im_only_participant = ![this.AllTickets[index].new_user_id, this.AllTickets[index].new_manager_id].includes(this.UserData.user_id)
+        this.AllTickets[index].im_only_participant = this.AllTickets[index].user_id != this.UserData.crm_id && this.AllTickets[index].manager_id != this.UserData.crm_id
+        // this.AllTickets[index].im_only_participant = ![this.AllTickets[index].user_id, this.AllTickets[index].Яmanager_id].includes(this.UserData.crm_id)
 
         this.AllTickets[index].unread_messages = true
         this.AllTickets[index].unread_system_messages = data.last_system_message_date != null && new Date(data.last_system_message_date).getTime() - new Date(data.last_message_date).getTime() < 24 * 60 * 60 * 1000

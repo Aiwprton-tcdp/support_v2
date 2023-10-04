@@ -13,6 +13,9 @@ class BxCrm extends Model
         'name',
         'acronym',
         'domain',
+        'app_domain',
+        'marketplace_id',
+        'webhook_id',
     ];
 
     protected $hidden = [
@@ -20,12 +23,12 @@ class BxCrm extends Model
         'updated_at',
         'deleted_at',
     ];
-    
+
     protected $casts = [
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
     ];
-    
+
     protected $table = 'bx_crms';
 }

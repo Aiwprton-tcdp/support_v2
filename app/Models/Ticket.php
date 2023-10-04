@@ -14,6 +14,7 @@ class Ticket extends Model
     'manager_id',
     'new_user_id',
     'new_manager_id',
+    'crm_id',
     'reason_id',
     'weight',
     'active',

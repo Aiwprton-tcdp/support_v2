@@ -232,7 +232,7 @@ ${this.FirstTry ? '' : url_filters}`).then(r => {
             <path stroke-linecap="round" stroke-linejoin="round"
               d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
           </svg>
-          <span class="items-center font-bold dark:text-gray-900">Фильтры</span>
+          <span class="items-center font-bold">Фильтры</span>
         </div>
       </button>
 
@@ -341,7 +341,7 @@ ${this.FirstTry ? '' : url_filters}`).then(r => {
 
         <TableBody>
           <TableRow v-for="t in FilteredTickets" v-bind:key="t">
-            <TableCell>{{ t.id }}</TableCell>
+            <TableCell>{{ t.id }} <p :title="t.bx_name" class="cursor-help">({{ t.bx_acronym }})</p></TableCell>
             <TableCell>{{ t.reason }}</TableCell>
             <TableCell>{{ t.user.name }}</TableCell>
             <TableCell>{{ t.manager.name }}</TableCell>

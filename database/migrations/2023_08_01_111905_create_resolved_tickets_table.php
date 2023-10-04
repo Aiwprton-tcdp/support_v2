@@ -16,8 +16,9 @@ return new class extends Migration
             $table->unsignedInteger('old_ticket_id')->unique();
             $table->unsignedInteger('user_id');
             $table->unsignedInteger('manager_id');
-            $table->unsignedInteger('new_user_id');
-            $table->unsignedInteger('new_manager_id');
+            // $table->unsignedInteger('new_user_id');
+            // $table->unsignedInteger('new_manager_id');
+            // $table->unsignedInteger('crm_id')->constrained('bx_crms');
             $table->unsignedInteger('reason_id');
             // $table->unsignedInteger('user_id')->constrained('users', 'crm_id');
             // $table->unsignedInteger('manager_id')->constrained('users', 'crm_id');

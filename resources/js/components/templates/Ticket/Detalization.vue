@@ -253,7 +253,7 @@ export default {
       </div>
 
       <VueMultiselect v-if="!IsResolved && EditReason" :options="Reasons" placeholder="Выберите тему"
-        @select="ChangeReason" label="name" track-by="name" :show-labels="false" />
+        @select="ChangeReason" label="name" track-by="name" :show-labels="false" v-focus />
     </div>
 
     <div
@@ -275,7 +275,7 @@ export default {
       </div>
 
       <VueMultiselect v-if="!IsResolved && EditParticipants" :options="Managers" placeholder="Выберите менеджера"
-        @select="AddParticipant" label="name" track-by="name" :show-labels="false" />
+        @select="AddParticipant" label="name" track-by="name" :show-labels="false" v-focus />
 
       <div class="flex flex-row items-center gap-1">
         <a :href="`${VITE_CRM_URL}company/personal/user/${ticket.manager.crm_id}/`" target="_blank">
@@ -329,9 +329,6 @@ export default {
       <template v-if="ticket.user.inner_phone > 0">
         <p class="text-sm text-gray-400">Внутренний номер: {{ ticket.user.inner_phone }}</p>
       </template>
-
-      <!-- <VueMultiselect v-if="!IsResolved && EditParticipants" :options="Managers" placeholder="Выберите менеджера"
-        @select="AddParticipant" label="name" track-by="name" :show-labels="false" /> -->
     </div>
 
     <div v-if="BusyManagers.length > 0"

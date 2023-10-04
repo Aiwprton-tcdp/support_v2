@@ -6,7 +6,6 @@ use App\Http\Requests\StoreParticipantRequest;
 use App\Models\HiddenChatMessage;
 use App\Models\Participant;
 use App\Models\Ticket;
-use App\Models\User;
 use App\Traits\TicketTrait;
 use App\Traits\UserTrait;
 use Illuminate\Support\Facades\DB;
@@ -59,7 +58,7 @@ class ParticipantController extends Controller
   public function store(StoreParticipantRequest $request)
   {
     $validated = $request->validated();
-    $ticket = Ticket::find($validated['ticket_id']);
+    $ticket = Ticket::findOrFail($validated['ticket_id']);
 
     if (!isset($ticket)) {
       return response()->json([
@@ -85,6 +84,7 @@ class ParticipantController extends Controller
     $manager = $users_with_email->where('id', $validated['user_id'])->first();
     $participant = $users_with_email->where('id', $ticket->new_manager_id)->first();
 
+    // dd($ticket, $creator->email, $manager, $participant);
     unset($users_with_email);
 
     $ticket->new_manager_id = $manager->id;
@@ -104,10 +104,9 @@ class ParticipantController extends Controller
       $new_participant->save();
     }
 
-    TicketTrait::SendNotification($manager->crm_id, "Вы стали ответственным за тикет №{$ticket->id}", $ticket->id);
+    TicketTrait::SendNotification($manager->id, "Вы стали ответственным за тикет №{$ticket->id}", $ticket->id);
 
-    $new_manager_data = User::find($manager->id);
-    $user = UserTrait::tryToDefineUserEverywhere($manager->id, $new_manager_data->email);
+    $user = UserTrait::tryToDefineUserEverywhere($manager->id, $manager->email);
 
     HiddenChatMessage::create([
       'content' => "Новый ответственный: {$user->name}",
@@ -119,39 +118,44 @@ class ParticipantController extends Controller
     $result = [
       'ticket_id' => $ticket->id,
       'new_manager' => $user,
-      'new_manager_id' => $new_manager_data->id,
+      'new_manager_id' => $manager->id,
       'new_participant_id' => $ticket->new_manager_id,
     ];
 
     // TicketTrait::SendMessageToWebsocket("{$manager->crm_id}.ticket", [
     //   'participant' => $result,
     // ]);
-    $ticket->reason = \App\Models\Reason::find($ticket->reason_id)->name;
-    $ticket->user = UserTrait::tryToDefineUserEverywhere($creator->crm_id, $creator->email);
-    $ticket->manager = UserTrait::tryToDefineUserEverywhere($manager->crm_id, $manager->email);
+    // $ticket->reason = \App\Models\Reason::find($ticket->reason_id)->name;
+    // $ticket->user = UserTrait::tryToDefineUserEverywhere($creator->crm_id, $creator->email);
+    // $ticket->manager = UserTrait::tryToDefineUserEverywhere($manager->crm_id, $manager->email);
 
-    $bx_crm_data = DB::table('bx_crms')
-      ->join('bx_users AS bx', 'bx.bx_crm_id', 'bx_crms.id')
-      ->where('bx.user_id', $creator->id)
-      ->select('bx_crms.name', 'bx_crms.acronym', 'bx_crms.domain')
-      ->first();
-    $ticket->bx_name = $bx_crm_data->name;
-    $ticket->bx_acronym = $bx_crm_data->acronym;
-    $ticket->bx_domain = $bx_crm_data->domain;
+    // $bx_crm_data = DB::table('bx_crms')
+    //   ->join('bx_users AS bx', 'bx.bx_crm_id', 'bx_crms.id')
+    //   ->where('bx.user_id', $creator->id)
+    //   ->select('bx_crms.name', 'bx_crms.acronym', 'bx_crms.domain')
+    //   ->first();
+    // $ticket->bx_name = $bx_crm_data->name;
+    // $ticket->bx_acronym = $bx_crm_data->acronym;
+    // $ticket->bx_domain = $bx_crm_data->domain;
 
-    $resource = \App\Http\Resources\TicketResource::make($ticket);
-    TicketTrait::SendMessageToWebsocket("{$manager->crm_id}.ticket", [
-      'ticket' => $resource,
-    ]);
-    TicketTrait::SendMessageToWebsocket("{$creator->crm_id}.participant", [
+    // $resource = \App\Http\Resources\TicketResource::make($ticket);
+    TicketTrait::SendMessageToWebsocket("{$manager->email}.participant", [
+      // 'ticket' => $resource,
       'participant' => $result,
     ]);
-    $part_ids = Participant::whereTicketId($ticket->id)
-      ->join('users', 'users.id', 'participants.user_id')
-      ->join('bx_users', 'bx_users.user_id', 'users.id')
-      ->pluck('bx_users.crm_id')->toArray();
-    foreach ($part_ids as $id) {
-      TicketTrait::SendMessageToWebsocket("{$id}.participant", [
+    TicketTrait::SendMessageToWebsocket("{$creator->email}.participant", [
+      'participant' => $result,
+    ]);
+    // TicketTrait::SendMessageToWebsocket("{$participant->email}.participant", [
+    //   'participant' => $result,
+    // ]);
+    $part_emails = Participant::join('users', 'users.id', 'participants.user_id')
+      ->whereTicketId($ticket->id)
+      // ->join('bx_users', 'bx_users.user_id', 'users.id')
+      // ->pluck('bx_users.crm_id')->toArray();
+      ->pluck('users.email')->toArray();
+    foreach ($part_emails as $email) {
+      TicketTrait::SendMessageToWebsocket("{$email}.participant", [
         'participant' => $result,
       ]);
     }

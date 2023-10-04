@@ -81,7 +81,7 @@ export default {
     </div>
 
     <nav :class="{ invisible: is_not_necessary }">
-      <ul class="inline-flex space-x-1 text-sm text-gray-500 bg-white">
+      <ul class="inline-flex space-x-1 text-sm text-gray-500">
         <li v-if="this.page > 1">
           <button @click="Previous()"
             class="inline-flex px-4 py-2 text-gray-500 border border-gray-300 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white">

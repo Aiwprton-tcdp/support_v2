@@ -16,7 +16,7 @@ return new class extends Migration
             // $table->foreignId('ticket_id')->constrained();
             $table->unsignedInteger('ticket_id');
             $table->unsignedInteger('user_crm_id');
-            $table->unsignedInteger('user_id');
+            // $table->unsignedInteger('user_id');
             $table->timestamps();
         });
     }
