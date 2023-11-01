@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Dashboard\RedistributionRequest;
 use App\Models\Ticket;
+use App\Traits\DashboardTrait;
 use App\Traits\TicketTrait;
 use App\Traits\UserTrait;
 use Illuminate\Support\Facades\Cache;
@@ -45,38 +46,48 @@ class DashboardController extends Controller
 
         $all_ids = array_map(fn($t) => $t->new_manager_id, $tickets->all());
         $users_with_emails = DB::table('users')
-            ->join('bx_users', 'bx_users.user_id', 'users.id')
+            ->leftJoin('bx_users', 'bx_users.user_id', 'users.id')
             ->whereIn('users.id', $all_ids)
-            ->select('users.id', 'users.email', 'bx_users.crm_id')
+            ->selectRaw('users.id, users.email, IFNULL(bx_users.crm_id, users.crm_id) AS crm_id')
             ->get();
         unset($all_ids);
 
         foreach ($tickets as $ticket) {
-            // dd($users, $ticket);
-            // $email = array_values(array_filter($users, fn($u) => $u->crm_id == $ticket->manager_id))[0]->email;
-            // $email = \App\Models\User::find($ticket->new_manager_id)->email;
             $m = $users_with_emails->where('id', $ticket->new_manager_id)->first();
+            $user = UserTrait::tryToDefineUserEverywhere($m->crm_id, $m->email);
+            $ticket->manager = $user ?? [
+                'crm_id' => $m->crm_id,
+                'user_id' => $m->id,
+                'name' => 'Неопределённый менеджер',
+            ];
             if (in_array($ticket->new_manager_id, $managers)) {
-                $user = UserTrait::tryToDefineUserEverywhere($m->crm_id, $m->email);
-                $ticket->manager = $user ?? [
-                    'crm_id' => $m->crm_id,
-                    'user_id' => $m->id,
-                    'name' => 'Неопределённый менеджер',
-                ];
-                // unset($ticket->new_manager_id);
                 array_push($active, $ticket);
             } else {
-                $user = UserTrait::tryToDefineUserEverywhere($m->crm_id, $m->email);
-                $ticket->manager = $user;
                 array_push($lost, $ticket);
             }
         }
+
+        $solvedLost = [];
+        foreach ($lost as $l) {
+            $name = $l->manager->name;
+            $reason = $l->reason_name;
+            $solvedLost[$name][$reason] = $l;
+        }
+        $solvedActive = [];
+        foreach ($active as $a) {
+            $name = $a->manager->name;
+            $reason = $a->reason_name;
+            $solvedActive[$name][$reason] = $a;
+        }
+
         // dd($active, $lost);
         return response()->json([
             'status' => true,
             'data' => [
-                'lost' => $lost,
-                'active' => $active
+                // 'lost' => $lost,
+                // 'active' => $active,
+                'lost' => $solvedLost,
+                'active' => $solvedActive,
             ],
         ]);
     }
@@ -258,6 +269,10 @@ class DashboardController extends Controller
             ->selectRaw('AVG(UNIX_TIMESTAMP(rt.created_at) - UNIX_TIMESTAMP(messages.created_at)) AS time_avg')
             ->get();
 
+        if ($data[0]->time_avg > 86400) {
+            $data[0]->time_avg /= 3;
+        }
+
         $start = new \DateTime();
         $start->setTimestamp(0);
 
@@ -267,8 +282,111 @@ class DashboardController extends Controller
 
         // dd($data, $median, $median->format('%dд. %h:%I:%S'));
 
+        $result = $data[0]->time_avg > 86400
+            ? $median->format('%dд. %h:%I:%S')
+            : $median->format('%h:%I:%S');
         return response()->json([
-            'data' => $median->format('%dд. %h:%I:%S')
+            'data' => $result
+        ]);
+    }
+
+    public function GetAvgMaxMinTicketsPerDay()
+    {
+        $data = DB::table('hidden_chat_messages AS hcm')
+            ->where('hcm.content', 'Тикет создан')
+            ->whereRaw('WEEKDAY(hcm.created_at) IN (0,1,2,3,4)')
+            ->selectRaw('COUNT(hcm.id) AS count, DATE(hcm.created_at) AS date')
+            ->groupBy('date')
+            ->get();
+
+        $sum = 0;
+        $max = 0;
+        $min = $data[0]->count;
+        $today = 0;
+
+        foreach ($data as $d) {
+            $sum += $d->count;
+            $max = $max < $d->count ? $d->count : $max;
+            $min = $min > $d->count ? $d->count : $min;
+
+            $d1 = new \DateTime($d->date);
+            $d2 = new \DateTime(now());
+            // dd($d1, $d2, $d1->format("Y-m-d"), $d2->format("Y-m-d"));
+            if ($d1->format("Y-m-d") == $d2->format("Y-m-d"))
+                $today += $d->count;
+        }
+
+        $avg = $sum / count($data);
+
+        return response()->json([
+            'data' => [
+                'avg' => number_format((float) $avg, 2, '.', ''),
+                'max' => $max,
+                'min' => $min,
+                'today' => $today,
+            ]
+        ]);
+    }
+
+    public function GetAvgTimeByReason()
+    {
+        $resolved_tickets = DB::table('resolved_tickets')
+            ->leftJoin('messages', function ($q) {
+                $q->on('messages.ticket_id', 'resolved_tickets.old_ticket_id')
+                    ->whereRaw('messages.id IN (SELECT MIN(m.id) FROM messages m join resolved_tickets t on t.old_ticket_id = m.ticket_id GROUP BY t.old_ticket_id)');
+            })
+            ->leftJoin('hidden_chat_messages', function ($q) {
+                $q->on('hidden_chat_messages.ticket_id', 'resolved_tickets.old_ticket_id')
+                    ->whereRaw('hidden_chat_messages.id IN (SELECT MAX(m.id) FROM hidden_chat_messages m join resolved_tickets t on t.old_ticket_id = m.ticket_id WHERE m.content LIKE "Тикет завершён" GROUP BY t.old_ticket_id)');
+            })
+            ->join('reasons', 'reasons.id', 'resolved_tickets.reason_id')
+            ->selectRaw('TIMEDIFF(IFNULL(hidden_chat_messages.created_at, NOW()), messages.created_at) AS time, reasons.name AS name');
+        $tickets = DB::table('tickets')
+            ->leftJoin('messages', function ($q) {
+                $q->on('messages.ticket_id', 'tickets.id')
+                    ->whereRaw('messages.id IN (SELECT MIN(m.id) FROM messages m join tickets t on t.id = m.ticket_id GROUP BY t.id)');
+            })
+            ->leftJoin('hidden_chat_messages', function ($q) {
+                $q->on('hidden_chat_messages.ticket_id', 'tickets.id')
+                    ->whereRaw('hidden_chat_messages.id IN (SELECT MAX(m.id) FROM hidden_chat_messages m join tickets t on t.id = m.ticket_id WHERE m.content LIKE "%пометил тикет как решённый" GROUP BY t.id)');
+            })
+            ->join('reasons', 'reasons.id', 'tickets.reason_id')
+            ->selectRaw('TIMEDIFF(IFNULL(hidden_chat_messages.created_at, NOW()), messages.created_at) AS time, reasons.name AS name')
+            ->union($resolved_tickets);
+
+        $data = DB::query()->fromSub($tickets, 't')
+            ->selectRaw('AVG(t.time) AS avg_time, t.name AS name')
+            ->groupBy('name')
+            ->orderByDesc('avg_time')
+            ->get();
+
+        foreach ($data as $d) {
+            $time = $d->avg_time > 86400 ? $d->avg_time / 3 : $d->avg_time;
+            $d->avg_time = sprintf('%02d:%02d:%02d', ($time / 3600), ($time / 60 % 60), $time % 60);
+        }
+        return response()->json([
+            'data' => $data
+        ]);
+    }
+
+    public function GetStatsByReasonsAndManagersPerDay()
+    {
+        $avgSolvingTimeByUsers = DashboardTrait::getAvgSolvingTimeByUsers();
+        $avgSolvingTimeByReasons = DashboardTrait::getAvgSolvingTimeByReasons();
+        $newTicketsCountByUsers = DashboardTrait::getNewTicketsCountByUsers();
+        $newTicketsCountByReasons = DashboardTrait::getNewTicketsCountByReasons();
+        $resolvedTicketsCountByUsers = DashboardTrait::getResolvedTicketsCountByUsers();
+        $resolvedTicketsCountByReasons = DashboardTrait::getResolvedTicketsCountByReasons();
+
+        return response()->json([
+            'data' => [
+                'avgSolvingTimeByUsers' => $avgSolvingTimeByUsers,
+                'avgSolvingTimeByReasons' => $avgSolvingTimeByReasons,
+                'newTicketsCountByUsers' => $newTicketsCountByUsers,
+                'newTicketsCountByReasons' => $newTicketsCountByReasons,
+                'resolvedTicketsCountByUsers' => $resolvedTicketsCountByUsers,
+                'resolvedTicketsCountByReasons' => $resolvedTicketsCountByReasons,
+            ]
         ]);
     }
 }

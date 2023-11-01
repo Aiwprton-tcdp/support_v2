@@ -45,6 +45,7 @@ class TicketResource extends JsonResource
             // 'bx_manager_acronym' => @$this->bx_manager_acronym,
             // 'bx_manager_domain' => @$this->bx_manager_domain,
             // 'messages_count' => $this->messages_count,
+            'pinned' => false,
         ];
         // return parent::toArray($request);
     }

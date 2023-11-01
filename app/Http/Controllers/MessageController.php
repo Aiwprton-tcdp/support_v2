@@ -26,6 +26,16 @@ class MessageController extends Controller
             ->when(!empty($ticket_id), fn($q) => $q->whereTicketId($ticket_id))
             ->paginate($limit < 1 ? 100 : $limit);
 
+        $app_domain = BxCrm::leftJoin('tickets', 'tickets.crm_id', 'bx_crms.id')
+            ->leftJoin('resolved_tickets AS rt', 'rt.crm_id', 'bx_crms.id')
+            ->where('tickets.id', $ticket_id)
+            ->orWhere('rt.old_ticket_id', $ticket_id)
+            ->first()->app_domain;
+
+        foreach ($data as $d) {
+            $d->attachments_domain = $app_domain;
+        }
+
         return response()->json([
             'status' => true,
             'data' => MessageResource::collection($data)->response()->getData()
@@ -50,9 +60,9 @@ class MessageController extends Controller
         $validated['content'] ??= '';
         $validated['new_user_id'] = Auth::user()->id;
         $user_with_email = DB::table('users')
-            ->join('bx_users', 'bx_users.user_id', 'users.id')
+            ->leftJoin('bx_users', 'bx_users.user_id', 'users.id')
             ->where('users.id', $validated['new_user_id'])
-            ->select('users.id', 'users.email', 'bx_users.crm_id')
+            ->selectRaw('users.id, users.email, IFNULL(bx_users.crm_id, users.crm_id) AS crm_id')
             ->first();
         $validated['user_crm_id'] = $user_with_email->crm_id;
         $ticket = \App\Models\Ticket::whereId($validated['ticket_id'])
@@ -79,12 +89,12 @@ class MessageController extends Controller
             array_push($attachments, $attachment_path);
         }
         $data->attachments = collect($attachments);
-
+        $data->attachments_domain = $app_domain;
 
         $recipient_ids = DB::table('users')
-            ->join('bx_users', 'bx_users.user_id', 'users.id')
+            ->leftJoin('bx_users', 'bx_users.user_id', 'users.id')
             ->whereIn('users.id', [$ticket->new_user_id, $ticket->new_manager_id])
-            ->select('users.id', 'users.email', 'bx_users.crm_id')
+            ->selectRaw('users.id, users.email, IFNULL(bx_users.crm_id, users.crm_id) AS crm_id')
             ->get();
 
         $creator = $recipient_ids->where('id', $ticket->new_user_id)->first();

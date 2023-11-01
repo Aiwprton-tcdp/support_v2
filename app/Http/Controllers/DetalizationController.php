@@ -66,28 +66,46 @@ class DetalizationController extends Controller
     $users_collection = array();
     $search = UserTrait::search()->data;
 
-    $users_by_emails = DB::table('users')
-      ->whereIn('users.email', array_map(fn($d) => $d->email, $search))
-      ->pluck('users.id', 'users.email');
+    // $users_by_emails = DB::table('users')
+    //   ->whereIn('users.email', array_map(fn($d) => $d->email, $search))
+    //   ->pluck('users.id', 'users.email');
     foreach ($search as $user) {
-      if (!isset($users_by_emails[$user->email]))
-        continue;
-      $user->user_id = $users_by_emails[$user->email];
-      $users_collection[$user->user_id] = $user;
+      // if (!isset($users_by_emails[$user->email]))
+      //   continue;
+      // $user->user_id = $users_by_emails[$user->email];
+      // $users_collection[$user->user_id] = $user;
+      $users_collection[$user->email] = $user;
     }
     unset($search);
 
+    $all_ids = array_merge(...array_map(fn($t) => [$t->new_user_id, $t->new_manager_id], $data->all()));
+    $users_with_emails = DB::table('users')
+      ->leftJoin('bx_users', 'bx_users.user_id', 'users.id')
+      ->whereIn('users.id', array_values(array_unique($all_ids)))
+      ->selectRaw('users.id, users.email, IFNULL(bx_users.crm_id, users.crm_id) AS crm_id')
+      ->get();
+    unset($all_ids);
+    
     foreach ($data as $key => $ticket) {
       if (!isset($ticket->tid)) {
         unset($data[$key]);
         continue;
       }
-      $ticket->user = $users_collection[$ticket->new_user_id]
-        ?? ['name' => 'Неопределённый пользователь'];
-      $ticket->manager = $users_collection[$ticket->new_manager_id]
-        ?? ['name' => 'Неопределённый менеджер'];
+
+      $u = $users_with_emails->where('id', $ticket->new_user_id)->first();
+      $m = $users_with_emails->where('id', $ticket->new_manager_id)->first();
+
+      $ticket->user = $users_collection[$u->email]
+        ?? UserTrait::tryToDefineUserEverywhere($u->crm_id, $u->email);
+      $ticket->manager = $users_collection[$m->email]
+        ?? UserTrait::tryToDefineUserEverywhere($m->crm_id, $m->email);
+
+      // $ticket->user = $users_collection[$ticket->new_user_id]
+      //   ?? ['name' => 'Неопределённый пользователь'];
+      // $ticket->manager = $users_collection[$ticket->new_manager_id]
+      //   ?? ['name' => 'Неопределённый менеджер'];
     }
-    unset($users_collection);
+    unset($users_collection, $users_with_emails);
 
     return response()->json([
       'status' => true,

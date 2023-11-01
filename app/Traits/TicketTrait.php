@@ -111,7 +111,7 @@ trait TicketTrait
   {
     // dd($managers);
     $m = array_map(fn($e) => $e['user_id'], $managers);
-    $data = \Illuminate\Support\Facades\DB::table('tickets')
+    $data = DB::table('tickets')
       ->join('managers', 'managers.user_id', 'tickets.new_manager_id')
       ->leftJoin(
         'messages',
@@ -269,9 +269,9 @@ trait TicketTrait
     ]);
 
     $users_with_emails = DB::table('users')
-      ->join('bx_users', 'bx_users.user_id', 'users.id')
+      ->leftJoin('bx_users', 'bx_users.user_id', 'users.id')
       ->whereIn('users.id', [$ticket->new_user_id, $ticket->new_manager_id])
-      ->select('users.id', 'users.email', 'bx_users.crm_id')
+      ->selectRaw('users.id, users.email, IFNULL(bx_users.crm_id, users.crm_id) AS crm_id')
       ->get();
 
     $u = $users_with_emails->where('id', $ticket->new_user_id)->first();
@@ -329,15 +329,15 @@ trait TicketTrait
 
     $users_collection = array();
 
-    foreach (UserTrait::search()->data as $user) {
+    foreach (UserTrait::withFired()->data as $user) {
       $users_collection[$user->email] = $user;
     }
 
     $all_ids = array_merge(...array_map(fn($t) => [$t->new_user_id, $t->new_manager_id], $tickets->all()));
     $users_with_emails = DB::table('users')
-      ->join('bx_users', 'bx_users.user_id', 'users.id')
+      ->leftJoin('bx_users', 'bx_users.user_id', 'users.id')
       ->whereIn('users.id', array_values(array_unique($all_ids)))
-      ->select('users.id', 'users.email', 'bx_users.crm_id')
+      ->selectRaw('users.id, users.email, IFNULL(bx_users.crm_id, users.crm_id) AS crm_id')
       ->get();
     unset($all_ids);
 
@@ -383,9 +383,9 @@ trait TicketTrait
       $ticket->manager = $users_collection[$m->email];
 
       $manager_email = DB::table('users')
-        ->join('bx_users', 'bx_users.user_id', 'users.id')
+        ->leftJoin('bx_users', 'bx_users.user_id', 'users.id')
         ->where('users.id', $manager_id)
-        ->select('users.id', 'users.email', 'bx_users.crm_id')
+        ->selectRaw('users.id, users.email, IFNULL(bx_users.crm_id, users.crm_id) AS crm_id')
         ->first();
 
       self::SendNotification($manager_id, "Вы стали ответственным за тикет №{$ticket->id}", $ticket->id);

@@ -97,7 +97,7 @@ class ManagerController extends Controller
         }
 
         $bx_user = \App\Models\BxUser::join('bx_crms', 'bx_crms.id', 'bx_users.bx_crm_id')
-            ->whereUserId($user->id)
+            ->where('bx_users.user_id', $user->id)
             ->where('domain', env('CRM_DOMAIN'))->first();
         // dd($bx_user);
 
@@ -145,7 +145,7 @@ class ManagerController extends Controller
         $validated = $request->validated();
 
         $user = Manager::join('users', 'users.id', 'managers.user_id')
-            ->select('managers.*', 'users.name')//, 'users.crm_id')
+            ->select('managers.*', 'users.name') //, 'users.crm_id')
             ->findOrFail($id);
         $message = $user->name;
 

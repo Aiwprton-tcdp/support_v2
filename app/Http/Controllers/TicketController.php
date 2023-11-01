@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreParticipantRequest;
 use App\Http\Requests\StoreTicketRequest;
 use App\Http\Requests\UpdateTicketRequest;
 use App\Http\Resources\TicketResource;
@@ -61,7 +62,11 @@ class TicketController extends Controller
           ->whereNotIn('hidden_chat_messages.new_user_id', [0, 1])
           ->whereRaw('hidden_chat_messages.id IN (SELECT MAX(m.id) FROM hidden_chat_messages m join tickets t on t.id = m.ticket_id GROUP BY t.id)')
       )
-      ->where('tickets.active', true)
+      // ->where('tickets.active', true)
+      ->where(
+        fn($q) => $q->where('tickets.active', true)
+          ->orWhere('tickets.new_user_id', $user_id)->where('tickets.active', false)
+      )
       ->where(
         fn($q) => $q->where('tickets.new_manager_id', $user_id)
           ->orWhere('tickets.new_user_id', $user_id)
@@ -70,9 +75,11 @@ class TicketController extends Controller
       ->when($id > 0, fn($q) => $q->where('tickets.id', $id))
       ->when(
         isset($name) && $id == 0,
-        fn($q) => $q->whereRaw(
-          "LOWER(u.name) LIKE ? OR LOWER(m.name) LIKE ?",
-          ["%{$name}%", "%{$name}%"]
+        fn($q) => $q->where(
+          fn($r) => $r->whereRaw(
+            "LOWER(u.name) LIKE ? OR LOWER(m.name) LIKE ?",
+            ["%{$name}%", "%{$name}%"]
+          )
         )
       )
       ->whereNotNull('tickets.id')
@@ -87,8 +94,8 @@ class TicketController extends Controller
         'bxc.acronym AS bx_acronym',
         'bxc.domain AS bx_domain',
       )
-      ->orderBy(DB::raw("CASE WHEN messages.new_user_id != {$user_id} THEN 1 WHEN messages.new_user_id = {$user_id} THEN 3 ELSE 2 END"))
-      ->orderByDesc('tickets.weight')
+      ->orderBy(DB::raw("CASE WHEN (tickets.new_user_id = {$user_id} OR tickets.new_manager_id = {$user_id}) THEN 1 ELSE 2 END"))
+      ->orderBy(DB::raw("CASE WHEN messages.new_user_id != {$user_id} THEN 1 WHEN messages.new_user_id = {$user_id} THEN 3 ELSE 2 END"))->orderByDesc('tickets.weight')
       ->orderBy('last_message_date')
       ->orderBy('tid')
       ->paginate($limit < 1 ? 100 : $limit);
@@ -113,18 +120,18 @@ class TicketController extends Controller
 
     $all_ids = array_merge(...array_map(fn($t) => [$t->new_user_id, $t->new_manager_id], $data->all()));
     $users_with_emails = DB::table('users')
-      ->join('bx_users', 'bx_users.user_id', 'users.id')
+      ->leftJoin('bx_users', 'bx_users.user_id', 'users.id')
       ->whereIn('users.id', array_values(array_unique($all_ids)))
-      ->select('users.id', 'users.email', 'bx_users.crm_id')
+      ->selectRaw('users.id, users.email, IFNULL(bx_users.crm_id, users.crm_id) AS crm_id')
       ->get();
     unset($all_ids);
 
     foreach ($data as $ticket) {
       $u = $users_with_emails->where('id', $ticket->new_user_id)->first();
       $m = $users_with_emails->where('id', $ticket->new_manager_id)->first();
-      $ticket->user = $users_collection[$u->email]
+      $ticket->user = $users_collection[@$u->email]
         ?? UserTrait::tryToDefineUserEverywhere($u->crm_id, $u->email);
-      $ticket->manager = $users_collection[$m->email]
+      $ticket->manager = $users_collection[@$m->email]
         ?? UserTrait::tryToDefineUserEverywhere($m->crm_id, $m->email);
     }
     unset($users_with_emails, $users_collection);
@@ -164,6 +171,7 @@ class TicketController extends Controller
     }
 
     $data = $request->validated();
+    // $reason = Reason::first();
     $reason = TicketTrait::GetReason($data['message']) ?? Reason::first();
 
     if ($reason == null) {
@@ -306,9 +314,9 @@ class TicketController extends Controller
     }
 
     $users_with_emails = DB::table('users')
-      ->join('bx_users', 'bx_users.user_id', 'users.id')
+      ->leftJoin('bx_users', 'bx_users.user_id', 'users.id')
       ->whereIn('users.id', [$ticket->new_user_id, $ticket->new_manager_id])
-      ->select('users.id', 'users.email', 'bx_users.crm_id')
+      ->selectRaw('users.id, users.email, IFNULL(bx_users.crm_id, users.crm_id) AS crm_id')
       ->get();
 
     $u = $users_with_emails->where('id', $ticket->new_user_id)->first();
@@ -352,9 +360,9 @@ class TicketController extends Controller
     }
 
     $users_with_emails = DB::table('users')
-      ->join('bx_users', 'bx_users.user_id', 'users.id')
+      ->leftJoin('bx_users', 'bx_users.user_id', 'users.id')
       ->whereIn('users.id', [$ticket->new_user_id, $ticket->new_manager_id])
-      ->select('users.id', 'users.email', 'bx_users.crm_id')
+      ->selectRaw('users.id, users.email, IFNULL(bx_users.crm_id, users.crm_id) AS crm_id')
       ->get();
 
     $u = $users_with_emails->where('id', $ticket->new_user_id)->first();
@@ -414,6 +422,25 @@ class TicketController extends Controller
       $reason = Reason::find($validated['reason_id']) ?? Reason::first();
       $validated['reason_id'] = $reason->id;
       $validated['weight'] = $reason->weight;
+
+      $managers = TicketTrait::GetManagersForReason($reason->id);
+      if (isset($managers)) {
+        $current_manager = null;
+        if (count($managers) > 1) {
+          $responsive_id = TicketTrait::SelectResponsiveId($managers);
+          if ($responsive_id > 0) {
+            $current_manager = array_values(array_filter($managers, fn($m) => $m['user_id'] == $responsive_id))[0];
+          }
+        } else {
+          $current_manager = $managers[0];
+        }
+
+        if ($current_manager != null) {
+          $result = UserTrait::changeTheResponsive($id, $current_manager->user_id);
+          $validated['new_manager_id'] = $result['new_manager_id'];
+          $manager = $result['new_manager'];
+        }
+      }
     }
 
     $ticket->fill($validated);

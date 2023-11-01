@@ -11,9 +11,9 @@ class SocketController extends Controller
   {
     // $chat_id = '#support.' . md5(Auth::user()->crm_id) . md5(env('CENTRIFUGE_SALT'));
     $user_with_email = DB::table('users')
-      ->join('bx_users', 'bx_users.user_id', 'users.id')
+      ->leftJoin('bx_users', 'bx_users.user_id', 'users.id')
       ->where('users.id', Auth::user()->id)
-      ->select('users.id', 'users.email', 'bx_users.crm_id')
+      ->selectRaw('users.id, users.email, IFNULL(bx_users.crm_id, users.crm_id) AS crm_id')
       ->first();
 
     $chat_id = '#support.' . $user_with_email->crm_id;
@@ -38,9 +38,9 @@ class SocketController extends Controller
   public function Refresh()
   {
     $user_with_email = DB::table('users')
-      ->join('bx_users', 'bx_users.user_id', 'users.id')
+      ->leftJoin('bx_users', 'bx_users.user_id', 'users.id')
       ->where('users.id', Auth::user()->id)
-      ->select('users.id', 'users.email', 'bx_users.crm_id')
+      ->selectRaw('users.id, users.email, IFNULL(bx_users.crm_id, users.crm_id) AS crm_id')
       ->first();
 
     $client = new \phpcent\Client(

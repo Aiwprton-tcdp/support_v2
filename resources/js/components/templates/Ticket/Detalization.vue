@@ -278,7 +278,7 @@ export default {
         @select="AddParticipant" label="name" track-by="name" :show-labels="false" v-focus />
 
       <div class="flex flex-row items-center gap-1">
-        <a :href="`${VITE_CRM_URL}company/personal/user/${ticket.manager.crm_id}/`" target="_blank">
+        <a :href="`https://${ticket.bx_domain}/company/personal/user/${ticket.manager.crm_id}/`" target="_blank">
           <Avatar rounded size="sm" alt="avatar"
             :img="ticket.manager?.avatar ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
         </a>
@@ -298,7 +298,7 @@ export default {
       </div>
 
       <div class="flex flex-row items-center gap-1">
-        <a :href="`${VITE_CRM_URL}company/personal/user/${ticket.user.crm_id}/`" target="_blank">
+        <a :href="`https://${ticket.bx_domain}/company/personal/user/${ticket.user.crm_id}/`" target="_blank">
           <Avatar rounded size="sm" alt="avatar"
             :img="ticket.user?.avatar ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
         </a>
@@ -307,7 +307,7 @@ export default {
         </p>
       </div>
 
-      <template v-if="ticket.user?.post.length > 0">
+      <template v-if="ticket.user?.post?.length > 0">
         <!-- <p>Должность: {{ ticket.user?.post }}</p> -->
         <p class="text-sm text-gray-400">{{ ticket.user?.post }}</p>
       </template>

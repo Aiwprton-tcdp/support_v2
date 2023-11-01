@@ -4,9 +4,12 @@ namespace App\Traits;
 
 use App\Http\Resources\CRM\DepartmentResource;
 use App\Models\Group;
+use App\Models\HiddenChatMessage;
 use App\Models\ManagerGroup;
+use App\Models\Participant;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 trait UserTrait
 {
@@ -56,7 +59,7 @@ trait UserTrait
       ];
     }
 
-    return (object)$manager;
+    return (object) $manager;
   }
 
   public static function search()
@@ -76,20 +79,22 @@ trait UserTrait
     return $resource;
   }
 
-  // public static function withFired($force = false)
-  // {
-  //   if (!$force && Cache::store('file')->has('crm_all_users')) {
-  //     return Cache::store('file')->get('crm_all_users');
-  //   }
+  public static function withFired($force = false)
+  {
+    $prefix = env('APP_PREFIX');
+    // Cache::store('file')->forget("{$prefix}_all_users");
+    if (!$force && Cache::store('file')->has("{$prefix}_all_users")) {
+      return Cache::store('file')->get("{$prefix}_all_users");
+    }
 
-  //   $data = BX::firstBatch('user.get', [
-  //     'USER_TYPE' => 'employee',
-  //   ]);
-  //   $resource = \App\Http\Resources\CRM\UserResource::collection($data)->response()->getData();
-  //   Cache::store('file')->forever('crm_all_users', $resource);
+    $data = BX::firstBatch('user.get', [
+      'USER_TYPE' => 'employee',
+    ]);
+    $resource = \App\Http\Resources\CRM\UserResource::collection($data)->response()->getData();
+    Cache::store('file')->forever("{$prefix}_all_users", $resource);
 
-  //   return $resource;
-  // }
+    return $resource;
+  }
 
   public static function departments()
   {
@@ -134,6 +139,32 @@ trait UserTrait
       ];
     }
 
+    $tickets = \App\Models\Ticket::join('managers', 'managers.user_id', 'tickets.new_manager_id')
+      ->where('managers.id', $id)->select('tickets.id', 'tickets.reason_id')->get();
+    $default_reason = \App\Models\Reason::first();
+
+    // dd($id, $tickets);
+    foreach ($tickets as $t) {
+      $reason = \App\Models\Reason::find($t->reason_id) ?? $default_reason;
+
+      $managers = TicketTrait::GetManagersForReason($reason->id);
+      if (isset($managers)) {
+        $current_manager = null;
+        if (count($managers) > 1) {
+          $responsive_id = TicketTrait::SelectResponsiveId($managers);
+          if ($responsive_id > 0) {
+            $current_manager = array_values(array_filter($managers, fn($m) => $m['user_id'] == $responsive_id))[0];
+          }
+        } else {
+          $current_manager = $managers[0];
+        }
+
+        if ($current_manager != null) {
+          UserTrait::changeTheResponsive($t->id, $current_manager->user_id);
+        }
+      }
+    }
+
     // Deleting from `manager_groups` all rows where deleting user in not alone
     $delete_group_ids = array_filter($groups_ids, function ($e, $key) use ($groups_array) {
       if ($groups_array[$key]['count'] > 1)
@@ -142,5 +173,116 @@ trait UserTrait
     ManagerGroup::whereIn('id', $delete_group_ids)->delete();
 
     return null;
+  }
+
+  public static function changeTheResponsive($ticket_id, $user_id)
+  {
+    $ticket = \App\Models\Ticket::findOrFail($ticket_id);
+
+    if (!isset($ticket)) {
+      return response()->json([
+        'status' => false,
+        'data' => $ticket,
+        'message' => 'Тикет не доступен для редактирования'
+      ]);
+    } elseif ($ticket->new_user_id == $user_id) {
+      return response()->json([
+        'status' => false,
+        'data' => null,
+        'message' => 'Нельзя назначить ответственным самого же создателя тикета'
+      ]);
+    }
+
+    $users_with_email = DB::table('users')
+      ->leftJoin('bx_users', 'bx_users.user_id', 'users.id')
+      ->whereIn('users.id', [$ticket->new_user_id, $user_id, $ticket->new_manager_id])
+      ->selectRaw('users.id, users.email, IFNULL(bx_users.crm_id, users.crm_id) AS crm_id')
+      ->get();
+    // dd($validated, [$ticket->new_user_id, $validated['user_id'], $ticket->new_manager_id], $users_with_email);
+
+    $creator = $users_with_email->where('id', $ticket->new_user_id)->first();
+    $manager = $users_with_email->where('id', $user_id)->first();
+    $participant = $users_with_email->where('id', $ticket->new_manager_id)->first();
+
+    // dd($creator, $manager, $participant);
+    unset($users_with_email);
+
+    $ticket->new_manager_id = $manager->id;
+    $ticket->save();
+
+    $old_participant = Participant::firstOrNew([
+      'ticket_id' => $ticket_id,
+      'user_id' => $user_id,
+    ]);
+    if ($old_participant->exists) {
+      $old_participant->delete();
+    }
+
+    $new_participant = Participant::firstOrNew([
+      'ticket_id' => $ticket_id,
+      'user_id' => $participant->id,
+    ]);
+    if (!$new_participant->exists) {
+      $new_participant->user_crm_id = $participant->crm_id;
+      $new_participant->save();
+    }
+
+    TicketTrait::SendNotification($manager->id, "Вы стали ответственным за тикет №{$ticket->id}", $ticket->id);
+
+    $user = UserTrait::tryToDefineUserEverywhere($manager->id, $manager->email);
+
+    HiddenChatMessage::create([
+      'content' => "Новый ответственный: {$user->name}",
+      'user_crm_id' => 0,
+      'new_user_id' => 1,
+      'ticket_id' => $ticket->id,
+    ]);
+
+    $result = [
+      'ticket_id' => $ticket->id,
+      'new_manager' => $user,
+      'new_manager_id' => $manager->id,
+      'new_participant_id' => $ticket->new_manager_id,
+    ];
+
+    // TicketTrait::SendMessageToWebsocket("{$manager->crm_id}.ticket", [
+    //   'participant' => $result,
+    // ]);
+    // $ticket->reason = \App\Models\Reason::find($ticket->reason_id)->name;
+    // $ticket->user = UserTrait::tryToDefineUserEverywhere($creator->crm_id, $creator->email);
+    // $ticket->manager = UserTrait::tryToDefineUserEverywhere($manager->crm_id, $manager->email);
+
+    // $bx_crm_data = DB::table('bx_crms')
+    //   ->join('bx_users AS bx', 'bx.bx_crm_id', 'bx_crms.id')
+    //   ->where('bx.user_id', $creator->id)
+    //   ->select('bx_crms.name', 'bx_crms.acronym', 'bx_crms.domain')
+    //   ->first();
+    // $ticket->bx_name = $bx_crm_data->name;
+    // $ticket->bx_acronym = $bx_crm_data->acronym;
+    // $ticket->bx_domain = $bx_crm_data->domain;
+
+    // $resource = \App\Http\Resources\TicketResource::make($ticket);
+    TicketTrait::SendMessageToWebsocket("{$manager->email}.participant", [
+      // 'ticket' => $resource,
+      'participant' => $result,
+    ]);
+    TicketTrait::SendMessageToWebsocket("{$creator->email}.participant", [
+      'participant' => $result,
+    ]);
+    // TicketTrait::SendMessageToWebsocket("{$participant->email}.participant", [
+    //   'participant' => $result,
+    // ]);
+    $part_emails = Participant::join('users', 'users.id', 'participants.user_id')
+      ->whereTicketId($ticket->id)
+      // ->join('bx_users', 'bx_users.user_id', 'users.id')
+      // ->pluck('bx_users.crm_id')->toArray();
+      ->pluck('users.email')->toArray();
+    foreach ($part_emails as $email) {
+      TicketTrait::SendMessageToWebsocket("{$email}.participant", [
+        'participant' => $result,
+      ]);
+    }
+
+    return $result;
   }
 }

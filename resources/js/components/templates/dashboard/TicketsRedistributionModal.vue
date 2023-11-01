@@ -27,8 +27,10 @@ export default {
     }
   },
   setup() {
+    const UserData = inject('UserData')
     const toast = inject('createToast')
-    return { toast }
+
+    return { UserData, toast }
   },
   methods: {
     GetAllManagers() {
@@ -44,7 +46,10 @@ export default {
         }
 
         this.ManagersAndGroupsList = [...this.AllManagers]
-        console.log(this.ManagersAndGroupsList)
+        const currentUser = this.ManagersAndGroupsList.filter(m => m.user_id == this.UserData.user_id)[0];
+        if (currentUser != null) {
+          this.SelectedManagers.push(currentUser);
+        }
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
       })//.finally(this.GetAllGroups)

@@ -16,7 +16,7 @@ export default {
       CreatingMessage: String(),
       IsResolved: Boolean(),
       waiting: Boolean(),
-      VITE_CRM_URL: String(import.meta.env.VITE_CRM_URL),
+      // VITE_CRM_URL: String(import.meta.env.VITE_CRM_URL),
     }
   },
   setup() {
@@ -115,16 +115,16 @@ export default {
               class="flex flex-col w-full px-4 py-2 rounded-lg inline-block rounded-bl-none bg-gray-50 whitespace-pre-wrap dark:text-gray-900 dark:bg-gray-300">
               <span v-html="m?.content" class="break-words" />
               <span class="text-xs font-light tracking-tighter text-gray-400 dark:text-gray-500">
-                {{ m.created_at }}
+                {{ m.created_at }} (GMT)
               </span>
             </span>
           </div>
           <div class="order-1">
             <Avatar v-if="m.user_crm_id == 0" rounded size="sm" title="Система" />
-            <a v-else :href="`${VITE_CRM_URL}company/personal/user/${m.user_crm_id}/`" target="_blank">
-              <Avatar rounded size="sm" alt="avatar" :title="m.user?.name"
-                :img="m.user?.avatar ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
-            </a>
+            <!-- <a v-else :href="`https://${ticket.bx_domain}/company/personal/user/${m.user_crm_id}/`" target="_blank"> -->
+            <Avatar v-else rounded size="sm" alt="avatar" :title="m.user?.name"
+              :img="m.user?.avatar ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
+            <!-- </a> -->
           </div>
         </div>
       </div>

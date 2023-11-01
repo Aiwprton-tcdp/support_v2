@@ -46,8 +46,8 @@ class ResolvedTicket extends Model
     $query->join('reasons', 'reasons.id', 'resolved_tickets.reason_id')
       // ->rightJoin('users AS u', 'u.crm_id', 'resolved_tickets.manager_id')
       // ->rightJoin('users AS m', 'm.crm_id', 'resolved_tickets.manager_id')
-      ->rightJoin('users AS u', 'u.id', 'resolved_tickets.new_user_id')
-      ->rightJoin('users AS m', 'm.id', 'resolved_tickets.new_manager_id')
+      // ->rightJoin('users AS u', 'u.id', 'resolved_tickets.new_user_id')
+      // ->rightJoin('users AS m', 'm.id', 'resolved_tickets.new_manager_id')
       // ->leftJoin('participants', 'participants.ticket_id', 'resolved_tickets.old_ticket_id')
       ->leftJoin('messages', function ($q) {
         $q->on('messages.ticket_id', 'resolved_tickets.old_ticket_id')

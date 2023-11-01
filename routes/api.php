@@ -47,7 +47,7 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
     'reasons' => \App\Http\Controllers\ReasonController::class,
     'groups' => \App\Http\Controllers\GroupController::class,
     'messages' => \App\Http\Controllers\MessageController::class,
-    // 'users' => \App\Http\Controllers\UserController::class,
+    'users' => \App\Http\Controllers\UserController::class,
     'managers' => \App\Http\Controllers\ManagerController::class,
     'template_messages' => \App\Http\Controllers\TemplateMessageController::class,
   ], [
@@ -102,6 +102,9 @@ Route::prefix('statistics')->group(function () {
   Route::get('/count_of_tickets_by_managers', [DashboardController::class, 'getCountOfTicketsByManagers']);
   Route::get('/fastest_and_slowest_tickets', [DashboardController::class, 'getFastestAndSlowestTickets']);
   Route::get('/tickets_solving_time_median', [DashboardController::class, 'getTicketsSolvingTimeMedian']);
+  Route::get('/avg_max_min_tickets_per_day', [DashboardController::class, 'GetAvgMaxMinTicketsPerDay']);
+  Route::get('/avg_time_by_reasons', [DashboardController::class, 'GetAvgTimeByReason']);
+  Route::get('/stats_by_reasons_and_managers_per_day', [DashboardController::class, 'GetStatsByReasonsAndManagersPerDay']);
 });
 
 Route::get('/set_users_ids', [CRMUserController::class, 'setUsersIds']);

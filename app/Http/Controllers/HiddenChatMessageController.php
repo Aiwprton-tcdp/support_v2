@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreHiddenChatMessageRequest;
 use App\Http\Requests\UpdateHiddenChatMessageRequest;
 use App\Http\Resources\MessageResource;
+use App\Models\BxCrm;
 use App\Models\HiddenChatMessage;
 use App\Traits\TicketTrait;
 use App\Traits\UserTrait;
@@ -30,9 +31,9 @@ class HiddenChatMessageController extends Controller
 
         $all_ids = array_values(array_unique(array_map(fn($t) => $t->new_user_id, $data->all())));
         $users_with_emails = DB::table('users')
-            ->join('bx_users', 'bx_users.user_id', 'users.id')
+            ->leftJoin('bx_users', 'bx_users.user_id', 'users.id')
             ->whereIn('users.id', $all_ids)
-            ->select('users.id', 'users.email', 'bx_users.crm_id')
+            ->selectRaw('users.id, users.email, IFNULL(bx_users.crm_id, users.crm_id) AS crm_id')
             ->get();
         foreach ($search->data as $user) {
             $users_collection[$user->email] = $user;
@@ -40,7 +41,13 @@ class HiddenChatMessageController extends Controller
         unset($search);
         // dd($data, $users_with_emails, $users_collection);
 
+        // $app_domain = BxCrm::leftJoin('tickets', 'tickets.crm_id', 'bx_crms.id')
+        //     ->leftJoin('resolved_tickets AS rt', 'rt.crm_id', 'bx_crms.id')
+        //     ->where('tickets.id', $ticket_id)
+        //     ->first()->app_domain;
+
         foreach ($data as $message) {
+            // $message->attachments_domain = $app_domain;
             if ($message->new_user_id == 1)
                 continue;
             $u = $users_with_emails->where('id', $message->new_user_id)->first();
@@ -74,22 +81,27 @@ class HiddenChatMessageController extends Controller
 
         $validated['new_user_id'] = Auth::user()->id;
         $user_with_email = DB::table('users')
-          ->join('bx_users', 'bx_users.user_id', 'users.id')
-          ->where('users.id', $validated['new_user_id'])
-          ->select('users.id', 'users.email', 'bx_users.crm_id')
-          ->first();
+            ->leftJoin('bx_users', 'bx_users.user_id', 'users.id')
+            ->where('users.id', $validated['new_user_id'])
+            ->selectRaw('users.id, users.email, IFNULL(bx_users.crm_id, users.crm_id) AS crm_id')
+            ->first();
         $validated['user_crm_id'] = $user_with_email->crm_id;
         $data = HiddenChatMessage::create($validated);
 
         $recipient_ids = DB::table('users')
-            ->join('bx_users', 'bx_users.user_id', 'users.id')
+            ->leftJoin('bx_users', 'bx_users.user_id', 'users.id')
             ->whereIn('users.id', [$data->new_user_id, $ticket->new_manager_id])
-            ->select('users.id', 'users.email', 'bx_users.crm_id')
+            ->selectRaw('users.id, users.email, IFNULL(bx_users.crm_id, users.crm_id) AS crm_id')
             ->get();
         $sender = $recipient_ids->where('id', $data->new_user_id)->first();
         $manager = $recipient_ids->where('id', $ticket->new_manager_id)->first();
 
         $data->user = UserTrait::tryToDefineUserEverywhere($sender->crm_id, $sender->email);
+        // $app_domain = BxCrm::leftJoin('tickets', 'tickets.crm_id', 'bx_crms.id')
+        //     ->leftJoin('resolved_tickets AS rt', 'rt.crm_id', 'bx_crms.id')
+        //     ->where('tickets.id', $data->ticket_id)
+        //     ->first()->app_domain;
+        // $data->attachments_domain = $app_domain;
 
         $message = "Новое сообщение в системном чате тикета №{$ticket->id}";
         $resource = MessageResource::make($data);

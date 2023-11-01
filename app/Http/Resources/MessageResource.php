@@ -15,14 +15,8 @@ class MessageResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $app_domain = BxCrm::leftJoin('tickets', 'tickets.crm_id', 'bx_crms.id')
-            ->leftJoin('resolved_tickets AS rt', 'rt.crm_id', 'bx_crms.id')
-            ->where('tickets.id', $this->ticket_id)
-            ->orWhere('rt.old_ticket_id', $this->ticket_id)
-            ->first();
-
-        if (isset($this->attachments) && !empty($this->attachments) && isset($app_domain)) {
-            $at = array_filter($this->attachments->all(), fn($e) => get_headers($app_domain->app_domain . $e->link, 1)[0] == 'HTTP/1.1 200 OK');
+        if (isset($this->attachments) && !empty($this->attachments) && isset($this->attachments_domain)) {
+            $at = array_filter($this->attachments->all(), fn($e) => get_headers($this->attachments_domain . $e->link, 1)[0] == 'HTTP/1.1 200 OK');
         } else {
             $at = [];
         }
@@ -31,7 +25,8 @@ class MessageResource extends JsonResource
             'id' => $this->id,
             'content' => $this->content,
             'attachments' => $at,
-            'attachments_domain' => $app_domain->app_domain,
+            // 'attachments_domain' => $app_domain->app_domain,
+            'attachments_domain' => @$this->attachments_domain,
             'user_crm_id' => $this->user_crm_id,
             'user_id' => $this->new_user_id,
             'user' => $this->new_user_id == 1 ? null : $this->user,

@@ -100,27 +100,36 @@ class UserController extends Controller
   public function search()
   {
     $data = UserTrait::search();
-    
+
     // dd($data);
     // $search = UserTrait::search();
     // $users_collection = array();
 
-    $users_by_emails = DB::table('users')
-      // ->join('bx_users', 'bx_users.user_id', 'users.id')
+    // $users_by_emails = DB::table('users')
+    //   // ->join('bx_users', 'bx_users.user_id', 'users.id')
+    //   ->whereIn('users.email', array_map(fn($d) => $d->email, $data->data))
+    //   ->pluck('users.id', 'users.email');
+    // // dd($users_by_emails, $data);
+    $users_with_emails = DB::table('users')
+      ->join('bx_users', 'bx_users.user_id', 'users.id')
+      // ->join('bx_crms', 'bx_crms.id', 'bx_users.bx_crm_id')
+      // ->where('bx_crms.domain', env('CRM_DOMAIN'))
       ->whereIn('users.email', array_map(fn($d) => $d->email, $data->data))
-      ->pluck('users.id', 'users.email');
-      // dd($users_by_emails, $data);
+      ->selectRaw('users.id, users.email, IFNULL(bx_users.crm_id, users.crm_id) AS crm_id')
+      ->get();
+    // dd($users_with_emails);
     foreach ($data->data as $user) {
-      $user->user_id = @$users_by_emails[$user->email];
+      $u = $users_with_emails->where('email', $user->email)->first();
+      $user->user_id = @$u->id;
     }
-    // dd($users_by_emails, $data);
+    // dd($users_with_emails, $data);
     // unset($search);
 
     // $all_ids = array_merge(...array_map(fn($t) => [$t->new_user_id, $t->new_manager_id], $data->all()));
     // $users_with_emails = DB::table('users')
-    //   ->join('bx_users', 'bx_users.user_id', 'users.id')
+    //   ->leftJoin('bx_users', 'bx_users.user_id', 'users.id')
     //   ->whereIn('users.id', array_values(array_unique($all_ids)))
-    //   ->select('users.id', 'users.email', 'bx_users.crm_id')
+    //   ->selectRaw('users.id, users.email, IFNULL(bx_users.crm_id, users.crm_id) AS crm_id')
     //   ->get();
     // unset($all_ids);
 
@@ -142,10 +151,11 @@ class UserController extends Controller
 
   public function setUsersIds()
   {
-    $data = UserTrait::search();
+    // $data = UserTrait::search();
+    $data = UserTrait::withFired();
     $users = User::all();
 
-    // dd($data);
+    // dd($users[10]);
     // foreach ($data as $d) {
     foreach ($users as $u) {
       // if ($u->name == "Система")
@@ -155,10 +165,17 @@ class UserController extends Controller
       if ($u->name == "Система") {
         $crm_id = 0;
       } else {
-        $f = array_values(array_filter($data->data, fn($d) => $d->name == $u->name));
-        if (count($f) == 0) continue;
+        $f = array_values(array_filter($data->data, fn($d) => $d->name == $u->name && $d->crm_id == $u->crm_id));
+        if (count($f) == 0)
+          continue;
         $crm_id = $f[0]->crm_id;
+
+        User::whereId($user_id)->orWhere('crm_id', $crm_id)->orWhere('name', $u->name)->update([
+          'name' => $f[0]->name,
+          'email' => $f[0]->email,
+        ]);
       }
+
       \App\Models\Ticket::whereUserId($crm_id)->update(['new_user_id' => $user_id]);
       \App\Models\Ticket::whereManagerId($crm_id)->update(['new_manager_id' => $user_id]);
 
@@ -168,6 +185,7 @@ class UserController extends Controller
       \App\Models\Message::whereUserCrmId($crm_id)->update(['new_user_id' => $user_id]);
       \App\Models\HiddenChatMessage::whereUserCrmId($crm_id)->update(['new_user_id' => $user_id]);
 
+      \App\Models\Manager::whereCrmId($crm_id)->update(['user_id' => $user_id]);
       \App\Models\Participant::whereUserCrmId($crm_id)->update(['user_id' => $user_id]);
     }
     // }

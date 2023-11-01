@@ -65,6 +65,7 @@ export default {
     this.emitter.on('NewHiddenMessage', this.NewHiddenMessage)
     this.emitter.on('DeleteTicket', this.DeleteTicket)
     this.emitter.on('NewParticipant', this.NewParticipant)
+    // localStorage.removeItem('support_pinned_tickets');
   },
   methods: {
     Get(page = 1) {
@@ -124,6 +125,9 @@ export default {
         //   t.unread_system_messages = t.last_system_message_date != null && new Date(t.last_system_message_date).getTime() - new Date(t.last_message_date).getTime() < 24 * 60 * 60 * 1000
         // })
         this.tickets = this.AllTickets
+
+        const ids = JSON.parse(localStorage.getItem('support_pinned_tickets'));
+        new Set(Array.from(ids ?? [])).forEach(this.PreparePinned);
 
         const index = this.AllTickets.findIndex(({ id }) => id == this.CurrentTicket.id)
         if (index > -1) {
@@ -300,7 +304,8 @@ export default {
       if (index == -1) {
         this.ax.get(`tickets/${data.ticket_id}`).then(r => {
           const ticket = r.data.data.data
-          ticket.im_only_participant = ticket.user_id != this.UserData.crm_id && ticket.manager_id != this.UserData.crm_id
+          ticket.im_only_participant = ![ticket.new_user_id, ticket.new_manager_id].includes(this.UserData.user_id)
+          // ticket.im_only_participant = ticket.user_id != this.UserData.crm_id && ticket.manager_id != this.UserData.crm_id
           // ticket.im_only_participant = ![ticket.user_id, ticket.manager_id].includes(this.UserData.crm_id)
           ticket.unread_messages = true
           ticket.unread_system_messages = data.last_system_message_date != null && new Date(data.last_system_message_date).getTime() - new Date(data.last_message_date).getTime() < 24 * 60 * 60 * 1000
@@ -311,7 +316,8 @@ export default {
         })
       } else {
         // По идее не надо, но на всякий пусть будет, если при смене ответственного сокет не отработает
-        this.AllTickets[index].im_only_participant = this.AllTickets[index].user_id != this.UserData.crm_id && this.AllTickets[index].manager_id != this.UserData.crm_id
+        this.AllTickets[index].im_only_participant = ![this.AllTickets[index].new_user_id, this.AllTickets[index].new_manager_id].includes(this.UserData.user_id)
+        // this.AllTickets[index].im_only_participant = this.AllTickets[index].user_id != this.UserData.crm_id && this.AllTickets[index].manager_id != this.UserData.crm_id
         // this.AllTickets[index].im_only_participant = ![this.AllTickets[index].user_id, this.AllTickets[index].Яmanager_id].includes(this.UserData.crm_id)
 
         this.AllTickets[index].unread_messages = true
@@ -459,6 +465,37 @@ export default {
         this.toast(e.response.data.message, 'error')
       })
     },
+    Pin(id) {
+      // localStorage.removeItem('support_pinned_tickets');
+      const ids = JSON.parse(localStorage.getItem('support_pinned_tickets'));
+      const data = new Set(Array.from(ids ?? []));
+
+      if (this.AllTickets.length >= this.TicketsCount) {
+        const map = this.tickets.map(t => t.id);
+        Array.from(ids ?? []).filter(i => !map.includes(i)).forEach(i => data.delete(i));
+      }
+
+      const index = this.tickets.findIndex(t => t.id == id);
+      const need_to_pin = data.has(id) && this.tickets[index].pinned;
+
+      if (need_to_pin) {
+        this.PreparePinned(id, !need_to_pin);
+        data.delete(id);
+      } else if (!data.has(id) || !this.tickets[index].pinned) {
+        data.add(id);
+      }
+
+      this.PreparePinned(id, !need_to_pin);
+
+      localStorage.setItem('support_pinned_tickets', JSON.stringify(Array.from(data)));
+    },
+    PreparePinned(id, need_to_pin = true) {
+      const index = this.tickets.findIndex(t => t.id == id);
+      if (index < 0) return;
+      this.tickets[index].pinned = need_to_pin;
+      console.log('pinned = ' + this.tickets[index].pinned);
+      this.tickets = this.tickets.sort((t1, t2) => t2.pinned - t1.pinned)
+    },
   }
 }
 </script>
@@ -503,16 +540,16 @@ export default {
     </div>
 
     <VueButton :disabled="errored || waiting" @click="GoToNewTicket()" color="default">
-      <span class="items-center font-bold dark:text-gray-900">&#10010;&nbsp;&nbsp;Новое обращение</span>
+      <span class="items-center font-semibold dark:text-gray-900">&#10010;&nbsp;&nbsp;Новое обращение</span>
     </VueButton>
 
     <template v-if="UserData.role_id == 2">
       <!-- <template v-if="UserData.role_id == 2 && UserData.in_work"> -->
       <VueButton v-if="!UserData.in_work" @click="StartOrStopWorking()" color="green">
-        <span class="items-center font-bold dark:text-gray-900">Начать работу</span>
+        <span class="items-center font-semibold dark:text-gray-900">Начать работу</span>
       </VueButton>
       <VueButton v-else @click="StartOrStopWorking()" color="red">
-        <span class="items-center font-bold dark:text-gray-900">Прекратить работу</span>
+        <span class="items-center font-semibold dark:text-gray-900">Прекратить работу</span>
       </VueButton>
     </template>
   </div>
@@ -551,15 +588,35 @@ export default {
         <div v-for="t in tickets" v-bind:key="t" class="p-1"
           :class="t.id == CurrentTicket?.id ? 'bg-blue-200 dark:bg-blue-500' : 'bg-white hover:bg-gray-100 dark:bg-gray-600 dark:hover:bg-gray-800'">
           <div @click.self="GoTo(t)" class="relative flex flex-row items-center w-full gap-2 cursor-pointer">
-            <a :href="'https://' + t.bx_domain + '/company/personal/user/' + (UserData.user_id == t.new_user_id ? t.manager_id : t.user_id) + '/'"
-              target="_blank" class="relative">
-              <Avatar rounded size="sm" alt="avatar" :title="'Id тикета: ' + t.id"
-                :img="(UserData.user_id == t.new_user_id ? t.manager?.avatar : t.user?.avatar) ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
-              <div v-if="!VITE_CRM_URL.includes(t.bx_domain)" :title="t.bx_name"
-                class="absolute inline-flex items-center justify-center w-full h-4 text-xs font-bold text-white bg-red-500 border-2 border-white rounded-full -bottom-2 dark:border-gray-900">
-                {{ t.bx_acronym }}
+            <div class="relative">
+              <a :href="'https://' + t.bx_domain + '/company/personal/user/' + (UserData.user_id == t.new_user_id ? t.manager_id : t.user_id) + '/'"
+                target="_blank" class="relative">
+                <Avatar rounded size="sm" alt="avatar" :title="'Id тикета: ' + t.id"
+                  :img="(UserData.user_id == t.new_user_id ? t.manager?.avatar : t.user?.avatar) ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
+                <div v-if="!VITE_CRM_URL.includes(t.bx_domain)" :title="t.bx_name"
+                  class="absolute inline-flex items-center justify-center w-full h-4 text-xs font-bold text-white bg-red-500 border-2 border-white rounded-full -bottom-2 dark:border-gray-900">
+                  {{ t.bx_acronym }}
+                </div>
+              </a>
+              <div v-if="UserData.is_admin || UserData.role_id == 2" @click="Pin(t.id)"
+                :class="t.pinned ? '' : 'opacity-30'"
+                class="absolute inline-flex items-center justify-center -top-2 left-0">
+                <svg v-if="t.pinned" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3"
+                  stroke="currentColor" class="w-4 h-4 text-blue-500 hover:text-blue-400">
+                  <title>Открепить</title>
+                  <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                </svg>
+                <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3"
+                  stroke="currentColor"
+                  class="w-4 h-4 text-gray-400 hover:text-gray-600 dark:text-gray-100 dark:hover:text-gray-300">
+                  <title>Закрепить</title>
+                  <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                </svg>
               </div>
-            </a>
+            </div>
+
             <div @click="GoTo(t)" class="max-w-[80%] flex flex-col cursor-pointer">
               <p class="truncate" :title="UserData.user_id == t.new_user_id ? t.manager?.name : t.user?.name">
                 {{ UserData.user_id == t.new_user_id ? t.manager?.name : t.user?.name }}

@@ -9,6 +9,7 @@ const TicketsByGroupChartComponent = defineAsyncComponent(() => import('@temps/d
 const TicketsByReasonsChartComponent = defineAsyncComponent(() => import('@temps/dashboard/TicketsByReasonsChart.vue'))
 const MarksPercentageChartComponent = defineAsyncComponent(() => import('@temps/dashboard/MarksPercentageChart.vue'))
 const AverageSolvingTimeChartComponent = defineAsyncComponent(() => import('@temps/dashboard/AverageSolvingTimeChart.vue'))
+const StatsByReasonsAndManagersPerDayChartComponent = defineAsyncComponent(() => import('@temps/dashboard/StatsByReasonsAndManagersPerDayChart.vue'))
 
 // import TicketsRedistributionModal from '@temps/dashboard/TicketsRedistributionModal.vue'
 // import TicketsByGroupChartComponent from '@temps/dashboard/TicketsByGroupChart.vue'
@@ -26,6 +27,7 @@ export default {
     TicketsByReasonsChartComponent,
     MarksPercentageChartComponent,
     AverageSolvingTimeChartComponent,
+    StatsByReasonsAndManagersPerDayChartComponent,
   },
   data() {
     return {
@@ -33,6 +35,8 @@ export default {
       activeTickets: Array(),
       AllTickets: Array(),
       median: String(),
+      avg_max_min: String(),
+      avg_time_by_reasons: String(),
       waiting: Boolean(),
       VITE_CRM_URL: String(import.meta.env.VITE_CRM_URL),
     }
@@ -44,6 +48,8 @@ export default {
   mounted() {
     this.GetActiveTickets()
     this.GetTicketsSolvingTimeMedian()
+    this.GetAvgMaxMinTicketsPerDay()
+    this.GetAvgTimeByReason()
   },
   methods: {
     GetActiveTickets() {
@@ -54,7 +60,7 @@ export default {
 
         this.lostTickets = r.data.data.lost
         this.activeTickets = r.data.data.active
-        this.AllTickets = this.lostTickets.concat(this.activeTickets)
+        this.AllTickets = this.lostTickets.concat(this.activeTickets)[0]
         this.errored = false
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
@@ -68,6 +74,40 @@ export default {
         }
 
         this.median = r.data.data
+        this.errored = false
+      }).catch(e => {
+        this.toast(e.response.data.message, 'error')
+        this.errored = true
+      })
+    },
+    GetAvgMaxMinTicketsPerDay() {
+      this.ax.get('statistics/avg_max_min_tickets_per_day').then(r => {
+        if (r.data.status == false) {
+          this.toast(r.data.message, 'error')
+        }
+
+        const f = r.data.data
+        this.avg_max_min = 'Количество тикетов за день:\n'
+          + `среднее: ${f.avg}\n`
+          + `максимальное: ${f.max}\n`
+          + `минимальное: ${f.min}\n`
+          + `за сегодня: ${f.today}`
+        this.errored = false
+      }).catch(e => {
+        this.toast(e.response.data.message, 'error')
+        this.errored = true
+      })
+    },
+    GetAvgTimeByReason() {
+      this.ax.get('statistics/avg_time_by_reasons').then(r => {
+        if (r.data.status == false) {
+          this.toast(r.data.message, 'error')
+        }
+
+        this.avg_time_by_reasons = 'Среднее время по темам:\n'
+        r.data.data.forEach(d => {
+          this.avg_time_by_reasons += `${d.name}: ${d.avg_time}\n`
+        })
         this.errored = false
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
@@ -101,7 +141,7 @@ export default {
 <template>
   <div class="fixed top-1 right-1 flex flex-row space-x-4 z-10">
     <VueButton :disabled="waiting" @click="CacheReload()" color="default">
-      <span class="items-center font-bold dark:text-gray-900">Обновить кеш</span>
+      <span class="items-center font-semibold dark:text-gray-900">Обновить кеш</span>
     </VueButton>
   </div>
 
@@ -110,37 +150,43 @@ export default {
       <p class="text-lg">Активные тикеты</p>
       <div
         class="flex flex-col gap-1 max-h-[calc(100vh-54px-45px)] overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch">
-        <template v-for="t in AllTickets" v-bind:key="t">
+        <template v-for="(t, name) in AllTickets" v-bind:key="t">
           <div class="flex flex-row gap-1 items-center rounded-xl p-1 dark:text-gray-900 bg-gray-100 hover:bg-blue-50">
             <div class="min-w-[40px]">
-              <a :href="VITE_CRM_URL + 'company/personal/user/' + t.manager.crm_id + '/'" target="_blank">
-                <Avatar rounded size="sm" alt="avatar" :title="t.manager.name"
-                  :img="t.manager.avatar ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
+              <a :href="VITE_CRM_URL + 'company/personal/user/' + t[Object.keys(t)[0]].manager.crm_id + '/'"
+                target="_blank">
+                <Avatar rounded size="sm" alt="avatar" :title="name"
+                  :img="t[Object.keys(t)[0]].manager.avatar ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
               </a>
             </div>
 
-            <div class="flex flex-col">
-              <p>{{ t.manager.name }}</p>
-              <div class="flex flex-wrap gap-1">
-                <p>{{ t.reason_name }}: {{ t.tickets_count }}</p>
-                <div @click="ShowModal(t)" title="Распределить">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                    stroke="currentColor"
-                    class="w-5 h-5 cursor-pointer text-blue-500 hover:text-blue-400 hover:underline">
-                    <path stroke-linecap="round" stroke-linejoin="round"
-                      d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
-                  </svg>
-                </div>
-              </div>
+            <div class="w-full flex flex-col">
+              <p class="font-bold">{{ name }}</p>
+              <template v-for="(r, reason_name) in t" v-bind:key="r">
+                <span class="w-full flex flex-row items-center">
+                  <p class="flex-1">{{ reason_name }}: <span class="font-bold">{{ r.tickets_count }}</span>
+                  </p>
+                  <p @click="ShowModal(r)" title="Распределить" class="flex-none font-bold">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                      stroke="currentColor"
+                      class="w-5 h-5 cursor-pointer text-blue-500 hover:text-blue-400 hover:underline">
+                      <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                    </svg>
+                  </p>
+                </span>
+              </template>
             </div>
           </div>
         </template>
       </div>
     </div>
 
-    <div class="col-span-2 lg:col-span-3 xl:col-span-4 flex space-x-2">
+    <div class="col-span-2 lg:col-span-3 xl:col-span-4 flex flex-col space-x-2">
       <p>Медиана времени решения тикетов: </p>
       <p class="underline font-bold">{{ median }}</p>
+      <p class="whitespace-pre">{{ avg_max_min }}</p>
+      <p class="whitespace-pre">{{ avg_time_by_reasons }}</p>
     </div>
   </div>
 
@@ -162,6 +208,9 @@ export default {
     </div>
     <div class="col-span-3 lg:col-span-4 xl:col-span-5">
       <AverageSolvingTimeChartComponent />
+    </div>
+    <div class="col-span-3 lg:col-span-4 xl:col-span-5">
+      <StatsByReasonsAndManagersPerDayChartComponent />
     </div>
   </div>
 

@@ -25,6 +25,7 @@ class ResolvedTicketController extends Controller
     $id = empty($search) ? 0 : intval(trim(preg_replace('/[^0-9]+/', '', $search)));
     $name = empty($search) ? null : mb_strtolower(trim(preg_replace('/[^А-яA-z ]+/iu', '', $search)));
 
+    // DB::enableQueryLog();
     $data = DB::table('resolved_tickets')
       ->join('reasons', 'reasons.id', 'resolved_tickets.reason_id')
       ->leftJoin('users AS u', 'u.id', 'resolved_tickets.new_user_id')
@@ -38,16 +39,17 @@ class ResolvedTicketController extends Controller
       ->where(
         fn($q) => $q->where('resolved_tickets.new_manager_id', $user_id)
           ->orWhere('resolved_tickets.new_user_id', $user_id)
-          ->orWhere('participants.user_id', $user_id)
+        // ->orWhere('participants.user_id', $user_id)
       )
-      ->when($id > 0, fn($q) => $q->where('resolved_tickets.id', $id))
+      ->when($id > 0, fn($q) => $q->where('resolved_tickets.old_ticket_id', $id))
       ->when(
         isset($name) && $id == 0,
-        fn($q) => $q
-          ->whereRaw(
+        fn($q) => $q->where(
+          fn($r) => $r->whereRaw(
             "LOWER(u.name) LIKE ? OR LOWER(m.name) LIKE ?",
             ["%{$name}%", "%{$name}%"]
           )
+        )
       )
       ->whereNotNull('resolved_tickets.id')
       ->select(
@@ -57,10 +59,11 @@ class ResolvedTicketController extends Controller
         'bxc.acronym AS bx_acronym',
         'bxc.domain AS bx_domain',
       )
-      ->orderBy('resolved_tickets.updated_at')
-      ->orderBy('resolved_tickets.id')
+      ->orderByDesc('resolved_tickets.created_at')
+      ->orderByDesc('resolved_tickets.id')
       ->paginate($limit < 1 ? 100 : $limit);
 
+    // dd(DB::getQueryLog());
     $search = UserTrait::search();
     $users_collection = array();
 
@@ -71,9 +74,9 @@ class ResolvedTicketController extends Controller
 
     $all_ids = array_merge(...array_map(fn($t) => [$t->new_user_id, $t->new_manager_id], $data->all()));
     $users_with_emails = DB::table('users')
-      ->join('bx_users', 'bx_users.user_id', 'users.id')
+      ->leftJoin('bx_users', 'bx_users.user_id', 'users.id')
       ->whereIn('users.id', array_values(array_unique($all_ids)))
-      ->select('users.id', 'users.email', 'bx_users.crm_id')
+      ->selectRaw('users.id, users.email, IFNULL(bx_users.crm_id, users.crm_id) AS crm_id')
       ->get();
     unset($all_ids);
 
@@ -81,10 +84,10 @@ class ResolvedTicketController extends Controller
       $u = $users_with_emails->where('id', $ticket->new_user_id)->first();
       $m = $users_with_emails->where('id', $ticket->new_manager_id)->first();
       $ticket->user_crm_id = $u->crm_id;
-      $ticket->user = $users_collection[$u->email]
+      $ticket->user = $users_collection[@$u->email]
         ?? UserTrait::tryToDefineUserEverywhere($u->crm_id, $u->email);
       $ticket->manager_crm_id = $m->crm_id;
-      $ticket->manager = $users_collection[$m->email]
+      $ticket->manager = $users_collection[@$m->email]
         ?? UserTrait::tryToDefineUserEverywhere($m->crm_id, $m->email);
     }
 
@@ -122,9 +125,9 @@ class ResolvedTicketController extends Controller
     }
 
     $users_with_emails = DB::table('users')
-      ->join('bx_users', 'bx_users.user_id', 'users.id')
+      ->leftJoin('bx_users', 'bx_users.user_id', 'users.id')
       ->whereIn('users.id', [$data->new_user_id, $data->new_manager_id])
-      ->select('users.id', 'users.email', 'bx_users.crm_id')
+      ->selectRaw('users.id, users.email, IFNULL(bx_users.crm_id, users.crm_id) AS crm_id')
       ->get();
     $u = $users_with_emails->where('id', $data->new_user_id)->first();
     $m = $users_with_emails->where('id', $data->new_manager_id)->first();
