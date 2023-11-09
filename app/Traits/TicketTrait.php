@@ -151,6 +151,9 @@ trait TicketTrait
     }
 
     $sums = array();
+    foreach ($m as $_m) {
+      $sums[$_m] = 0;
+    }
     foreach ($data as $value) {
       if (array_key_exists($value->new_manager_id, $sums)) {
         $sums[$value->new_manager_id] += $value->weight;

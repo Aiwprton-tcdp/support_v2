@@ -53,7 +53,7 @@ class DetalizationController extends Controller
         tickets.active AS active, tickets.weight, tickets.crm_id AS crm_id, tickets.created_at,
         reasons.id AS reason_id, reasons.name AS reason, NULL AS user, NULL AS manager,
         messages.created_at AS start_date,
-        TIMEDIFF(IFNULL(hidden_chat_messages.created_at, NOW()), messages.created_at) AS time,
+        TIMEDIFF(last_messages.created_at, messages.created_at) AS time,
         bx_crms.name AS bx_name, bx_crms.acronym AS bx_acronym')
       ->when($resolved, fn($q) => $q->union($resolved_tickets))
       ->when(isset($order_by_time) && !empty($order_by_time), fn($q) =>
@@ -85,7 +85,7 @@ class DetalizationController extends Controller
       ->selectRaw('users.id, users.email, IFNULL(bx_users.crm_id, users.crm_id) AS crm_id')
       ->get();
     unset($all_ids);
-    
+
     foreach ($data as $key => $ticket) {
       if (!isset($ticket->tid)) {
         unset($data[$key]);

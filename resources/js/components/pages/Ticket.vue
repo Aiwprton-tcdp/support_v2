@@ -123,7 +123,6 @@ export default {
         //   this.ticket.active = 2
       }
     });
-    // document.addEventListener('paste', this.AddAttachments)
   },
   methods: {
     Get() {
@@ -135,6 +134,7 @@ export default {
         });
 
         this.AllFiles = this.messages.map(m => m.attachments).flat();
+
         // this.AllFiles.forEach(f => f.link = this.messages[0].attachments_domain + f.link);
         this.errored = false;
         // this.ScrollChat();
@@ -287,6 +287,11 @@ export default {
       }).finally(() => this.waiting = false);
     },
     AddAttachments(event) {
+      const fromClipboard = event.clipboardData?.items?.length > 0;
+      if (fromClipboard) {
+        event.target.files = event.clipboardData?.items;
+      }
+
       if (event.target.files == null) {
         return;
       } else if (event.target.files.length == 0) {
@@ -310,7 +315,10 @@ export default {
           return;
         }
 
-        this.files.push(f);
+        var blob = fromClipboard ? f.getAsFile() : f;
+        console.log(blob);
+        this.files.push(blob);
+        console.log(this.files);
       });
 
       this.ScrollChat();
@@ -551,8 +559,7 @@ export default {
 
             <!-- Message sending input -->
             <div class="flex-1 relative px-1 rounded-t-lg"><!-- v-focus:[active]="$route.name == 'ticket'" -->
-              <textarea v-model="CreatingMessage" @keydown.ctrl.enter.exact="Create()" v-focus rows="1"
-                @paste="AddAttachments"
+              <textarea v-model="CreatingMessage" @keydown.ctrl.enter.exact="Create()" rows="1" @paste="AddAttachments"
                 class="resize-none block overflow-hidden p-2.5 pr-4 w-full text-sm text-gray-900 bg-white rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                 placeholder="Введите сообщение..." />
               <div v-if="CreatingMessage.length > 0" @click="CreatingMessage = ''"
@@ -578,7 +585,6 @@ export default {
       </div>
     </div>
 
-
     <!-- Ticket info -->
     <div v-if="UserData.is_admin || UserData.role_id == 2" class="h-[calc(100vh-55px)]">
       <div class="tabs-nowrap truncate">
@@ -599,21 +605,23 @@ export default {
   </div>
 
   <!-- Attachments slider modal -->
-  <!-- <Transition name="modal"> -->
-  <div v-if="showModal" @click.self="showModal = false" class="modal-mask">
-    <div @click.self="showModal = false" class="modal-body">
-      <Swiper :slides-per-view="1" :space-between="50" :modules="modules" @afterInit="SlideTo" :loop="AllFiles.length > 0"
-        :keyboard="{ enabled: true }" :pagination="{ clickable: true, type: 'fraction' }" grabCursor centeredSlides
-        mousewheel zoom virtual navigation>
-        <SwiperSlide v-for="(file, key) in  AllFiles " :key="key" :virtualIndex="key">
-          <div class="swiper-zoom-container">
-            <img :src="messages[0].attachments_domain + file?.link" :alt="file?.name" class="object-contain">
-          </div>
-        </SwiperSlide>
-      </Swiper>
+  <Transition name="modal">
+    <div v-if="showModal" @click.self="showModal = false" class="modal-mask">
+      <div @click.self="showModal = false" class="modal-body">
+        <Swiper @afterInit="SlideTo" :slides-per-view="1" :space-between="50" :modules="modules"
+          :loop="AllFiles.length > 1" :keyboard="{ enabled: true }" :pagination="{ clickable: true, type: 'fraction' }"
+          :grabCursor="true" :centeredSlides="true" :mousewheel="true" :zoom="true" virtual
+          :navigation="AllFiles.length > 1" :lazy="true">
+          <SwiperSlide v-for="(file, key) in AllFiles" :key="key" :virtualIndex="key">
+            <div class="swiper-zoom-container">
+              <img :src="messages[0].attachments_domain + file?.link" :alt="file?.name" loading="lazy"
+                class="object-contain">
+            </div>
+          </SwiperSlide>
+        </Swiper>
+      </div>
     </div>
-  </div>
-  <!-- </Transition> -->
+  </Transition>
 </template>
 
 <style>

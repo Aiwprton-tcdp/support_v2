@@ -93,7 +93,7 @@ export default {
   <HeaderComponent />
   <RouterView />
 
-  <div v-if="UserData.is_admin || UserData.role_id == 2" class="fixed bottom-2 right-2">
+  <div v-if="UserData.is_admin || UserData.role_id == 2" class="fixed bottom-2 right-2 opacity-70">
     <div @click="ShowModal()"
       class="flex items-center justify-center w-8 h-8 p-1 rounded-full cursor-pointer ring-2 ring-gray-300 dark:ring-gray-500 hover:bg-gray-200">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"

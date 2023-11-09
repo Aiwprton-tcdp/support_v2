@@ -34,8 +34,8 @@ export default {
         <div v-if="key == 4 && files.length > 5" class="flex bg-white bg-opacity-20 items-center h-auto rounded-lg">
           <p class="text-gray-900">+{{ files.length - key }}</p>
         </div>
-        <img v-else-if="key > 0 && key < 5" @click.prevent="ShowModal(file)" :src="domain + file?.link"
-          :alt="file?.name" class="h-auto rounded-lg cursor-pointer">
+        <img v-else-if="key > 0 && key < 5" @click.prevent="ShowModal(file)" :src="domain + file?.link" :alt="file?.name"
+          class="h-auto rounded-lg cursor-pointer">
       </template>
     </div>
   </div>

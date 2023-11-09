@@ -112,7 +112,7 @@ export default {
 
 <template>
   <Transition name="modal">
-    <div v-if="visible" @click.self="Close" class="modal-mask">
+    <div v-if="visible" @click.self="Close" class="modal-mask flex">
       <div class="modal-container">
         <div class="modal-header">
           <div class="flex items-center text-lg">

@@ -90,7 +90,7 @@ export default {
         this.avg_max_min = 'Количество тикетов за день:\n'
           + `среднее: ${f.avg}\n`
           + `максимальное: ${f.max}\n`
-          + `минимальное: ${f.min}\n`
+          // + `минимальное: ${f.min}\n`
           + `за сегодня: ${f.today}`
         this.errored = false
       }).catch(e => {

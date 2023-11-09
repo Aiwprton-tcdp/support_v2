@@ -1,10 +1,11 @@
 <script setup>
-import { onMounted } from 'vue'
-import { initFlowbite } from 'flowbite'
+import { onMounted } from 'vue';
+import { initFlowbite } from 'flowbite';
 
-import Main from '@comps/Main.vue'
+import Main from '@comps/Main.vue';
 
-onMounted(() => initFlowbite())
+
+onMounted(() => initFlowbite());
 </script>
 
 <template>

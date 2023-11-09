@@ -89,6 +89,7 @@ export default {
         this.AllManagers.forEach(u => u.value = u.id)
         this.Managers = this.AllManagers.filter(m => ![this.ticket.new_user_id, this.ticket.new_manager_id].includes(m.user_id))
         this.EditParticipants = true
+        this.EditReason = false
 
         if (this.AllManagers.length == 0) {
           this.toast('Нет ни одного менеджера', 'warning')
@@ -108,6 +109,7 @@ export default {
         this.AllReasons = r.data.data.data
         this.Reasons = this.AllReasons.filter(r => r.id != this.ticket.reason_id)
         this.EditReason = true
+        this.EditParticipants = false
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
       })
@@ -349,7 +351,8 @@ export default {
         <p>{{ ticket.mark > 0 ? 'с оценкой ' + ticket.mark + '/3' : 'без оценки' }}</p>
       </template>
       <template v-else>
-        <VueButton v-if="ticket.new_user_id != UserData.user_id" @click="CloseTicket()" color="red">Завершить тикет</VueButton>
+        <VueButton v-if="ticket.new_user_id != UserData.user_id" @click="CloseTicket()" color="red">Завершить тикет
+        </VueButton>
       </template>
     </div>
   </div>

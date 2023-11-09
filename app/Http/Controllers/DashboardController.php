@@ -331,25 +331,29 @@ class DashboardController extends Controller
     public function GetAvgTimeByReason()
     {
         $resolved_tickets = DB::table('resolved_tickets')
-            ->leftJoin('messages', function ($q) {
-                $q->on('messages.ticket_id', 'resolved_tickets.old_ticket_id')
-                    ->whereRaw('messages.id IN (SELECT MIN(m.id) FROM messages m join resolved_tickets t on t.old_ticket_id = m.ticket_id GROUP BY t.old_ticket_id)');
-            })
-            ->leftJoin('hidden_chat_messages', function ($q) {
-                $q->on('hidden_chat_messages.ticket_id', 'resolved_tickets.old_ticket_id')
-                    ->whereRaw('hidden_chat_messages.id IN (SELECT MAX(m.id) FROM hidden_chat_messages m join resolved_tickets t on t.old_ticket_id = m.ticket_id WHERE m.content LIKE "Тикет завершён" GROUP BY t.old_ticket_id)');
-            })
+            ->leftJoin(
+                'messages',
+                fn($q) => $q->on('messages.ticket_id', 'resolved_tickets.old_ticket_id')
+                    ->whereRaw('messages.id IN (SELECT MIN(m.id) FROM messages m join resolved_tickets t on t.old_ticket_id = m.ticket_id GROUP BY t.old_ticket_id)')
+            )
+            ->leftJoin(
+                'hidden_chat_messages',
+                fn($q) => $q->on('hidden_chat_messages.ticket_id', 'resolved_tickets.old_ticket_id')
+                    ->whereRaw('hidden_chat_messages.id IN (SELECT MAX(m.id) FROM hidden_chat_messages m join resolved_tickets t on t.old_ticket_id = m.ticket_id WHERE m.content LIKE "Тикет завершён" GROUP BY t.old_ticket_id)')
+            )
             ->join('reasons', 'reasons.id', 'resolved_tickets.reason_id')
             ->selectRaw('TIMEDIFF(IFNULL(hidden_chat_messages.created_at, NOW()), messages.created_at) AS time, reasons.name AS name');
         $tickets = DB::table('tickets')
-            ->leftJoin('messages', function ($q) {
-                $q->on('messages.ticket_id', 'tickets.id')
-                    ->whereRaw('messages.id IN (SELECT MIN(m.id) FROM messages m join tickets t on t.id = m.ticket_id GROUP BY t.id)');
-            })
-            ->leftJoin('hidden_chat_messages', function ($q) {
-                $q->on('hidden_chat_messages.ticket_id', 'tickets.id')
-                    ->whereRaw('hidden_chat_messages.id IN (SELECT MAX(m.id) FROM hidden_chat_messages m join tickets t on t.id = m.ticket_id WHERE m.content LIKE "%пометил тикет как решённый" GROUP BY t.id)');
-            })
+            ->leftJoin(
+                'messages',
+                fn($q) => $q->on('messages.ticket_id', 'tickets.id')
+                    ->whereRaw('messages.id IN (SELECT MIN(m.id) FROM messages m join tickets t on t.id = m.ticket_id GROUP BY t.id)')
+            )
+            ->leftJoin(
+                'hidden_chat_messages',
+                fn($q) => $q->on('hidden_chat_messages.ticket_id', 'tickets.id')
+                    ->whereRaw('hidden_chat_messages.id IN (SELECT MAX(m.id) FROM hidden_chat_messages m join tickets t on t.id = m.ticket_id WHERE m.content LIKE "%пометил тикет как решённый" GROUP BY t.id)')
+            )
             ->join('reasons', 'reasons.id', 'tickets.reason_id')
             ->selectRaw('TIMEDIFF(IFNULL(hidden_chat_messages.created_at, NOW()), messages.created_at) AS time, reasons.name AS name')
             ->union($resolved_tickets);
@@ -360,6 +364,7 @@ class DashboardController extends Controller
             ->orderByDesc('avg_time')
             ->get();
 
+        // dd($data);
         foreach ($data as $d) {
             $time = $d->avg_time > 86400 ? $d->avg_time / 3 : $d->avg_time;
             $d->avg_time = sprintf('%02d:%02d:%02d', ($time / 3600), ($time / 60 % 60), $time % 60);
