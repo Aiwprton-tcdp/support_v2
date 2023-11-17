@@ -2,10 +2,7 @@
 
 namespace App\Traits;
 
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-
-use Illuminate\Validation\ValidationException;
 
 /**
  *  @version 1.36

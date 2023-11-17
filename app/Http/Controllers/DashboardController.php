@@ -112,6 +112,7 @@ class DashboardController extends Controller
         Cache::store('file')->forget("{$prefix}_users");
         Cache::store('file')->forget("{$prefix}_departments");
         // Cache::store('file')->forget('crm_all_users');
+        Cache::store('file')->forget('reasons');
         info('Кеш очищен');
 
         UserTrait::search();
@@ -254,8 +255,10 @@ class DashboardController extends Controller
             $result[$d->name] = @$result[$d->name] + $d->count;
         }
 
+        $res = array_filter($result, fn($r, $key) => $result[$key] >= 20, ARRAY_FILTER_USE_BOTH);
+
         return response()->json([
-            'data' => $result
+            'data' => $res
         ]);
     }
 

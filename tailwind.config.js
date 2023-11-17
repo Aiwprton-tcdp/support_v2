@@ -11,6 +11,7 @@ export default {
   theme: {
     extend: {
       display: ["group-hover"],
+      blur: { xs: '2px' }
     },
   },
   plugins: [

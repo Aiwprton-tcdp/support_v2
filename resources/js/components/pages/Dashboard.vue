@@ -134,6 +134,11 @@ export default {
       this.$refs.TicketsRedistribution.ticket = data
       this.$refs.TicketsRedistribution.GetAllManagers()
     },
+    GoToTicketsByReason(reason) {
+      console.log(reason);
+      window.reason_name = reason;
+      this.$router.push({ name: 'tickets' });
+    },
   }
 }
 </script>
@@ -164,7 +169,11 @@ export default {
               <p class="font-bold">{{ name }}</p>
               <template v-for="(r, reason_name) in t" v-bind:key="r">
                 <span class="w-full flex flex-row items-center">
-                  <p class="flex-1">{{ reason_name }}: <span class="font-bold">{{ r.tickets_count }}</span>
+                  <p class="flex-1">
+                    <span @click="GoToTicketsByReason(reason_name)" class="cursor-pointer hover:text-sky-500" title="Перейти к тикетам по теме">
+                      {{ reason_name }}:
+                    </span>
+                    <span class="font-bold">{{ r.tickets_count }}</span>
                   </p>
                   <p @click="ShowModal(r)" title="Распределить" class="flex-none font-bold">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"

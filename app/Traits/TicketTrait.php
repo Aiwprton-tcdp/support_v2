@@ -16,15 +16,6 @@ use Illuminate\Support\Facades\Storage;
 
 trait TicketTrait
 {
-  public static function GetReason($message)
-  {
-    $client = new \GuzzleHttp\Client();
-    $res = $client->post(env('NLP_URL'), ['form_params' => ['message' => $message]])->getBody()->getContents();
-    $name = json_decode($res, true);
-    $reason = \App\Models\Reason::firstWhere('name', $name);
-    return $reason;
-  }
-
   public static function GetManagersForReason(int $reason_id): mixed
   {
     $managers = \App\Models\Reason::join('groups', 'groups.id', 'reasons.group_id')

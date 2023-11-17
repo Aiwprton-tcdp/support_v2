@@ -194,6 +194,24 @@ export default {
         this.toast(e.response.data.message, 'error')
       })
     },
+    ChangeReasonInResolved(data) {
+      // if (!window.confirm("Вы уверены, что хотите сменить тему?")) {
+      //   return
+      // }
+
+      this.ax.patch(`resolved_tickets/${this.ticket.id}`, {
+        reason_id: data.id
+      }).then(r => {
+        if (!r.data.status) {
+          this.toast(r.data.message, 'warning')
+        }
+        this.EditReason = false
+        this.emitter.emit('PatchTicket', r.data.data)
+        this.toast(r.data.message, 'success')
+      }).catch(e => {
+        this.toast(e.response.data.message, 'error')
+      })
+    },
     CopyTicketId() {
       this.copy(`${this.VITE_CRM_URL}marketplace/app/${this.VITE_CRM_MARKETPLACE_ID}/?id=${this.ticket.old_ticket_id ?? this.ticket.id}`)
     },
@@ -245,7 +263,7 @@ export default {
         <p @click="CopyData(ticket.reason)" class="cursor-pointer hover:text-sky-500" title="Скопировать тему">
           {{ ticket.reason }}
         </p>
-        <span v-if="!IsResolved" title="Сменить тему" @click="GetReasons()">
+        <span title="Сменить тему" @click="GetReasons()">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
             class="w-3 h-3 cursor-pointer">
             <path stroke-linecap="round" stroke-linejoin="round"
@@ -256,6 +274,9 @@ export default {
 
       <VueMultiselect v-if="!IsResolved && EditReason" :options="Reasons" placeholder="Выберите тему"
         @select="ChangeReason" label="name" track-by="name" :show-labels="false" v-focus />
+
+      <VueMultiselect v-if="IsResolved && EditReason" :options="Reasons" placeholder="Выберите тему"
+        @select="ChangeReasonInResolved" label="name" track-by="name" :show-labels="false" v-focus />
     </div>
 
     <div

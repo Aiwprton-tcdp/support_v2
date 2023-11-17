@@ -29,6 +29,7 @@ use Illuminate\Support\Facades\Route;
 Route::post('/install', [CRMInstallController::class, 'install']);
 Route::post('/index', [CRMIndexController::class, '__invoke']);
 Route::post('/auth/check', [CRMUserController::class, 'check']);
+Route::post('/auth/in_bitrix', [CRMUserController::class, 'AuthInBitrix']);
 Route::get('/cache_reload', [DashboardController::class, 'cacheReload']);
 
 Route::group(['middleware' => 'auth:sanctum'], function () {
@@ -64,11 +65,7 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
     'store',
     'update'
   ]);
-  Route::apiResource('resolved_tickets', ResolvedTicketController::class)->only([
-    'index',
-    'store',
-    'show'
-  ]);
+  Route::apiResource('resolved_tickets', ResolvedTicketController::class)->except(['destroy']);
   Route::apiResources([
     'participants' => ParticipantController::class,
     'hidden_chat_messages' => HiddenChatMessageController::class,
@@ -86,6 +83,9 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
   Route::prefix('detalization')->group(function () {
     Route::get('/', [DetalizationController::class, 'index']);
   });
+
+  Route::get('/token/gen/{id}', [CRMUserController::class, 'generateToken']);
+  Route::post('/reason/init', [\App\Http\Controllers\ReasonController::class, 'initByMessage']);
 });
 
 Route::prefix('statistics')->group(function () {

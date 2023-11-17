@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreResolvedTicketRequest;
+use App\Http\Requests\UpdateResolvedTicketRequest;
 use App\Http\Resources\ResolvedTicketResource;
 use App\Models\ResolvedTicket;
 use App\Traits\TicketTrait;
@@ -146,9 +147,29 @@ class ResolvedTicketController extends Controller
   /**
    * Update the specified resource in storage.
    */
-  public function update(Request $request, string $id)
+  public function update(UpdateResolvedTicketRequest $request, $id)
   {
-    //
+    $validated = $request->validated();
+    $rt = ResolvedTicket::join('reasons', 'reasons.id', 'resolved_tickets.reason_id')
+      ->where('resolved_tickets.id', $id)
+      ->select('resolved_tickets.*', 'reasons.name AS reason')->first();
+
+    if (!isset($rt)) {
+      return response()->json([
+        'status' => false,
+        'data' => $rt,
+        'message' => 'Тикет не найден'
+      ]);
+    }
+
+    $rt->reason_id = $validated['reason_id'];
+    $rt->save();
+
+    return response()->json([
+      'status' => true,
+      'data' => ResolvedTicketResource::make($rt),
+      'message' => 'Завершённый тикет успешно изменён',
+    ]);
   }
 
   /**

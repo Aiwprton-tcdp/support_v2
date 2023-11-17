@@ -16,8 +16,10 @@ export default {
       errored: Boolean(),
       WasFirstTouch: Boolean(),
       HasAnyDeskAddress: Boolean(false),
+      hintsShowed: Boolean(false),
       CreatingMessage: String(),
       AnyDeskAddress: String(),
+      VITE_APP_URL: String(import.meta.env.VITE_APP_URL),
     }
   },
   setup() {
@@ -47,7 +49,7 @@ export default {
 
       const SystemMessages = [
         'Проверьте Ваше сообщение на корректность и информативность',
-        'Чтобы завершить создание обращения, нажмите кнопку \'Подтвердить\'',
+        'Чтобы продолжить создание обращения, нажмите кнопку \'Подтвердить\'',
         'При необходимости Вы можете отредактировать сообщение в поле ввода',
       ]
 
@@ -65,6 +67,42 @@ export default {
       })
       this.ScrollChat()
     },
+    TryToShowTheHints() {
+      if (this.waiting) return;
+      this.waiting = true;
+
+      const message = this.CreatingMessage.trim();
+
+      this.ax.post('reason/init', {
+        message: message,
+      }).then(r => {
+        if (r.data.status == false) {
+          this.toast(r.data.message, 'error');
+        }
+
+        if (r.data.data.name != 'Настройка стационарного телефона') {
+          this.waiting = false;
+          this.GoToAnyDeskAdding();
+          return;
+        }
+
+        const SystemMessages = [
+          'Перед тем, как завершить создание тикета, необходимо ознакомиться с предложенными ниже инструкциями',
+          `<a href="${this.VITE_APP_URL}/storage/Настройка стационарного телефона.pdf" target="_blank">Инструкция</a>`,
+          'Если инструкции не помогли решить Вашу проблему, продолжите процесс создания тикета',
+        ];
+
+        this.AddMessage(FormatLinks(message), true);
+        SystemMessages.forEach((m, key) => setTimeout(() => {
+          this.AddMessage(m);
+          this.waiting = key < SystemMessages.length - 1;
+        }, key * 250));
+        
+        this.hintsShowed = true;
+      }).catch(e => {
+        this.toast(e.response.data.message, 'error');
+      }).finally(() => this.waiting = false);
+    },
     GoToAnyDeskAdding() {
       if (this.waiting) return
 
@@ -75,7 +113,9 @@ export default {
         return
       }
 
-      this.AddMessage(FormatLinks(message), true)
+      if (!this.hintsShowed) {
+        this.AddMessage(FormatLinks(message), true);
+      }
       this.AddMessage('Укажите адрес AnyDesk, чтобы в перспективе ускорить решение проблемы')
 
       this.HasAnyDeskAddress = true
@@ -154,7 +194,8 @@ export default {
     <div class="flex-1 relative px-1 rounded-t-lg">
       <Transition name="fade" mode="out-in">
         <textarea v-if="!HasAnyDeskAddress" v-model="CreatingMessage"
-          @keydown.ctrl.enter.exact="WasFirstTouch ? GoToAnyDeskAdding() : Check()" v-focus rows="1"
+          @keydown.ctrl.enter.exact="WasFirstTouch ? hintsShowed ? GoToAnyDeskAdding() : TryToShowTheHints() : Check()"
+          v-focus rows="1"
           class="resize-none block overflow-hidden p-2.5 pr-4 w-full text-sm text-gray-900 bg-white rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
           placeholder="Введите сообщение..." />
         <VueInput v-else v-model="AnyDeskAddress" @keydown.ctrl.enter.exact="Create()" v-focus
@@ -176,7 +217,11 @@ export default {
         class="border-none hover:border-none focus:border-none" color="green">
         Завершить создание обращения
       </VueButton>
-      <VueButton v-else-if="WasFirstTouch" @click="GoToAnyDeskAdding()" :disabled="CreatingMessage.length == 0 || waiting"
+      <VueButton v-else-if="hintsShowed" @click="GoToAnyDeskAdding()" :disabled="waiting"
+        class="border-none hover:border-none focus:border-none" color="default">
+        Продолжить
+      </VueButton>
+      <VueButton v-else-if="WasFirstTouch" @click="TryToShowTheHints()" :disabled="CreatingMessage.length == 0 || waiting"
         class="border-none hover:border-none focus:border-none" color="green">
         Подтвердить
       </VueButton>

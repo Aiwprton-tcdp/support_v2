@@ -20,6 +20,7 @@ class ManagerResource extends JsonResource
             'user_id' => $this->user_id,
             'name' => $this->name,
             'role_id' => $this->role_id,
+            'in_work' => $this->in_work,
             'created_at' => $this->created_at,
         ];
     }

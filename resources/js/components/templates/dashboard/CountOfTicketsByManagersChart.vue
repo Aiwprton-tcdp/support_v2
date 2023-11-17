@@ -2,12 +2,13 @@
 import { Button as VueButton } from 'flowbite-vue'
 import * as echarts from 'echarts'
 
-import { GridComponent } from 'echarts/components'
+import { TooltipComponent, GridComponent } from 'echarts/components'
 import { BarChart } from 'echarts/charts'
 import { UniversalTransition } from 'echarts/features'
 import { CanvasRenderer } from 'echarts/renderers'
 
 echarts.use([
+  TooltipComponent,
   GridComponent,
   BarChart,
   CanvasRenderer,
@@ -33,7 +34,7 @@ export default {
         let names = []
         Object.keys(d).forEach(v => {
           let r = v.split(' ')
-          names.push(`${r[0]} ${r[1]}`)
+          names.push(`${r[0]} ${r[1] ?? ''}`)
         })
 
         const darkThemeMq = window.matchMedia("(prefers-color-scheme: dark)")
@@ -44,6 +45,12 @@ export default {
           title: {
             text: 'Общее количество тикетов в разрезе сотрудника',
             left: 'center'
+          },
+          tooltip: {
+            trigger: 'axis',
+            axisPointer: {
+              type: 'shadow'
+            }
           },
           xAxis: {
             type: 'category',

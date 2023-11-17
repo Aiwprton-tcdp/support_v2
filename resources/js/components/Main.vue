@@ -5,10 +5,15 @@ import Emitter from 'tiny-emitter';
 
 import HeaderComponent from '@temps/Header.vue';
 
+const LoginModal = defineAsyncComponent(() => import('@temps/main/LoginModal.vue'));
 const ChangeLogModal = defineAsyncComponent(() => import('@temps/main/ChangeLogModal.vue'));
 
 export default {
-  components: { HeaderComponent, ChangeLogModal },
+  components: {
+    HeaderComponent,
+    LoginModal,
+    ChangeLogModal
+  },
   setup() {
     const UserData = ref(window.user);
     const emitter = ref(new Emitter());
@@ -45,24 +50,57 @@ export default {
     };
   },
   mounted() {
-    BX24.init(() => {
-      const auth = BX24.getAuth();
+    setTimeout(() => this.authInit(), 1000);
 
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Escape') return;
+
+      this.$refs.ChangeLog.visible = false;
+    });
+  },
+  methods: {
+    authInit() {
+      try {
+        BX24.init(() => {
+          const auth = BX24.getAuth();
+          this.authCheck(auth);
+        });
+      } catch (e) {
+        console.log(e.message);
+        this.authCheck();
+      }
+    },
+    authCheck(auth = []) {
       let Parameters = {};
       let sURLVariables = window.location.search.substring(1).split('&');
       for (let i = 0; i < sURLVariables.length; i++) {
         let sParameterName = sURLVariables[i].split('=');
         Parameters[sParameterName[0]] = sParameterName[1];
       }
+      if (Parameters?.id != null) {
+        window.ticket_id = Parameters.id;
+      }
+
+      const accessToken = localStorage.getItem('support_access');
+      if (accessToken == null) {
+        this.goToLogin();
+        return;
+      }
 
       this.ax.post('auth/check', {
         auth: auth,
-        sid: Parameters
+        sid: Parameters,
+        token: accessToken
       }).then(r => {
-        if (!r.data.status) return;
+        if (!r.data.status) {
+          this.goToLogin();
+          return;
+        }
 
-        localStorage.removeItem('support_access');
-        localStorage.setItem('support_access', r.data.data.token);
+        if (r.data.data?.token != null) {
+          localStorage.removeItem('support_access');
+          localStorage.setItem('support_access', r.data.data.token);
+        }
         this.UserData = r.data.data.user;
 
         this.ax.interceptors.request.use(config => {
@@ -73,15 +111,10 @@ export default {
       }).catch(e => {
         this.createToast(e.response.data.message, 'error');
       });
-    });
-
-    document.addEventListener('keydown', e => {
-      if (e.key !== 'Escape') return;
-
-      this.$refs.ChangeLog.visible = false;
-    });
-  },
-  methods: {
+    },
+    goToLogin() {
+      this.$refs.Login.visible = true;
+    },
     ShowModal() {
       this.$refs.ChangeLog.visible = true;
     },
@@ -104,6 +137,10 @@ export default {
       </svg>
     </div>
   </div>
+
+  <Teleport to="body">
+    <LoginModal ref="Login" />
+  </Teleport>
 
   <Teleport to="body">
     <ChangeLogModal ref="ChangeLog" />

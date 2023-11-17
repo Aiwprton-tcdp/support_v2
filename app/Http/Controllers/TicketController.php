@@ -77,8 +77,8 @@ class TicketController extends Controller
         isset($name) && $id == 0,
         fn($q) => $q->where(
           fn($r) => $r->whereRaw(
-            "LOWER(u.name) LIKE ? OR LOWER(m.name) LIKE ?",
-            ["%{$name}%", "%{$name}%"]
+            "LOWER(u.name) LIKE ? OR LOWER(m.name) LIKE ? OR LOWER(reasons.name) LIKE ?",
+            ["%{$name}%", "%{$name}%", "%{$name}%"]
           )
         )
       )
@@ -172,7 +172,7 @@ class TicketController extends Controller
 
     $data = $request->validated();
     // $reason = Reason::first();
-    $reason = TicketTrait::GetReason($data['message']) ?? Reason::first();
+    $reason = \App\Traits\ReasonTrait::initByMessage($data['message']);
 
     if ($reason == null) {
       return response()->json([
@@ -418,6 +418,7 @@ class TicketController extends Controller
       }
     }
 
+    $needToNoteForResponsive = true;
     if (isset($validated['reason_id'])) {
       $reason = Reason::find($validated['reason_id']) ?? Reason::first();
       $validated['reason_id'] = $reason->id;
@@ -437,6 +438,7 @@ class TicketController extends Controller
 
         if ($current_manager != null) {
           $result = UserTrait::changeTheResponsive($id, $current_manager->user_id);
+          $needToNoteForResponsive = $ticket->new_manager_id != $result['new_manager_id'];
           $validated['new_manager_id'] = $result['new_manager_id'];
           $manager = $result['new_manager'];
         }
@@ -468,8 +470,11 @@ class TicketController extends Controller
           'ticket' => $ticket,
         ]);
       }
-      foreach ([$u->email, $m->email] as $email) {
-        TicketTrait::SendMessageToWebsocket("{$email}.ticket.patch", [
+      TicketTrait::SendMessageToWebsocket("{$u->email}.ticket.patch", [
+        'ticket' => $ticket,
+      ]);
+      if ($needToNoteForResponsive) {
+        TicketTrait::SendMessageToWebsocket("{$m->email}.ticket.patch", [
           'ticket' => $ticket,
         ]);
       }

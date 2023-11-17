@@ -53,6 +53,7 @@ export default {
       showModal: Boolean(),
       waiting: Boolean(),
       AllFiles: Array(),
+      AllImages: Array(),
       CurrentAttachmentId: Number(),
       VITE_APP_URL: String(import.meta.env.VITE_APP_URL),
       VITE_CRM_URL: String(import.meta.env.VITE_CRM_URL),
@@ -79,6 +80,7 @@ export default {
       file: String(),
       dragging: Boolean(),
       showTempMessages: Boolean(),
+      showDetalization: Boolean(true),
     };
   },
   setup() {
@@ -104,6 +106,7 @@ export default {
     };
   },
   mounted() {
+    this.showDetalization = localStorage.getItem('support_ticket_details_show') == "true";
     this.IsResolved = this.ticket?.old_ticket_id > 0;
     this.IsParticipant = this.ticket.new_user_id == this.UserData.user_id || this.ticket.new_manager_id == this.UserData.user_id;
     this.GetParticipants();
@@ -133,12 +136,16 @@ export default {
           m.content = FormatLinks(m.content);
         });
 
-        this.AllFiles = this.messages.map(m => m.attachments).flat();
+        this.AllFiles = this.messages.map(m => m.files).flat();
+        this.AllImages = this.messages.map(m => m.images).flat();
+        // console.log(this.AllFiles);
+        // console.log(this.AllImages);
 
         // this.AllFiles.forEach(f => f.link = this.messages[0].attachments_domain + f.link);
         this.errored = false;
         // this.ScrollChat();
       }).catch(e => {
+        this.toast(e.message, 'error');
         this.toast(e.response.data.message, 'error');
         this.errored = true;
       }).finally(this.ScrollChat);
@@ -203,7 +210,8 @@ export default {
         this.files = [];
         document.getElementById("attachments_input").value = '';
         this.CreatingMessage = '';
-        r.data.data.attachments.forEach(a => this.AllFiles.push(a));
+        this.AllFiles.concat(r.data.data.files);
+        this.AllImages.concat(r.data.data.images);
 
         const index = this.$parent.$parent.$data.AllTickets.findIndex(({ id }) => id == Number(r.data.data.ticket_id));
         this.$parent.$parent.$data.AllTickets[index].unread_messages = false;
@@ -232,8 +240,10 @@ export default {
 
       data.content = FormatLinks(data.content);
       this.messages.push(data);
+      this.AllFiles.concat(data.files);
+      this.AllImages.concat(data.images);
       this.ScrollChat();
-      data.attachments.forEach(a => this.AllFiles.push(a));
+      // data.attachments.forEach(a => this.imgTypes.some(t => a.name.endsWith(t)) ? this.AllImages.push(a) : this.AllFiles.push(a));
     },
     MarkShowing() {
       this.marking = true;
@@ -294,7 +304,7 @@ export default {
 
       if (event.target.files == null) {
         return;
-      } else if (event.target.files.length == 0) {
+      } if (event.target.files.length == 0) {
         console.log('There are no files for uploading');
         return;
       }
@@ -305,10 +315,15 @@ export default {
         'image/bmp',
         'image/webp',
         'image/heic',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/pdf',
       ];
       Array.from(event.target.files).forEach(f => {
         if (!types.includes(f['type'])) {
-          this.toast('Вы можете отправить только изображения', 'warning');
+          // this.toast('Вы можете отправить только изображения', 'warning');
           return;
         } else if (this.files.length == 5) {
           this.toast('За раз Вы можете отправить не более 5 файлов', 'warning');
@@ -334,7 +349,7 @@ export default {
       }, 50);
     },
     SlideTo(swiper) {
-      const index = this.AllFiles.findIndex(({ id }) => id == this.CurrentAttachmentId);
+      const index = this.AllImages.findIndex(({ id }) => id == this.CurrentAttachmentId);
       swiper.slideTo(index + 1, 0);
     },
     DragFiles(e) {
@@ -352,6 +367,10 @@ export default {
     CopyTicketId() {
       this.copy(`${this.VITE_CRM_URL}marketplace/app/${this.VITE_CRM_MARKETPLACE_ID}/?id=${this.ticket.old_ticket_id ?? this.ticket.id}`)
     },
+    showDetalizationBlock(yesOrNo) {
+      this.showDetalization = yesOrNo;
+      localStorage.setItem('support_ticket_details_show', yesOrNo);
+    },
   }
 }
 </script>
@@ -360,7 +379,7 @@ export default {
   <div class="h-[calc(100vh-55px)] w-full grid grid-cols-4">
     <!-- <div class="h-full" :class="[UserData.is_admin || UserData.role_id == 2 ? 'col-span-3' : 'col-span-4']"> -->
     <div class="h-[calc(100vh-55px)] flex flex-col"
-      :class="[UserData.is_admin || UserData.role_id == 2 ? 'col-span-3' : 'col-span-4']">
+      :class="[(UserData.is_admin || UserData.role_id == 2) && showDetalization ? 'col-span-3' : 'col-span-4']">
       <!-- Messaging block -->
       <div v-if="!dragging" @dragenter="dragging = true" id="messages"
         class="flex flex-col h-full gap-1 z-1 content-end py-1 px-2 overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch"
@@ -371,8 +390,8 @@ export default {
               <div
                 class="flex flex-col space-y-2 text-sm max-w-sm xl:max-w-md 2xl:max-w-lg mx-2 order-2 items-start text-left opacity-90">
                 <span
-                  class="flex flex-col w-full px-4 py-2 rounded-lg inline-block rounded-bl-none bg-gray-50 whitespace-pre-wrap dark:text-gray-900 dark:bg-gray-300">
-                  <MessageAttachments v-if="m.attachments.length > 0" :files="m.attachments"
+                  class="flex flex-col w-full px-4 py-2 rounded-lg rounded-bl-none bg-gray-50 whitespace-pre-wrap dark:text-gray-900 dark:bg-gray-300">
+                  <MessageAttachments v-if="m.images.length > 0 || m.files.length > 0" :images="m.images" :files="m.files"
                     :domain="m.attachments_domain" :message_id="m.id" />
                   <span v-html="m?.content" class="break-words"></span>
                   <span class="text-xs font-light tracking-tighter text-gray-400 dark:text-gray-500">
@@ -394,8 +413,8 @@ export default {
               <div
                 class="flex flex-col space-y-2 text-sm max-w-sm xl:max-w-md 2xl:max-w-lg mx-2 order-1 items-end text-right opacity-90">
                 <span
-                  class="flex flex-col w-full px-4 py-2 rounded-lg inline-block rounded-br-none bg-indigo-300 whitespace-pre-wrap dark:text-gray-900 dark:bg-indigo-200">
-                  <MessageAttachments v-if="m.attachments.length > 0" :files="m.attachments"
+                  class="flex flex-col w-full px-4 py-2 rounded-lg rounded-br-none bg-indigo-300 whitespace-pre-wrap dark:text-gray-900 dark:bg-indigo-200">
+                  <MessageAttachments v-if="m.images.length > 0 || m.files.length > 0" :images="m.images" :files="m.files"
                     :domain="m.attachments_domain" :message_id="m.id" />
                   <span v-html="m?.content" class="break-words"></span>
                   <span class="text-xs font-light tracking-tighter text-gray-500 dark:text-gray-600">
@@ -419,7 +438,7 @@ export default {
             <div class="flex items-end">
               <div class="flex text-sm max-w-sm xl:max-w-md 2xl:max-w-lg mx-2 items-start text-left opacity-90">
                 <span
-                  class="flex flex-col w-full px-4 py-2 rounded-lg inline-block rounded-bl-none bg-gray-50 whitespace-pre-wrap dark:text-gray-900 dark:bg-gray-300">
+                  class="flex flex-col w-full px-4 py-2 rounded-lg rounded-bl-none bg-gray-50 whitespace-pre-wrap dark:text-gray-900 dark:bg-gray-300">
                   <p>Для подтверждения завершения укажите оценку работы менеджер(а/ов) в рамках данного тикета</p>
 
                   <div class="flex flex-row">
@@ -585,23 +604,41 @@ export default {
       </div>
     </div>
 
-    <!-- Ticket info -->
-    <div v-if="UserData.is_admin || UserData.role_id == 2" class="h-[calc(100vh-55px)]">
-      <div class="tabs-nowrap truncate">
-        <Tabs variant="underline" v-model="ActiveTab">
-          <Tab name="details" title="Общее" />
-          <Tab name="system_chat" title="Системный чат" />
-        </Tabs>
+    <template v-if="UserData.is_admin || UserData.role_id == 2">
+      <div v-if="!showDetalization" @click="showDetalizationBlock(true)"
+        class="fixed top-[55px] -right-1 w-8 bg-gray-50 border-y border-l rounded-l-full flex items-center justify-start pl-1 cursor-pointer">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+          class="w-6 h-6 rotate-180">
+          <title>Развернуть</title>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5m-6-15l7.5 7.5-7.5 7.5" />
+        </svg>
       </div>
+      <!-- Ticket info -->
+      <div v-else class="h-[calc(100vh-55px)] relative">
+        <div @click="showDetalizationBlock(false)"
+          class="absolute top-0 -left-8 w-8 bg-gray-50 border-y border-l rounded-l-full flex items-center justify-start pl-1 cursor-pointer">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+            class="w-6 h-6">
+            <title>Свернуть</title>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5m-6-15l7.5 7.5-7.5 7.5" />
+          </svg>
+        </div>
+        <div class="tabs-nowrap truncate">
+          <Tabs variant="underline" v-model="ActiveTab">
+            <Tab name="details" title="Общее" />
+            <Tab name="system_chat" title="Системный чат" />
+          </Tabs>
+        </div>
 
-      <div
-        :class="ticket.active == 0 || IsResolved || ActiveTab == 'details' ? 'h-[calc(100%-55px)]' : 'h-[calc(100%-55px-43px)]'">
-        <KeepAlive>
-          <Detalization v-if="ActiveTab == 'details'" :ticket="ticket" :participants="participants_data" />
-        </KeepAlive>
-        <SystemChat v-if="ActiveTab == 'system_chat'" :ticket="ticket" />
+        <div
+          :class="ticket.active == 0 || IsResolved || ActiveTab == 'details' ? 'h-[calc(100%-55px)]' : 'h-[calc(100%-55px-43px)]'">
+          <KeepAlive>
+            <Detalization v-if="ActiveTab == 'details'" :ticket="ticket" :participants="participants_data" />
+          </KeepAlive>
+          <SystemChat v-if="ActiveTab == 'system_chat'" :ticket="ticket" />
+        </div>
       </div>
-    </div>
+    </template>
   </div>
 
   <!-- Attachments slider modal -->
@@ -609,10 +646,10 @@ export default {
     <div v-if="showModal" @click.self="showModal = false" class="modal-mask">
       <div @click.self="showModal = false" class="modal-body">
         <Swiper @afterInit="SlideTo" :slides-per-view="1" :space-between="50" :modules="modules"
-          :loop="AllFiles.length > 1" :keyboard="{ enabled: true }" :pagination="{ clickable: true, type: 'fraction' }"
+          :loop="AllImages.length > 1" :keyboard="{ enabled: true }" :pagination="{ clickable: true, type: 'fraction' }"
           :grabCursor="true" :centeredSlides="true" :mousewheel="true" :zoom="true" virtual
-          :navigation="AllFiles.length > 1" :lazy="true">
-          <SwiperSlide v-for="(file, key) in AllFiles" :key="key" :virtualIndex="key">
+          :navigation="AllImages.length > 1" :lazy="true">
+          <SwiperSlide v-for="(file, key) in AllImages" :key="key" :virtualIndex="key">
             <div class="swiper-zoom-container">
               <img :src="messages[0].attachments_domain + file?.link" :alt="file?.name" loading="lazy"
                 class="object-contain">

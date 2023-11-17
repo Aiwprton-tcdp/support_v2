@@ -11,6 +11,7 @@ use App\Traits\ReasonTrait;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class ReasonController extends Controller
 {
@@ -133,6 +134,29 @@ class ReasonController extends Controller
             'data' => $result,
             'checksum' => ReasonTrait::Checksum(),
             'message' => $message
+        ]);
+    }
+
+    public function initByMessage()
+    {
+        $validator = Validator::make(request()->all(), [
+            'message' => 'required|min:2|max:500',
+        ]);
+        $validated = $validator->safe()->only(['message']);
+        $message = $validated['message'];
+        if (!isset($message) || empty($message)) {
+            return response()->json([
+                'status' => false,
+                'data' => null,
+                'message' => 'Не передано сообщение',
+            ]);
+        }
+
+        $reason = ReasonTrait::initByMessage($message);
+
+        return response()->json([
+            'status' => true,
+            'data' => $reason,
         ]);
     }
 }

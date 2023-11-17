@@ -52,12 +52,12 @@ export default {
   },
   mounted() {
     let complete = setInterval(() => {
-      if (document.readyState === "complete") {
-        clearInterval(complete)
-        this.Get(this.page)
-        this.WebsocketInit()
+      if (document.readyState === "complete" && this.UserData?.user_id != null) {
+        clearInterval(complete);
+        this.Get(this.page);
+        this.WebsocketInit();
       }
-    }, 200)
+    }, 200);
 
     this.emitter.on('NewTicket', this.NewTicket)
     this.emitter.on('PatchTicket', this.PatchTicket)
@@ -72,7 +72,10 @@ export default {
       if (this.waiting) return
       this.waiting = true
 
-      let data = this.search.trim()
+      let data = window?.reason_name == null ? this.search.trim() : window?.reason_name;
+      if (window?.reason_name != null) {
+        delete window?.reason_name;
+      }
       const reset_searching = this.searching
       this.searching = data != ''
 
@@ -523,7 +526,7 @@ export default {
         </VueInput>
 
         <div :class="ShowHistoryInfo ? 'visible opacity-100' : 'invisible opacity-0'"
-          class="absolute flex flex-col gap-2 p-3 inline-block text-sm font-light text-gray-500 transition-opacity duration-300 bg-white border border-gray-200 rounded-lg shadow-sm w-fit dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400">
+          class="absolute flex flex-col gap-2 p-3 text-sm font-light text-gray-500 transition-opacity duration-300 bg-white border border-gray-200 rounded-lg shadow-sm w-fit dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400">
           <p>Последние посещённые тикеты:</p>
           <div class="flex flex-wrap gap-2">
             <template v-for="[key, value] in TicketsHistory" v-bind:key="value">

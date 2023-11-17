@@ -27,7 +27,7 @@ class IndexAPIController extends Controller
       $ticket_id = isset($_REQUEST['PLACEMENT_OPTIONS']) && isset(json_decode($_REQUEST['PLACEMENT_OPTIONS'])->id)
         ? intval(json_decode($_REQUEST['PLACEMENT_OPTIONS'])->id)
         : 0;
-      $token = '';
+      // $token = '';
       $check = BX::setDataE($_REQUEST);
       $data = BX::call('user.current')['result'];
       $user = [
@@ -64,12 +64,12 @@ class IndexAPIController extends Controller
           $alternative_auth->email = $user['email'];
           $alternative_auth->name = $user['name'];
           $alternative_auth->save();
-          $token = $alternative_auth->createToken("auth")->plainTextToken;
+          // $token = $alternative_auth->createToken("auth")->plainTextToken;
         } else {
           $auth->crm_id = $user['crm_id'];
           $auth->name = $user['name'];
           $auth->save();
-          $token = $auth->createToken("auth")->plainTextToken;
+          // $token = $auth->createToken("auth")->plainTextToken;
         }
       }
       $auth_id = $auth->id ?? $alternative_auth->id;
@@ -82,6 +82,7 @@ class IndexAPIController extends Controller
       $bx_user->save();
 
       $user['user_id'] = $auth_id;
+      $user['in_crm'] = true;
 
       $user['is_admin'] = BX::call('user.admin')['result'];
       $manager = \App\Models\Manager::whereCrmId($auth->crm_id)
@@ -92,7 +93,8 @@ class IndexAPIController extends Controller
         $user['in_work'] = $manager->in_work;
       }
 
-      return view('welcome', compact('user', 'token', 'ticket_id'));
+      return view('welcome', compact('user', 'ticket_id'));
+      // return view('welcome', compact('user', 'token', 'ticket_id'));
     } catch (\Exception $er) {
       return $er->getMessage();
     }

@@ -8,6 +8,7 @@ use App\Models\HiddenChatMessage;
 use App\Models\ManagerGroup;
 use App\Models\Participant;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -236,6 +237,7 @@ trait UserTrait
       'user_crm_id' => 0,
       'new_user_id' => 1,
       'ticket_id' => $ticket->id,
+      'created_at'=> Carbon::nowWithSameTz(),
     ]);
 
     $result = [

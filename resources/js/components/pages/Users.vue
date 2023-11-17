@@ -8,6 +8,7 @@ import {
   Button as VueButton,
   Select as VueSelect
 } from 'flowbite-vue'
+import useClipboard from 'vue-clipboard3';
 
 export default {
   name: 'UsersPage',
@@ -33,7 +34,17 @@ export default {
   },
   setup() {
     const toast = inject('createToast')
-    return { toast }
+    const { toClipboard } = useClipboard();
+
+    const copy = async data => {
+      try {
+        await toClipboard(data)
+        console.log('Copied to clipboard')
+      } catch (e) {
+        console.error(e)
+      }
+    }
+    return { toast, copy }
   },
   mounted() {
     this.GetManagers()
@@ -177,6 +188,18 @@ export default {
         ? this.AllUsersWithRoles.length == 0 ? this.GetManagers() : this.AllUsersWithRoles
         : this.AllUsers.length == 0 ? this.Get() : this.AllUsers
     },
+    GetToken(id) {
+      this.ax.get(`token/gen/${id}`).then(r => {
+        if (!r.data.status) {
+          this.toast(r.data.message, 'error');
+          return;
+        }
+        const token = r.data.data;
+        this.copy(token);
+      }).catch(e => {
+        this.toast(e.response.data.message, 'error');
+      });
+    },
   }
 }
 </script>
@@ -222,16 +245,33 @@ export default {
         <!-- <TableHeadCell>Crm_id</TableHeadCell> -->
         <TableHeadCell>ФИО</TableHeadCell>
         <TableHeadCell v-if="!only_with_roles">Должность</TableHeadCell>
-        <TableHeadCell v-if="!only_with_roles">Внутренний номер</TableHeadCell>
+        <!-- <TableHeadCell v-if="!only_with_roles">Внутренний номер</TableHeadCell> -->
+        <TableHeadCell>Токен</TableHeadCell>
         <TableHeadCell>Роль</TableHeadCell>
       </TableHead>
 
       <TableBody>
         <TableRow v-for="u in users" v-bind:key="u">
           <!-- <TableCell>{{ u.crm_id }}</TableCell> -->
-          <TableCell>{{ u.name }}</TableCell>
+          <TableCell>
+            <span class="flex items-center text-sm font-medium text-gray-900 dark:text-white me-3">
+              <span v-if="only_with_roles" class="flex w-3 h-3 me-3 rounded-full cursor-help"
+                :class="u.in_work ? 'bg-green-500' : 'bg-red-500'" :title="u.in_work ? 'В работе' : 'Не в работе'"></span>
+              {{ u.name }}
+            </span>
+          </TableCell>
           <TableCell v-if="!only_with_roles">{{ u.post }}</TableCell>
-          <TableCell v-if="!only_with_roles">{{ u.inner_phone }}</TableCell>
+          <!-- <TableCell v-if="!only_with_roles">{{ u.inner_phone }}</TableCell> -->
+          <TableCell>
+            <div class="space-x-3">
+              <svg @click="GetToken(u.user_id)" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                stroke-width="1.5" stroke="currentColor" class="w-6 h-6 cursor-pointer hover:text-sky-500">
+                <title>Скопировать токен</title>
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M16.5 8.25V6a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 6v8.25A2.25 2.25 0 006 16.5h2.25m8.25-8.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-7.5A2.25 2.25 0 018.25 18v-1.5m8.25-8.25h-6a2.25 2.25 0 00-2.25 2.25v6" />
+              </svg>
+            </div>
+          </TableCell>
           <TableCell>
             <div class="space-x-3">
               <VueSelect @change="Create(u)" v-model.number="u.new_role_id" :options="roles" placeholder="Выбрать роль" />

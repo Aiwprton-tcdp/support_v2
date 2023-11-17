@@ -16,17 +16,11 @@
 
 <body>
   <script>
-    const user = @json($user);
-    const token = @json($token);
-    const ticket_id = @json($ticket_id);
+    const user = @json($user ?? 'null');
+    const ticket_id = @json($ticket_id ?? '0');
 
     window.user = user
     window.ticket_id = ticket_id
-
-    if (token != '') {
-      localStorage.removeItem('support_access')
-      localStorage.setItem('support_access', token)
-    }
   </script>
 
   <div id="app"></div>

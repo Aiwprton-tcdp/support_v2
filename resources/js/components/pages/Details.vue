@@ -64,6 +64,7 @@ export default {
       dragging: Boolean(),
       VITE_CRM_URL: String(import.meta.env.VITE_CRM_URL),
       VITE_CRM_MARKETPLACE_ID: String(import.meta.env.VITE_CRM_MARKETPLACE_ID),
+      VITE_APP_URL: String(import.meta.env.VITE_APP_URL),
     }
   },
   setup() {
@@ -341,7 +342,8 @@ ${this.FirstTry ? '' : url_filters}`).then(r => {
 
         <TableBody>
           <TableRow v-for="t in FilteredTickets" v-bind:key="t">
-            <TableCell>{{ t.id }} <p :title="t.bx_name" class="cursor-help">({{ t.bx_acronym }})</p></TableCell>
+            <TableCell>{{ t.id }} <p :title="t.bx_name" class="cursor-help">({{ t.bx_acronym }})</p>
+            </TableCell>
             <TableCell>{{ t.reason }}</TableCell>
             <TableCell>{{ t.user.name }}</TableCell>
             <TableCell>{{ t.manager.name }}</TableCell>
@@ -350,7 +352,8 @@ ${this.FirstTry ? '' : url_filters}`).then(r => {
             <TableCell>{{ t.start_date }}</TableCell>
             <TableCell>{{ t.time }}</TableCell>
             <TableCell>
-              <a :href="`${VITE_CRM_URL}marketplace/app/${VITE_CRM_MARKETPLACE_ID}/?id=${t.id}`" target="_blank">
+              <a :href="UserData.in_crm ? `${VITE_CRM_URL}marketplace/app/${VITE_CRM_MARKETPLACE_ID}/?id=${t.id}` : `${VITE_APP_URL}/?id=${t.id}`"
+                target="_blank">
                 Перейти
               </a>
             </TableCell>
