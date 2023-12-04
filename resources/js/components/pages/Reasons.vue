@@ -1,13 +1,16 @@
 <script>
-import { inject } from 'vue'
+import { inject, defineAsyncComponent } from 'vue';
 import {
   Table as VueTable, TableHead,
   TableBody, TableHeadCell,
   TableRow, TableCell,
   Input as VueInput, Button as VueButton,
-  Select as VueSelect
-} from 'flowbite-vue'
-import { StringVal } from '@utils/validation.js'
+  Select as VueSelect, Toggle
+} from 'flowbite-vue';
+
+import { StringVal } from '@utils/validation.js';
+
+const ReasonPatchModal = defineAsyncComponent(() => import('@temps/Reason/PatchModal.vue'));
 
 export default {
   name: 'ReasonsPage',
@@ -16,7 +19,8 @@ export default {
     TableBody, TableHeadCell,
     TableRow, TableCell,
     VueInput, VueButton,
-    VueSelect
+    VueSelect, Toggle,
+    ReasonPatchModal
   },
   data() {
     return {
@@ -26,10 +30,12 @@ export default {
       NewReasonName: String(),
       NewReasonWeight: Number(1),
       NewReasonGroupId: Number(),
+      NewReasonCallRequired: Boolean(),
       PatchingId: Number(),
       PatchingName: String(),
       PatchingWeight: Number(1),
       PatchingGroupId: Number(),
+      PatchingCallRequired: Boolean(),
       groups: Array(),
       errored: Boolean(),
       search: String(),
@@ -47,6 +53,7 @@ export default {
       this.ax.get('reasons').then(r => {
         this.AllReasons = r.data.data.data
         this.checksum = r.data.checksum
+        this.AllReasons.forEach(r => r.call_required = r.call_required == 1);
         this.reasons = this.AllReasons
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
@@ -73,6 +80,7 @@ export default {
         name: this.NewReasonName,
         weight: this.NewReasonWeight,
         group_id: this.NewReasonGroupId,
+        call_required: this.NewReasonCallRequired,
       }
       this.ax.post('reasons', data).then(r => {
         this.toast(r.data.message, r.data.status ? 'success' : 'error')
@@ -100,6 +108,7 @@ export default {
         name: name,
         weight: this.PatchingWeight,
         group_id: this.PatchingGroupId,
+        call_required: this.PatchingCallRequired,
       }).then(r => {
         if (!r.data.status) {
           this.toast(r.data.message, 'warning')
@@ -110,6 +119,7 @@ export default {
         this.PrepareForPatch()
         const index = this.AllReasons.findIndex(({ id }) => id == reason_id)
         this.AllReasons[index] = r.data.data
+        this.AllReasons[index].call_required = r.data.data.call_required == 1;
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
       })
@@ -143,19 +153,25 @@ export default {
       )
     },
     ClearCreationData() {
-      this.NewReasonName = ''
-      this.NewReasonWeight = 1
-      this.NewReasonGroupId = 0
+      this.NewReasonName = '';
+      this.NewReasonWeight = 1;
+      this.NewReasonGroupId = 0;
+      this.NewReasonCallRequired = false;
     },
     PrepareForPatch(data = null) {
       this.PatchingId = data?.id ?? 0
       this.PatchingName = data?.name ?? ''
       this.PatchingWeight = data?.weight ?? 0
       this.PatchingGroupId = data?.group_id ?? 0
+      this.PatchingCallRequired = data?.call_required == 1
     },
     ClearSearch() {
       this.search = ''
       this.reasons = this.AllReasons
+    },
+    ShowReasonPatchModal(reason) {
+      this.$refs.ReasonPatch.visible = true;
+      this.$refs.ReasonPatch.reason = reason;
     },
   }
 }
@@ -202,11 +218,12 @@ export default {
 
   <VueTable :class="checksum.length > 0 ? 'max-h-[calc(100vh-206px)]' : 'max-h-[calc(100vh-54px)]'"
     class="overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch">
-    <TableHead>
+    <TableHead class="sticky top-0">
       <TableHeadCell>Id</TableHeadCell>
       <TableHeadCell>Название</TableHeadCell>
       <TableHeadCell>Вес</TableHeadCell>
       <TableHeadCell>Группа</TableHeadCell>
+      <TableHeadCell>Через звонок</TableHeadCell>
       <TableHeadCell><span class="sr-only">Edit</span></TableHeadCell>
     </TableHead>
 
@@ -223,6 +240,9 @@ export default {
           <VueSelect v-model.number="NewReasonGroupId" :options="groups" placeholder="Выберите группу" />
         </TableCell>
         <TableCell>
+          <Toggle v-model="NewReasonCallRequired" color="green" />
+        </TableCell>
+        <TableCell>
           <div class="space-x-3">
             <VueButton :disabled="NewReasonName.length < 2" @click="Create()" color="green">Добавить</VueButton>
             <VueButton v-if="NewReasonName.length > 0" @click="ClearCreationData()" color="light">Сброс</VueButton>
@@ -230,30 +250,26 @@ export default {
         </TableCell>
       </TableRow>
 
-      <TableRow v-for="r in reasons" v-bind:key="r">
+      <TableRow v-for="r in reasons" :key="r.id">
         <TableCell>{{ r.id }}</TableCell>
         <TableCell>
-          <p v-if="PatchingId != r.id">{{ r.name }}</p>
-          <VueInput v-else v-model="PatchingName" placeholder="Введите новое название" />
+          <p>{{ r.name }}</p>
         </TableCell>
         <TableCell>
-          <p v-if="PatchingId != r.id">{{ r.weight }}</p>
-          <VueInput v-else v-model.number="PatchingWeight" type="number" placeholder="Укажите вес" />
+          <p>{{ r.weight }}</p>
         </TableCell>
         <TableCell>
-          <p v-if="PatchingId != r.id">{{ groups.find(g => g.id == r.group_id)?.name }}</p>
-          <VueSelect v-else v-model.number="PatchingGroupId" :options="groups" placeholder="Выберите группу" />
+          <p>{{ groups.find(g => g.id == r.group_id)?.name }}</p>
         </TableCell>
         <TableCell>
-          <div v-if="PatchingId == r.id" class="space-x-3">
-            <VueButton @click="Patch(r.id)" color="green">Сохранить</VueButton>
-            <VueButton @click="PrepareForPatch()" color="light">Отменить</VueButton>
-          </div>
-          <div v-else class="space-x-3">
-            <VueButton @click="PrepareForPatch(r)" color="light">Редактировать</VueButton>
-            <VueButton @click="Delete(r.id)" color="red">Удалить</VueButton>
-          </div>
+          <Toggle v-model="r.call_required" color="green" disabled="true" />
         </TableCell>
+
+        <div class="px-6 py-4 space-x-3">
+          <VueButton @click="ShowReasonPatchModal(r)" color="light">Редактировать</VueButton>
+          <!-- <VueButton @click="Delete(r.id)" color="red">Удалить</VueButton> -->
+          <!-- <VueButton @click="Delete(r.id)" color="red">Инструкции</VueButton> -->
+        </div>
       </TableRow>
     </TableBody>
   </VueTable>
@@ -266,4 +282,9 @@ export default {
       Нет данных
     </p>
   </div>
+
+  <!-- Modals -->
+  <Teleport to="body">
+    <ReasonPatchModal ref="ReasonPatch" />
+  </Teleport>
 </template>

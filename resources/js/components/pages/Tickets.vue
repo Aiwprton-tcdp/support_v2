@@ -52,7 +52,8 @@ export default {
   },
   mounted() {
     let complete = setInterval(() => {
-      if (document.readyState === "complete" && this.UserData?.user_id != null) {
+      const accessToken = localStorage.getItem('support_access');
+      if (document.readyState === "complete" && this.UserData?.user_id != null && accessToken != null) {
         clearInterval(complete);
         this.Get(this.page);
         this.WebsocketInit();
@@ -78,12 +79,15 @@ export default {
       }
       const reset_searching = this.searching
       this.searching = data != ''
+      const pinnedIds = JSON.parse(localStorage.getItem('support_pinned_tickets'));
+      const pinned = Array.from(pinnedIds ?? []);
 
-      this.ax.get(`tickets?page=${page}&limit=${this.limit}&search=${data}`).then(r => {
+      this.ax.get(`tickets?page=${page}&limit=${this.limit}&search=${data}&pinned=${pinned}`).then(r => {
         this.errored = !r.data.status
 
+        const dataPlusPinned = Array.prototype.concat(r.data.data.data, r.data.pinned.data);
         if (data != '' || reset_searching) {
-          this.AllTickets = r.data.data.data
+          this.AllTickets = dataPlusPinned;
         } else {
           if (r.data.status == false) {
             let message = this.UserData.is_admin
@@ -97,27 +101,31 @@ export default {
             : r.data.data.meta.total
 
           if (this.AllTickets.length == 0) {
-            this.AllTickets = r.data.data.data
+            this.AllTickets = dataPlusPinned;
           } else {
-            this.TicketsUnion(r.data.data.data)
+            this.TicketsUnion(dataPlusPinned)
           }
         }
 
         if (this.AllTickets.length == 0) {
-          this.AllTickets = r.data.data.data
+          this.AllTickets = dataPlusPinned;
           this.AllTickets.forEach(t => {
             t.im_only_participant = ![t.new_user_id, t.new_manager_id].includes(this.UserData.user_id)
             t.unread_messages = t.last_message_user_id != this.UserData.user_id
             t.marked_as_deleted = t.active == 0
             t.unread_system_messages = t.last_system_message_date != null && new Date(t.last_system_message_date).getTime() - new Date(t.last_message_date).getTime() < 24 * 60 * 60 * 1000
+            t.incompetence = t.incompetence == 1
+            t.technical_problem = t.technical_problem == 1
           })
         } else {
-          const tt = r.data.data.data
+          const tt = dataPlusPinned;
           tt.forEach(t => {
             t.im_only_participant = ![t.new_user_id, t.new_manager_id].includes(this.UserData.user_id)
             t.unread_messages = t.last_message_user_id != this.UserData.user_id
             t.marked_as_deleted = t.active == 0
             t.unread_system_messages = t.last_system_message_date != null && new Date(t.last_system_message_date).getTime() - new Date(t.last_message_date).getTime() < 24 * 60 * 60 * 1000
+            t.incompetence = t.incompetence == 1
+            t.technical_problem = t.technical_problem == 1
           })
           this.TicketsUnion(tt)
         }
@@ -140,6 +148,7 @@ export default {
 
         this.errored = false
       }).catch(e => {
+        console.log(e.message);
         if (e.response?.status == 401) {
           this.Get()
           return
@@ -433,7 +442,11 @@ export default {
       } else {
         if (this.TicketsHistory.has(t.id)) this.TicketsHistory.delete(t.id)
         this.TicketsHistory.set(t.id, t)
+
+        t.incompetence = t.incompetence == 1;
+        t.technical_problem = t.technical_problem == 1;
         this.CurrentTicket = { ...t }
+
         const index = this.AllTickets.findIndex(({ id }) => id == t.id)
         if (index > -1) {
           this.AllTickets[index].unread_messages = false
@@ -588,11 +601,11 @@ export default {
     <div v-else id="tickets" @scroll="onScroll"
       class="flex flex-col h-[calc(100vh-55px)] divide-y overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch">
       <TransitionGroup name="list" tag="ul">
-        <div v-for="t in tickets" v-bind:key="t" class="p-1"
+        <div v-for="t in tickets" :key="t" class="p-1"
           :class="t.id == CurrentTicket?.id ? 'bg-blue-200 dark:bg-blue-500' : 'bg-white hover:bg-gray-100 dark:bg-gray-600 dark:hover:bg-gray-800'">
           <div @click.self="GoTo(t)" class="relative flex flex-row items-center w-full gap-2 cursor-pointer">
             <div class="relative">
-              <a :href="'https://' + t.bx_domain + '/company/personal/user/' + (UserData.user_id == t.new_user_id ? t.manager_id : t.user_id) + '/'"
+              <a :href="'https://' + t.bx_domain + '/company/personal/user/' + (UserData.user_id == t.new_user_id ? t.manager.crm_id : t.user.crm_id) + '/'"
                 target="_blank" class="relative">
                 <Avatar rounded size="sm" alt="avatar" :title="'Id тикета: ' + t.id"
                   :img="(UserData.user_id == t.new_user_id ? t.manager?.avatar : t.user?.avatar) ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />

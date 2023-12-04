@@ -23,10 +23,12 @@ class ReasonController extends Controller
         $name = Str::lower($this->prepare(request('name')));
         $id = intval($this->prepare(request('id')));
         $limit = intval($this->prepare(request('limit')));
+        $is_call_required = $this->prepare(request('call_required'));
+        $call_required = filter_var($is_call_required, FILTER_VALIDATE_BOOLEAN);
 
         $checksum = ReasonTrait::Checksum();
 
-        if (Cache::store('file')->has('reasons')) {
+        if (isset($is_call_required) && $is_call_required != 'true' && Cache::store('file')->has('reasons')) {
             return response()->json([
                 'status' => true,
                 'checksum' => $checksum,
@@ -37,11 +39,17 @@ class ReasonController extends Controller
         $data = \Illuminate\Support\Facades\DB::table('reasons')
             ->when(
                 !empty($id) || !empty($name),
-                fn($q) => $q->whereId($id)->orWhereRaw('LOWER(name) LIKE ?', ["%{$name}%"])
+                fn($q) => $q->where('id', $id)->orWhereRaw('LOWER(name) LIKE ?', ["%{$name}%"])
+            )
+            ->when(
+                isset($is_call_required) && !empty($is_call_required),
+                fn($q) => $q->where('call_required', $call_required)
             )
             ->paginate($limit < 1 ? 100 : $limit);
         $resource = ReasonResource::collection($data)->response()->getData();
-        Cache::store('file')->forever('reasons', $resource);
+        if (isset($is_call_required) && $is_call_required != 'true') {
+            Cache::store('file')->forever('reasons', $resource);
+        }
 
         return response()->json([
             'status' => count($checksum) == 0,

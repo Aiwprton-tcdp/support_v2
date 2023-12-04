@@ -228,7 +228,8 @@ trait UserTrait
       $new_participant->save();
     }
 
-    TicketTrait::SendNotification($manager->id, "Вы стали ответственным за тикет №{$ticket->id}", $ticket->id);
+    $call_required = \App\Models\Reason::whereId($ticket->reason_id)->whereCallRequired(true)->exists();
+    TicketTrait::SendNotification($manager->id, "Вы стали ответственным за тикет №{$ticket->id}", $ticket->id, $call_required);
 
     $user = UserTrait::tryToDefineUserEverywhere($manager->id, $manager->email);
 
@@ -237,7 +238,7 @@ trait UserTrait
       'user_crm_id' => 0,
       'new_user_id' => 1,
       'ticket_id' => $ticket->id,
-      'created_at'=> Carbon::nowWithSameTz(),
+      'created_at' => Carbon::now(),
     ]);
 
     $result = [

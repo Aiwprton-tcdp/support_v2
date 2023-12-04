@@ -66,7 +66,6 @@ export default {
           this.authCheck(auth);
         });
       } catch (e) {
-        console.log(e.message);
         this.authCheck();
       }
     },
@@ -82,7 +81,7 @@ export default {
       }
 
       const accessToken = localStorage.getItem('support_access');
-      if (accessToken == null) {
+      if (accessToken == null && Object.keys(Parameters).length < 2) {
         this.goToLogin();
         return;
       }

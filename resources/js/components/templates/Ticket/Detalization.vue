@@ -1,6 +1,9 @@
 <script>
 import { inject } from 'vue'
-import { Button as VueButton, Avatar } from 'flowbite-vue'
+import {
+  Button as VueButton,
+  Toggle, Avatar
+} from 'flowbite-vue'
 import VueMultiselect from 'vue-multiselect'
 import useClipboard from 'vue-clipboard3'
 import { mask } from 'vue-the-mask'
@@ -9,7 +12,7 @@ import gsap from 'gsap'
 export default {
   name: 'DetalizationComponent',
   components: {
-    VueButton,
+    VueButton, Toggle,
     Avatar, VueMultiselect
   },
   directives: { mask },
@@ -156,6 +159,8 @@ export default {
       // if (this.ticket.reason_id == data.reason_id) return
       this.ticket.reason = data.reason
       this.ticket.reason_id = data.reason_id
+      this.ticket.incompetence = data.incompetence == 1
+      this.ticket.technical_problem = data.technical_problem == 1
       this.Reasons = this.AllReasons.filter(r => r.id != this.ticket.reason_id)
     },
     CloseTicket() {
@@ -177,14 +182,30 @@ export default {
         this.toast(e.response.data.message, 'error')
       })
     },
-    ChangeReason(data) {
+    Change() {
+      if (this.IsResolved) {
+        return this.ChangeInResolved();
+      }
+      console.log('Change');
+      console.log(this.ticket);
+      this.ax.patch(`tickets/${this.ticket.id}`, {
+        incompetence: this.ticket.incompetence,
+        technical_problem: this.ticket.technical_problem,
+      }).then(r => {
+        if (!r.data.status) {
+          this.toast(r.data.message, 'warning');
+        }
+        console.log(this.ticket);
+      }).catch(e => {
+        this.toast(e.response.data.message, 'error');
+      });
+    },
+    ChangeReason(reason_id) {
       // if (!window.confirm("Вы уверены, что хотите сменить тему?")) {
       //   return
       // }
 
-      this.ax.patch(`tickets/${this.ticket.id}`, {
-        reason_id: data.id
-      }).then(r => {
+      this.ax.patch(`tickets/${this.ticket.id}`, { reason_id }).then(r => {
         if (!r.data.status) {
           this.toast(r.data.message, 'warning')
         }
@@ -193,6 +214,18 @@ export default {
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
       })
+    },
+    ChangeInResolved() {
+      this.ax.patch(`resolved_tickets/${this.ticket.id}`, {
+        incompetence: this.ticket.incompetence,
+        technical_problem: this.ticket.technical_problem,
+      }).then(r => {
+        if (!r.data.status) {
+          this.toast(r.data.message, 'warning');
+        }
+      }).catch(e => {
+        this.toast(e.response.data.message, 'error');
+      });
     },
     ChangeReasonInResolved(data) {
       // if (!window.confirm("Вы уверены, что хотите сменить тему?")) {
@@ -280,7 +313,7 @@ export default {
     </div>
 
     <div
-      class="flex flex-col block w-full px-3 py-2 bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700">
+      class="flex flex-col w-full px-3 py-2 bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700">
       <div class="flex items-center gap-1">
         <label>Ответственный</label>
 
@@ -292,8 +325,8 @@ export default {
           </svg>
         </span>
 
-        <p @click="CopyData(ticket.manager.crm_id)" class="cursor-pointer hover:text-sky-500" title="Скопировать CRM Id">
-          {{ ticket.manager.crm_id }}
+        <p @click="CopyData(ticket.manager_id)" class="cursor-pointer hover:text-sky-500" title="Скопировать CRM Id">
+          {{ ticket.manager_id }}
         </p>
       </div>
 
@@ -301,7 +334,7 @@ export default {
         @select="AddParticipant" label="name" track-by="name" :show-labels="false" v-focus />
 
       <div class="flex flex-row items-center gap-1">
-        <a :href="`https://${ticket.bx_domain}/company/personal/user/${ticket.manager.crm_id}/`" target="_blank">
+        <a :href="`https://${ticket.bx_domain}/company/personal/user/${ticket.manager_id}/`" target="_blank">
           <Avatar rounded size="sm" alt="avatar"
             :img="ticket.manager?.avatar ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
         </a>
@@ -312,7 +345,7 @@ export default {
     </div>
 
     <div
-      class="flex flex-col block w-full px-3 py-2 bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700">
+      class="flex flex-col w-full px-3 py-2 bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700">
       <div class="flex flex-row items-center gap-1">
         <label>Создатель</label>
         <p @click="CopyData(ticket.user.crm_id)" class="cursor-pointer hover:text-sky-500" title="Скопировать CRM Id">
@@ -352,6 +385,23 @@ export default {
       <template v-if="ticket.user.inner_phone > 0">
         <p class="text-sm text-gray-400">Внутренний номер: {{ ticket.user.inner_phone }}</p>
       </template>
+
+      <template v-if="ticket.user.personal_phone.length > 0">
+        <p class="text-sm text-gray-400">Личный номер: {{ ticket.user.personal_phone.replaceAll(/[A-zА-яЁё]*/gms, '') }}
+        </p>
+      </template>
+
+      <template v-if="ticket.user.work_phone.length > 0">
+        <p class="text-sm text-gray-400">Рабочий номер: {{ ticket.user.work_phone.replaceAll(/[A-zА-яЁё]*/gms, '') }}</p>
+      </template>
+    </div>
+
+    <div
+      class="flex flex-col gap-1 w-full px-3 py-2 bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700">
+      <div class="flex flex-row items-center gap-1">Тип проблемы</div>
+
+      <Toggle @change="Change()" v-model="ticket.incompetence" label="Некомпетентность" color="green" />
+      <Toggle @change="Change()" v-model="ticket.technical_problem" label="Техническая проблема" color="green" />
     </div>
 
     <div v-if="BusyManagers.length > 0"

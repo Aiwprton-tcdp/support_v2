@@ -19,6 +19,8 @@ class Ticket extends Model
     'weight',
     'active',
     'anydesk',
+    'incompetence',
+    'technical_problem',
     'created_at',
   ];
 

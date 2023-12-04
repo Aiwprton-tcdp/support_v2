@@ -10,6 +10,7 @@ const TicketsByReasonsChartComponent = defineAsyncComponent(() => import('@temps
 const MarksPercentageChartComponent = defineAsyncComponent(() => import('@temps/dashboard/MarksPercentageChart.vue'))
 const AverageSolvingTimeChartComponent = defineAsyncComponent(() => import('@temps/dashboard/AverageSolvingTimeChart.vue'))
 const StatsByReasonsAndManagersPerDayChartComponent = defineAsyncComponent(() => import('@temps/dashboard/StatsByReasonsAndManagersPerDayChart.vue'))
+const TicketsByDepartmentsChartComponent = defineAsyncComponent(() => import('@temps/dashboard/TicketsByDepartmentsChart.vue'))
 
 // import TicketsRedistributionModal from '@temps/dashboard/TicketsRedistributionModal.vue'
 // import TicketsByGroupChartComponent from '@temps/dashboard/TicketsByGroupChart.vue'
@@ -28,6 +29,7 @@ export default {
     MarksPercentageChartComponent,
     AverageSolvingTimeChartComponent,
     StatsByReasonsAndManagersPerDayChartComponent,
+    TicketsByDepartmentsChartComponent,
   },
   data() {
     return {
@@ -170,7 +172,8 @@ export default {
               <template v-for="(r, reason_name) in t" v-bind:key="r">
                 <span class="w-full flex flex-row items-center">
                   <p class="flex-1">
-                    <span @click="GoToTicketsByReason(reason_name)" class="cursor-pointer hover:text-sky-500" title="Перейти к тикетам по теме">
+                    <span @click="GoToTicketsByReason(reason_name)" class="cursor-pointer hover:text-sky-500"
+                      title="Перейти к тикетам по теме">
                       {{ reason_name }}:
                     </span>
                     <span class="font-bold">{{ r.tickets_count }}</span>
@@ -206,8 +209,11 @@ export default {
     <div class="col-span-3 lg:col-span-4 xl:col-span-5">
       <CountOfTicketsByManagersChartComponent />
     </div>
-    <div class="col-span-3 lg:col-span-4 xl:col-span-5">
+    <div class="col-span-2">
       <MarksPercentageChartComponent />
+    </div>
+    <div class="col-span-2">
+      <TicketsByDepartmentsChartComponent />
     </div>
     <div class="col-span-3 lg:col-span-4 xl:col-span-5">
       <TicketsByReasonsChartComponent />

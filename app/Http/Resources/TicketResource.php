@@ -27,6 +27,8 @@ class TicketResource extends JsonResource
             'weight' => $this->weight,
             'active' => $this->active,
             'anydesk' => @$this->anydesk,
+            'incompetence' => $this->incompetence,
+            'technical_problem' =>$this->technical_problem,
             'created_at' => $this->created_at,
             'reason' => $this->reason,
             'user' => $this->user,

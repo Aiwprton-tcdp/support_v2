@@ -25,6 +25,7 @@ class StoreReasonRequest extends FormRequest
             'name' => 'required|unique:reasons|string|min:2',
             'weight' => 'required|int|min:1|max:100',
             'group_id' => 'required|int|min:1',
+            'call_required' => 'sometimes|required|boolean',
         ];
     }
 

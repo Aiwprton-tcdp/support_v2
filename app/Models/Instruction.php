@@ -5,28 +5,25 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Reason extends Model
+class Instruction extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'name',
-        'weight',
-        'group_id',
-        'call_required',
+        'content',
+        'reason_id',
     ];
 
     protected $hidden = [
         'created_at',
         'updated_at',
-        'deleted_at',
     ];
 
     protected $casts = [
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
-        'deleted_at' => 'datetime',
     ];
 
-    protected $table = 'reasons';
+    protected $table = 'instructions';
 }

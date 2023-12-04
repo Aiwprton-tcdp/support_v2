@@ -19,6 +19,7 @@ class ReasonResource extends JsonResource
             'name' => $this->name,
             'weight' => $this->weight,
             'group_id' => $this->group_id,
+            'call_required' => $this->call_required,
             'created_at' => $this->created_at,
         ];
     }

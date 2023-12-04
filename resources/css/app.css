@@ -156,9 +156,9 @@ button:focus-visible {
 }
 
 @media (prefers-color-scheme: dark) {
-  .scrollbar-track-blue-lighter::-webkit-scrollbar-track {
+  /* .scrollbar-track-blue-lighter::-webkit-scrollbar-track {
     background-color: #c7deee;
-  }
+  } */
 
   .scrollbar-thumb-blue::-webkit-scrollbar-thumb {
     background-color: #7e90cf;

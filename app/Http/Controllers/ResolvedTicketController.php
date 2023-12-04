@@ -162,7 +162,15 @@ class ResolvedTicketController extends Controller
       ]);
     }
 
-    $rt->reason_id = $validated['reason_id'];
+    if (isset($validated['reason_id'])) {
+      $rt->reason_id = $validated['reason_id'];
+    }
+    if (isset($validated['incompetence'])) {
+      $rt->incompetence = $validated['incompetence'];
+    }
+    if (isset($validated['technical_problem'])) {
+      $rt->technical_problem = $validated['technical_problem'];
+    }
     $rt->save();
 
     return response()->json([

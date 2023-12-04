@@ -51,6 +51,7 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
     'users' => \App\Http\Controllers\UserController::class,
     'managers' => \App\Http\Controllers\ManagerController::class,
     'template_messages' => \App\Http\Controllers\TemplateMessageController::class,
+    'instructions' => \App\Http\Controllers\InstructionController::class,
   ], [
     'except' => 'show'
   ]);
@@ -105,6 +106,7 @@ Route::prefix('statistics')->group(function () {
   Route::get('/avg_max_min_tickets_per_day', [DashboardController::class, 'GetAvgMaxMinTicketsPerDay']);
   Route::get('/avg_time_by_reasons', [DashboardController::class, 'GetAvgTimeByReason']);
   Route::get('/stats_by_reasons_and_managers_per_day', [DashboardController::class, 'GetStatsByReasonsAndManagersPerDay']);
+  Route::get('/tickets_by_departments', [DashboardController::class, 'GetTicketsByDepartments']);
 });
 
 Route::get('/set_users_ids', [CRMUserController::class, 'setUsersIds']);

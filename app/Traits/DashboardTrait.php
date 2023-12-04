@@ -122,10 +122,11 @@ trait DashboardTrait
       ->whereRaw("hcm_s.created_at >= (NOW() - INTERVAL 1 MONTH)")
       ->selectRaw('users.name AS name,
       COUNT(resolved_tickets.id) AS count,
-      WEEK(IFNULL(hcm_s.created_at, hcm.created_at)) AS date,
+      DATE(IFNULL(hcm_s.created_at, hcm.created_at)) AS date,
       YEAR(IFNULL(hcm.created_at, hcm_s.created_at)) AS year')
       ->groupBy('date', 'name', 'year');
     // DATE(IFNULL(hcm.created_at, hcm_s.created_at)) AS date,
+    // WEEK(IFNULL(hcm_s.created_at, hcm.created_at)) AS date,
 
     $data = Ticket::join('users', 'users.id', 'tickets.new_manager_id')
       ->join(
@@ -144,7 +145,7 @@ trait DashboardTrait
       ->whereRaw("hcm_s.created_at >= (NOW() - INTERVAL 1 MONTH)")
       ->selectRaw('users.name AS name,
       COUNT(tickets.id) AS count,
-      WEEK(IFNULL(hcm_s.created_at, hcm.created_at)) AS date,
+      DATE(IFNULL(hcm_s.created_at, hcm.created_at)) AS date,
       YEAR(IFNULL(hcm.created_at, hcm_s.created_at)) AS year')
       ->union($resolved_tickets)
       ->groupBy('date', 'name', 'year')
@@ -161,17 +162,29 @@ trait DashboardTrait
 
 
     $filter = array_filter($data, fn($d) => !in_array(null, [$d['name'], $d['count'], $d['date'], $d['year']]));
+    $composed = [];
     foreach ($filter as $key => $f) {
-      $dto = new \DateTime();
-      $dto->setISODate($f['year'], $f['date']);
-      $week_start = $dto->format('Y-m-d');
-      $dto->modify('+6 days');
-      $week_end = $dto->format('Y-m-d');
-
-      $filter[$key]['date'] = "{$week_start} - {$week_end}";
+      $has = array_filter($composed, fn($c) => $c['name'] == $f['name'] && $c['date'] == $f['date'] && $c['year'] == $f['year']);
+      if (count($has) > 0) {
+        // dd($has);
+        // array_values($has)[0]
+        $composed[key($has)]['count'] += $f['count'];
+      } else {
+        array_push($composed, $f);
+      }
     }
+    // dd($composed);
+    // foreach ($filter as $key => $f) {
+    //   $dto = new \DateTime();
+    //   $dto->setISODate($f['year'], $f['date']);
+    //   $week_start = $dto->format('Y-m-d');
+    //   $dto->modify('+6 days');
+    //   $week_end = $dto->format('Y-m-d');
 
-    return array_values($filter);
+    //   $filter[$key]['date'] = "{$week_start} - {$week_end}";
+    // }
+
+    return array_values($composed);
   }
 
   public static function getNewTicketsCountByReasons(): array
@@ -192,7 +205,7 @@ trait DashboardTrait
       ->whereRaw("hcm_s.created_at >= (NOW() - INTERVAL 1 MONTH)")
       ->selectRaw('reasons.name AS name,
       COUNT(resolved_tickets.id) AS count,
-      WEEK(IFNULL(hcm.created_at, hcm_s.created_at)) AS date,
+      WEEK(IFNULL(hcm_s.created_at, hcm.created_at)) AS date,
       YEAR(IFNULL(hcm.created_at, hcm_s.created_at)) AS year')
       ->groupBy('date', 'name', 'year');
 
@@ -212,10 +225,12 @@ trait DashboardTrait
       ->whereRaw("hcm_s.created_at >= (NOW() - INTERVAL 1 MONTH)")
       ->selectRaw('reasons.name AS name,
       COUNT(tickets.id) AS count,
-      WEEK(IFNULL(hcm.created_at, hcm_s.created_at)) AS date,
+      WEEK(IFNULL(hcm_s.created_at, hcm.created_at)) AS date,
       YEAR(IFNULL(hcm.created_at, hcm_s.created_at)) AS year')
       ->union($resolved_tickets)
       ->groupBy('date', 'name', 'year')
+      ->orderBy('date')
+      ->orderBy('name')
       ->get()->toArray();
 
     $filter = array_filter($data, fn($d) => !in_array(null, [$d['name'], $d['count'], $d['date'], $d['year']]));
@@ -250,21 +265,22 @@ trait DashboardTrait
       ->whereRaw("hcm_s.created_at >= (NOW() - INTERVAL 1 MONTH)")
       ->selectRaw('users.name AS name,
       COUNT(resolved_tickets.id) AS count,
-      WEEK(IFNULL(hcm.created_at, hcm_s.created_at)) AS date,
+      DATE(IFNULL(hcm.created_at, hcm_s.created_at)) AS date,
       YEAR(IFNULL(hcm.created_at, hcm_s.created_at)) AS year')
       ->groupBy('date', 'name', 'year')
       ->get()->toArray();
+    // WEEK(IFNULL(hcm_s.created_at, hcm.created_at)) AS date,
 
     $filter = array_filter($data, fn($d) => !in_array(null, [$d['name'], $d['count'], $d['date'], $d['year']]));
-    foreach ($filter as $key => $f) {
-      $dto = new \DateTime();
-      $dto->setISODate($f['year'], $f['date']);
-      $week_start = $dto->format('Y-m-d');
-      $dto->modify('+6 days');
-      $week_end = $dto->format('Y-m-d');
+    // foreach ($filter as $key => $f) {
+    //   $dto = new \DateTime();
+    //   $dto->setISODate($f['year'], $f['date']);
+    //   $week_start = $dto->format('Y-m-d');
+    //   $dto->modify('+6 days');
+    //   $week_end = $dto->format('Y-m-d');
 
-      $filter[$key]['date'] = "{$week_start} - {$week_end}";
-    }
+    //   $filter[$key]['date'] = "{$week_start} - {$week_end}";
+    // }
 
     return array_values($filter);
   }

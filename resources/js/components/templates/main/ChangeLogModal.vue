@@ -51,6 +51,24 @@ export default {
           'отображение данных в диаграмме "Общее количество тикетов в разрезе сотрудника"',
         ],
         deletions: [],
+      }, {
+        date: '04.12.2023',
+        version: '0.3.0',
+        additions: [
+          'возможность скрывать/раскрывать блок информации о тикете',
+          'таблица отображения количества созданных тикетов по подразделениям',
+          'возможность закреплять шаблонные сообщения',
+          'параметр "Через звонок" для тем и функционал для таких тем',
+          'возможность совершать звонки',
+          'возможность указывать тип проблемы в тикете',
+          // 'таблица',
+        ],
+        fixations: [
+          'отображение шаблонных сообщений',
+          'отображение идентификаторов пользователей из разных CRM',
+          'отображение таблиц в статистике',
+        ],
+        deletions: [],
       }
     ];
   },
@@ -64,7 +82,7 @@ export default {
 
 <template>
   <Transition name="modal">
-    <div v-if="visible" @click.self="Close" class="modal-mask flex">
+    <div v-if="visible" @click.self="Close" class="modal-mask flex text-gray-900">
       <div
         class="modal-container h-[80vh] overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch">
         <div class="modal-header mx-14">

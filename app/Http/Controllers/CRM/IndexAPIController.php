@@ -96,6 +96,9 @@ class IndexAPIController extends Controller
       return view('welcome', compact('user', 'ticket_id'));
       // return view('welcome', compact('user', 'token', 'ticket_id'));
     } catch (\Exception $er) {
+      $user = null;
+      $ticket_id = 0;
+      return view('welcome', compact('user', 'ticket_id'));
       return $er->getMessage();
     }
   }

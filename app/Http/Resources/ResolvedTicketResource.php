@@ -24,6 +24,8 @@ class ResolvedTicketResource extends JsonResource
             'reason_id' => $this->reason_id,
             'weight' => $this->weight,
             'mark' => $this->mark,
+            'incompetence' => $this->incompetence,
+            'technical_problem' =>$this->technical_problem,
             'created_at' => $this->created_at,
             'user' => $this->user,
             'manager' => $this->manager,

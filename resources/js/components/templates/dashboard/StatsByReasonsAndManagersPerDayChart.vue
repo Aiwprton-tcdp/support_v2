@@ -1,6 +1,11 @@
 <script>
 // import { defineAsyncComponent } from 'vue';
-import { Button as VueButton } from 'flowbite-vue';
+import {
+  Table as VueTable, TableHead,
+  TableBody, TableHeadCell,
+  TableRow, TableCell,
+  Button as VueButton
+} from 'flowbite-vue'
 import * as echarts from 'echarts';
 
 import {
@@ -27,11 +32,22 @@ echarts.use([
 
 export default {
   name: 'StatsByReasonsAndManagersPerDayChartComponent',
-  components: { VueButton },
+  components: {
+    VueTable, TableHead,
+    TableBody, TableHeadCell,
+    TableRow, TableCell,
+    VueButton
+  },
   data() {
     return {
       waiting: Boolean(),
       errored: Boolean(),
+      avg_solving_time_by_date_and_users_table: Object(),
+      avg_solving_time_by_date_and_reasons_table: Object(),
+      new_tickets_count_by_date_and_users_table: Object(),
+      new_tickets_count_by_date_and_reasons_table: Object(),
+      resolved_tickets_count_by_date_and_users_table: Object(),
+      resolved_tickets_count_by_date_and_reasons_table: Object(),
     }
   },
   mounted() {
@@ -69,14 +85,20 @@ export default {
       const names = [...new Set(data.map(d => d.name))];
       // const times = data.map(d => d.time);
       const dates = [...new Set(td.map(d => d.date))].sort((a, b) => new Date(a) - new Date(b));
+      this.avg_solving_time_by_date_and_users_table.heads = dates;
+      this.avg_solving_time_by_date_and_users_table.bodies = [];
 
       let series = [];
 
-      names.forEach((n, key) => {
+      names.forEach(n => {
         let row = [];
         dates.forEach(d => {
           const cv = data.filter(da => da.date == d && da.name == n)[0];
           row.push(cv?.time);
+        });
+        this.avg_solving_time_by_date_and_users_table.bodies.push({
+          name: n,
+          values: row,
         });
 
         series.push({
@@ -146,14 +168,20 @@ export default {
       const names = [...new Set(data.map(d => d.name))];
       // const times = data.map(d => d.time);
       const dates = [...new Set(td.map(d => d.date))].sort((a, b) => new Date(a) - new Date(b));
+      this.avg_solving_time_by_date_and_reasons_table.heads = dates;
+      this.avg_solving_time_by_date_and_reasons_table.bodies = [];
 
       let series = [];
 
-      names.forEach((n, key) => {
+      names.forEach(n => {
         let row = [];
         dates.forEach(d => {
           const cv = data.filter(da => da.date == d && da.name == n)[0];
           row.push(cv?.time);
+        });
+        this.avg_solving_time_by_date_and_reasons_table.bodies.push({
+          name: n,
+          values: row,
         });
 
         series.push({
@@ -223,14 +251,20 @@ export default {
       const names = [...new Set(data.map(d => d.name))];
       // const times = data.map(d => d.time);
       const dates = [...new Set(td.map(d => d.date))].sort((a, b) => new Date(a) - new Date(b));
+      this.new_tickets_count_by_date_and_users_table.heads = dates;
+      this.new_tickets_count_by_date_and_users_table.bodies = [];
 
       let series = [];
 
-      names.forEach((n, key) => {
+      names.forEach(n => {
         let row = [];
         dates.forEach(d => {
           const cv = data.filter(da => da.date == d && da.name == n)[0];
           row.push(cv?.count);
+        });
+        this.new_tickets_count_by_date_and_users_table.bodies.push({
+          name: n,
+          values: row,
         });
 
         series.push({
@@ -300,14 +334,20 @@ export default {
       const names = [...new Set(data.map(d => d.name))];
       // const times = data.map(d => d.time);
       const dates = [...new Set(td.map(d => d.date))].sort((a, b) => new Date(a) - new Date(b));
+      this.new_tickets_count_by_date_and_reasons_table.heads = dates;
+      this.new_tickets_count_by_date_and_reasons_table.bodies = [];
 
       let series = [];
 
-      names.forEach((n, key) => {
+      names.forEach(n => {
         let row = [];
         dates.forEach(d => {
           const cv = data.filter(da => da.date == d && da.name == n)[0];
           row.push(cv?.count);
+        });
+        this.new_tickets_count_by_date_and_reasons_table.bodies.push({
+          name: n,
+          values: row,
         });
 
         series.push({
@@ -378,14 +418,20 @@ export default {
       // const times = data.map(d => d.time);
       const dates = [...new Set(td.map(d => d.date))].sort((a, b) => new Date(a) - new Date(b));
       // const dates = [...new Set(td.map(d => d.date))];
+      this.resolved_tickets_count_by_date_and_users_table.heads = dates;
+      this.resolved_tickets_count_by_date_and_users_table.bodies = [];
 
       let series = [];
 
-      names.forEach((n, key) => {
+      names.forEach(n => {
         let row = [];
         dates.forEach(d => {
           const cv = data.filter(da => da.date == d && da.name == n)[0];
           row.push(cv?.count);
+        });
+        this.resolved_tickets_count_by_date_and_users_table.bodies.push({
+          name: n,
+          values: row,
         });
 
         series.push({
@@ -456,14 +502,20 @@ export default {
       // const times = data.map(d => d.time);
       const dates = [...new Set(td.map(d => d.date))].sort((a, b) => new Date(a) - new Date(b));
       // const dates = [...new Set(td.map(d => d.date))];
+      this.resolved_tickets_count_by_date_and_reasons_table.heads = dates;
+      this.resolved_tickets_count_by_date_and_reasons_table.bodies = [];
 
       let series = [];
 
-      names.forEach((n, key) => {
+      names.forEach(n => {
         let row = [];
         dates.forEach(d => {
           const cv = data.filter(da => da.date == d && da.name == n)[0];
           row.push(cv?.count);
+        });
+        this.resolved_tickets_count_by_date_and_reasons_table.bodies.push({
+          name: n,
+          values: row,
         });
 
         series.push({
@@ -544,13 +596,138 @@ export default {
       </VueButton>
     </template>
 
-    <div id="avg_solving_time_by_date_and_users" :class="{ 'hidden': errored }" class="w-full h-[500px]"></div>
+    <div id="avg_solving_time_by_date_and_users" class="w-full h-[500px]"></div>
+
+    <VueTable hoverable :class="{ 'hidden': errored }"
+      class="max-h-[50vh] overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch">
+      <TableHead class="!p-0 sticky top-0">
+        <TableHeadCell class="!p-0 sticky left-0 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-600">
+        </TableHeadCell>
+        <TableHeadCell v-for="h in avg_solving_time_by_date_and_users_table.heads" :key="h" class="!p-0">{{ h }}
+        </TableHeadCell>
+      </TableHead>
+
+      <TableBody v-for="b in avg_solving_time_by_date_and_users_table.bodies" :key="b">
+        <TableRow class="!p-0">
+          <TableCell class="!p-0 !border sticky left-0 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-600">
+            {{ b.name }}
+          </TableCell>
+          <TableCell v-for="v in b.values" :key="v" class="!p-0 !border">{{ v }}</TableCell>
+        </TableRow>
+      </TableBody>
+    </VueTable>
+
+
     <div id="avg_solving_time_by_date_and_reasons" :class="{ 'hidden': errored }" class="w-full h-[500px]"></div>
 
+    <VueTable hoverable :class="{ 'hidden': errored }"
+      class="max-h-[50vh] overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch">
+      <TableHead class="!p-0 sticky top-0">
+        <TableHeadCell class="!p-0 sticky left-0 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-600">
+        </TableHeadCell>
+        <TableHeadCell v-for="h in avg_solving_time_by_date_and_reasons_table.heads" :key="h" class="!p-0">{{ h }}
+        </TableHeadCell>
+      </TableHead>
+
+      <TableBody v-for="b in avg_solving_time_by_date_and_reasons_table.bodies" :key="b">
+        <TableRow class="!p-0">
+          <TableCell class="!p-0 !border sticky left-0 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-600">
+            {{ b.name }}
+          </TableCell>
+          <TableCell v-for="v in b.values" :key="v" class="!p-0 !border">{{ v }}</TableCell>
+        </TableRow>
+      </TableBody>
+    </VueTable>
+
+
     <div id="new_tickets_count_by_date_and_users" :class="{ 'hidden': errored }" class="w-full h-[500px]"></div>
+
+    <VueTable hoverable :class="{ 'hidden': errored }"
+      class="max-h-[50vh] overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch">
+      <TableHead class="!p-0 sticky top-0">
+        <TableHeadCell class="!p-0 sticky left-0 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-600">
+        </TableHeadCell>
+        <TableHeadCell v-for="h in new_tickets_count_by_date_and_users_table.heads" :key="h" class="!p-0">{{ h }}
+        </TableHeadCell>
+      </TableHead>
+
+      <TableBody v-for="b in new_tickets_count_by_date_and_users_table.bodies" :key="b">
+        <TableRow class="!p-0">
+          <TableCell class="!p-0 !border sticky left-0 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-600">
+            {{ b.name }}
+          </TableCell>
+          <TableCell v-for="v in b.values" :key="v" class="!p-0 !border">{{ v }}</TableCell>
+        </TableRow>
+      </TableBody>
+    </VueTable>
+
+
     <div id="new_tickets_count_by_date_and_reasons" :class="{ 'hidden': errored }" class="w-full h-[500px]"></div>
 
+    <VueTable hoverable :class="{ 'hidden': errored }"
+      class="max-h-[50vh] overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch">
+      <TableHead class="!p-0 sticky top-0">
+        <TableHeadCell class="!p-0 sticky left-0 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-600">
+        </TableHeadCell>
+        <TableHeadCell v-for="h in new_tickets_count_by_date_and_reasons_table.heads" :key="h" class="!p-0">{{ h }}
+        </TableHeadCell>
+      </TableHead>
+
+      <TableBody v-for="b in new_tickets_count_by_date_and_reasons_table.bodies" :key="b">
+        <TableRow class="!p-0">
+          <TableCell class="!p-0 !border sticky left-0 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-600">
+            {{ b.name }}
+          </TableCell>
+          <TableCell v-for="v in b.values" :key="v" class="!p-0 !border">{{ v }}</TableCell>
+        </TableRow>
+      </TableBody>
+    </VueTable>
+
+
     <div id="resolved_tickets_count_by_date_and_users" :class="{ 'hidden': errored }" class="w-full h-[500px]"></div>
+
+    <VueTable hoverable :class="{ 'hidden': errored }"
+      class="max-h-[50vh] overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch">
+      <TableHead class="!p-0 sticky top-0">
+        <TableHeadCell class="!p-0 sticky left-0 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-600">
+        </TableHeadCell>
+        <TableHeadCell v-for="h in resolved_tickets_count_by_date_and_users_table.heads" :key="h" class="!p-0">{{ h }}
+        </TableHeadCell>
+      </TableHead>
+
+      <TableBody v-for="b in resolved_tickets_count_by_date_and_users_table.bodies" :key="b">
+        <TableRow class="!p-0">
+          <TableCell class="!p-0 !border sticky left-0 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-600">
+            {{ b.name }}
+          </TableCell>
+          <TableCell v-for="v in b.values" :key="v" class="!p-0 !border">{{ v }}</TableCell>
+        </TableRow>
+      </TableBody>
+    </VueTable>
+
+
     <div id="resolved_tickets_count_by_date_and_reasons" :class="{ 'hidden': errored }" class="w-full h-[500px]"></div>
-  </div>
-</template>
+
+    <VueTable hoverable :class="{ 'hidden': errored }"
+      class="max-h-[50vh] overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch">
+      <TableHead class="!p-0 sticky top-0">
+        <TableHeadCell class="!p-0 sticky left-0 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-600">
+        </TableHeadCell>
+        <TableHeadCell v-for="h in resolved_tickets_count_by_date_and_reasons_table.heads" :key="h" class="!p-0">{{ h }}
+        </TableHeadCell>
+      </TableHead>
+
+      <TableBody v-for="b in resolved_tickets_count_by_date_and_reasons_table.bodies" :key="b">
+        <TableRow class="!p-0">
+          <TableCell class="!p-0 !border sticky left-0 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-600">
+            {{ b.name }}
+          </TableCell>
+          <TableCell v-for="v in b.values" :key="v" class="!p-0 !border">{{ v }}</TableCell>
+        </TableRow>
+      </TableBody>
+    </VueTable>
+
+  <br />
+  <br />
+  <br />
+</div></template>

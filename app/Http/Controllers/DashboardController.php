@@ -397,4 +397,63 @@ class DashboardController extends Controller
             ]
         ]);
     }
+
+    public function GetTicketsByDepartments()
+    {
+        $resolved_tickets = \App\Models\ResolvedTicket::join('users', 'users.id', 'resolved_tickets.new_user_id')
+            ->selectRaw('users.email, COUNT(resolved_tickets.id) AS count')
+            ->groupBy('email');
+
+        $data = Ticket::join('users', 'users.id', 'tickets.new_user_id')
+            ->selectRaw('users.email, COUNT(tickets.id) AS count')
+            ->union($resolved_tickets)
+            ->groupBy('email')
+            ->orderBy('email')
+            ->get()->toArray();
+
+        $res = [];
+        foreach ($data as $d) {
+            if (!isset($res[$d['email']])) {
+                $res[$d['email']] = 0;
+            }
+            $res[$d['email']] += $d['count'];
+        }
+        unset($data);
+
+        $support_test_users = Cache::store('file')->get('support_test_users');
+        $support_users = Cache::store('lfp')->get('support_users');
+        $users = array_merge($support_users->data, $support_test_users->data);
+        unset($support_users, $support_test_users);
+
+        $deps = [];
+        foreach ($users as $user) {
+            if (!isset($res[$user->email]))
+                continue;
+
+            $d = $user->departments[0];
+            if (!isset($deps[$d])) {
+                $deps[$d] = 0;
+            }
+            $deps[$d] += $res[$user->email];
+            // array_push($deps[$d], [$user->email => $res[$user->email]]);
+        }
+        unset($users, $res);
+
+        $support_departments = Cache::store('lfp')->get('support_departments');
+        $named_deps = [];
+        foreach ($support_departments->data as $d) {
+            if (!isset($named_deps[$d->name])) {
+                $named_deps[$d->name] = 0;
+            }
+            if (!isset($deps[$d->id]))
+                continue;
+            $named_deps[$d->name] += $deps[$d->id];
+        }
+        unset($support_departments, $deps);
+        $result_deps = array_filter($named_deps, fn($d) => $d > 0);
+
+        return response()->json([
+            'data' => $result_deps,
+        ]);
+    }
 }

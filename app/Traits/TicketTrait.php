@@ -434,7 +434,7 @@ trait TicketTrait
     $client->publish($channel_id, $data);
   }
 
-  public static function SendNotification($recipient_id, $message, $ticket_id)
+  public static function SendNotification($recipient_id, $message, $ticket_id, $call_required = false)
   {
     $bx_data = BxCrm::join('bx_users', 'bx_users.bx_crm_id', 'bx_crms.id')
       ->where('bx_users.user_id', $recipient_id)
@@ -447,7 +447,8 @@ trait TicketTrait
       $webhook_id = $bx->webhook_id;
       $user_id = $bx->crm_id;
 
-      $content = "{$message}\r\n[URL=/marketplace/app/{$market_id}/?id={$ticket_id}]Перейти[/URL]";
+      $need_call = $call_required ? 'Это важный тикет, следует решить проблему его создателя через звонок.' : '';
+      $content = "{$message}\r\n[URL=/marketplace/app/{$market_id}/?id={$ticket_id}]Перейти[/URL]\r\n{$need_call}";
       $WEB_HOOK_URL = "https://${crm_id}/rest/{$webhook_id}/im.message.add.json?USER_ID={$user_id}&MESSAGE={$content}&URL_PREVIEW=Y";
 
       \Illuminate\Support\Facades\Http::get($WEB_HOOK_URL);

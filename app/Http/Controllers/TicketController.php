@@ -26,6 +26,8 @@ class TicketController extends Controller
   {
     $search = $this->prepare(request('search'));
     $limit = intval($this->prepare(request('limit')));
+    $pinned = $this->prepare(request('pinned'));
+    // dd($pinned);
 
     $id = empty($search) ? 0 : intval(trim(preg_replace('/[^0-9]+/', '', $search)));
     $name = empty($search) ? null : mb_strtolower(trim(preg_replace('/[^А-яA-z ]+/iu', '', $search)));
@@ -95,7 +97,8 @@ class TicketController extends Controller
         'bxc.domain AS bx_domain',
       )
       ->orderBy(DB::raw("CASE WHEN (tickets.new_user_id = {$user_id} OR tickets.new_manager_id = {$user_id}) THEN 1 ELSE 2 END"))
-      ->orderBy(DB::raw("CASE WHEN messages.new_user_id != {$user_id} THEN 1 WHEN messages.new_user_id = {$user_id} THEN 3 ELSE 2 END"))->orderByDesc('tickets.weight')
+      ->orderBy(DB::raw("CASE WHEN messages.new_user_id != {$user_id} THEN 1 WHEN messages.new_user_id = {$user_id} THEN 3 ELSE 2 END"))
+      ->orderByDesc('tickets.weight')
       ->orderBy('last_message_date')
       ->orderBy('tid')
       ->paginate($limit < 1 ? 100 : $limit);
@@ -110,6 +113,45 @@ class TicketController extends Controller
     //   WHERE m.ticket_id = tid AND m.user_crm_id != {$user_id}
     //   HAVING m.id > max_id) AS new_messages"))
 
+    $pinnedData = [];
+    if ($data->currentPage() == 1 && !empty($pinned)) {
+      $pinnedData = DB::table('tickets')
+        ->join('reasons', 'reasons.id', 'tickets.reason_id')
+        ->leftJoin('users AS u', 'u.id', 'tickets.new_user_id')
+        ->leftJoin('users AS m', 'm.id', 'tickets.new_manager_id')
+        ->leftJoin('bx_crms AS bxc', 'bxc.id', 'tickets.crm_id')
+        ->leftJoin(
+          'participants',
+          fn($q) => $q->on('participants.ticket_id', 'tickets.id')
+            ->where('participants.user_id', $user_id)
+        )
+        ->leftJoin(
+          'messages',
+          fn($q) => $q->on('messages.ticket_id', 'tickets.id')
+            ->whereRaw('messages.id IN (SELECT MAX(m.id) FROM messages m join tickets t on t.id = m.ticket_id GROUP BY t.id)')
+        )
+        ->leftJoin(
+          'hidden_chat_messages',
+          fn($q) => $q->on('hidden_chat_messages.ticket_id', 'tickets.id')
+            ->whereNotIn('hidden_chat_messages.new_user_id', [0, 1])
+            ->whereRaw('hidden_chat_messages.id IN (SELECT MAX(m.id) FROM hidden_chat_messages m join tickets t on t.id = m.ticket_id GROUP BY t.id)')
+        )
+        // ->when(!empty($pinned), fn($q) => $q->whereRaw("tickets.id IN ({$pinned})"))
+        ->whereRaw("tickets.id IN ({$pinned})")
+        ->whereNotIn('tickets.id', array_map(fn($d) => $d->tid, $data->all()))
+        ->select(
+          'tickets.*',
+          'tickets.id AS tid',
+          'reasons.name AS reason',
+          'messages.new_user_id AS last_message_user_id',
+          'messages.created_at AS last_message_date',
+          'hidden_chat_messages.created_at AS last_system_message_date',
+          'bxc.name AS bx_name',
+          'bxc.acronym AS bx_acronym',
+          'bxc.domain AS bx_domain',
+        )->get()->toArray();
+    }
+
     $search = UserTrait::search();
     $users_collection = array();
 
@@ -118,7 +160,9 @@ class TicketController extends Controller
     }
     unset($search);
 
-    $all_ids = array_merge(...array_map(fn($t) => [$t->new_user_id, $t->new_manager_id], $data->all()));
+    $all_data = array_merge($data->all(), $pinnedData);
+
+    $all_ids = array_merge(...array_map(fn($t) => [$t->new_user_id, $t->new_manager_id], $all_data));
     $users_with_emails = DB::table('users')
       ->leftJoin('bx_users', 'bx_users.user_id', 'users.id')
       ->whereIn('users.id', array_values(array_unique($all_ids)))
@@ -127,6 +171,14 @@ class TicketController extends Controller
     unset($all_ids);
 
     foreach ($data as $ticket) {
+      $u = $users_with_emails->where('id', $ticket->new_user_id)->first();
+      $m = $users_with_emails->where('id', $ticket->new_manager_id)->first();
+      $ticket->user = $users_collection[@$u->email]
+        ?? UserTrait::tryToDefineUserEverywhere($u->crm_id, $u->email);
+      $ticket->manager = $users_collection[@$m->email]
+        ?? UserTrait::tryToDefineUserEverywhere($m->crm_id, $m->email);
+    }
+    foreach ($pinnedData as $ticket) {
       $u = $users_with_emails->where('id', $ticket->new_user_id)->first();
       $m = $users_with_emails->where('id', $ticket->new_manager_id)->first();
       $ticket->user = $users_collection[@$u->email]
@@ -150,6 +202,7 @@ class TicketController extends Controller
       'status' => count($checksum) == 0,
       'checksum' => $checksum,
       'data' => TicketResource::collection($data)->response()->getData(),
+      'pinned' => TicketResource::collection($pinnedData)->response()->getData(),
       'message' => $message
     ]);
   }
@@ -269,7 +322,7 @@ class TicketController extends Controller
       'ticket' => $resource,
     ]);
     $message = "Новый тикет №{$ticket->id}\nТема: {$ticket->reason}\nСоздатель: {$ticket->user->name}";
-    TicketTrait::SendNotification($data['new_manager_id'], $message, $ticket->id);
+    TicketTrait::SendNotification($data['new_manager_id'], $message, $ticket->id, $reason->call_required);
     HiddenChatMessage::create([
       'content' => 'Тикет создан',
       'user_crm_id' => 0,
@@ -443,6 +496,12 @@ class TicketController extends Controller
           $manager = $result['new_manager'];
         }
       }
+    }
+    if (isset($validated['incompetence'])) {
+      $ticket->incompetence = $validated['incompetence'];
+    }
+    if (isset($validated['technical_problem'])) {
+      $ticket->technical_problem = $validated['technical_problem'];
     }
 
     $ticket->fill($validated);

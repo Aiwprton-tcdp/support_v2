@@ -22,7 +22,9 @@ class UpdateResolvedTicketRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'reason_id' => 'required|int|min:1',
+            'reason_id' => 'sometimes|required|int|min:1',
+            'incompetence' => 'sometimes|required|boolean',
+            'technical_problem' => 'sometimes|required|boolean',
         ];
     }
 }

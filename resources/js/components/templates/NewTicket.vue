@@ -1,13 +1,18 @@
 <script>
-import { inject } from 'vue'
+import { inject, defineAsyncComponent } from 'vue'
 import { Button as VueButton, Input as VueInput } from 'flowbite-vue'
 import { mask } from 'vue-the-mask'
 
 import { StringVal, FormatLinks, FormatDateTime } from '@utils/validation.js'
 
+const TheCallIsRequiredModal = defineAsyncComponent(() => import('@temps/NewTicket/TheCallIsRequiredModal.vue'))
+
 export default {
   name: 'NewTicket',
-  components: { VueButton, VueInput },
+  components: {
+    VueButton, VueInput,
+    TheCallIsRequiredModal
+  },
   directives: { mask },
   data() {
     return {
@@ -20,6 +25,10 @@ export default {
       CreatingMessage: String(),
       AnyDeskAddress: String(),
       VITE_APP_URL: String(import.meta.env.VITE_APP_URL),
+      instructions: Array(),
+      checkedInstructions: Array(),
+      reasons: Array(),
+      reason: String(),
     }
   },
   setup() {
@@ -30,9 +39,32 @@ export default {
   },
   mounted() {
     this.AddMessage('Это предварительный формат диалога!!!')
-    this.AddMessage('Опишите суть проблемы в поле для ввода сообщения')
+    this.AddMessage('Кратко опишите суть проблемы в поле для ввода сообщения')
+
+    document.addEventListener('click', e => {
+      if (e.target.nodeName == 'A') {
+        const url = e.target.href;
+        this.instructions.forEach((i, key) => {
+          if (url == encodeURI(i) && !this.checkedInstructions.includes(key)) {
+            this.checkedInstructions.push(key);
+            console.log('checked: %d', this.checkedInstructions.length);
+            console.table(this.checkedInstructions);
+          }
+        });
+      }
+    });
+    this.GetReasonsWhenCallIsRequired();
   },
   methods: {
+    GetReasonsWhenCallIsRequired() {
+      this.ax.get('reasons?call_required=true').then(r => {
+        this.reasons = r.data.data.data;
+        this.reasons.forEach(r => r.call_required = r.call_required == 1);
+      }).catch(e => {
+        this.toast(e.response.data.message, 'error');
+        this.errored = true;
+      });
+    },
     Check() {
       if (this.waiting) return
       this.waiting = true
@@ -56,7 +88,7 @@ export default {
       SystemMessages.forEach((m, key) => setTimeout(() => {
         this.AddMessage(m)
         this.waiting = key < SystemMessages.length - 1
-      }, key * 250))
+      }, key * 100))
       this.WasFirstTouch = true
     },
     AddMessage(message, current = false) {
@@ -80,28 +112,71 @@ export default {
           this.toast(r.data.message, 'error');
         }
 
-        if (r.data.data.name != 'Настройка стационарного телефона') {
+        this.reason = r.data.data.name;
+        if (this.reason == 'Неопределённая тема') {
           this.waiting = false;
-          this.GoToAnyDeskAdding();
-          return;
+          return this.reformulationRequesting(message);
         }
 
-        const SystemMessages = [
-          'Перед тем, как завершить создание тикета, необходимо ознакомиться с предложенными ниже инструкциями',
-          `<a href="${this.VITE_APP_URL}/storage/Настройка стационарного телефона.pdf" target="_blank">Инструкция</a>`,
-          'Если инструкции не помогли решить Вашу проблему, продолжите процесс создания тикета',
-        ];
+        if (this.reasons.filter(r => r.name == this.reason).length > 0) {
+          return this.ShowTheCallIsRequiredModal();
+          // this.AddMessage('<b>По данной теме можно позвонить менеджеру ТП по внутренней связи на номер <i>112</i></b>');
+        }
 
-        this.AddMessage(FormatLinks(message), true);
-        SystemMessages.forEach((m, key) => setTimeout(() => {
-          this.AddMessage(m);
-          this.waiting = key < SystemMessages.length - 1;
-        }, key * 250));
-        
-        this.hintsShowed = true;
+        return this.GoToNext();
       }).catch(e => {
         this.toast(e.response.data.message, 'error');
       }).finally(() => this.waiting = false);
+    },
+    GoToNext() {
+      if (this.reason != 'Настройка стационарного телефона') {
+        this.waiting = false;
+        return this.GoToAnyDeskAdding();
+      }
+
+      let SystemMessages = [
+        'Перед тем, как завершить создание тикета, необходимо ознакомиться с предложенными ниже инструкциями',
+        // '<b>Также по данной теме можно позвонить менеджеру ТП по внутренней связи на номер <i>112</i></b>',
+        // `<a href="${this.VITE_APP_URL}/storage/Настройка стационарного телефона.pdf" target="_blank"><b>Инструкция</b></a>`,
+        // 'Если инструкции не помогли решить Вашу проблему, продолжите процесс создания тикета',
+      ];
+
+      this.getInstructions();
+      this.instructions.forEach((i, key) => {
+        SystemMessages.push(`<a href="${i}" target="_blank">Инструкция ${key + 1}</a>`);
+      });
+      SystemMessages.push('Если инструкции не помогли решить Вашу проблему, продолжите процесс создания тикета');
+
+      this.AddMessage(FormatLinks(this.CreatingMessage.trim()), true);
+      SystemMessages.forEach((m, key) => setTimeout(() => {
+        this.AddMessage(m);
+        this.waiting = key < SystemMessages.length - 1;
+      }, key * 100));
+
+      this.hintsShowed = true;
+    },
+    getInstructions() {
+      // console.log(this.reason);
+      // this.ax.get(`instructions?reason_name=${this.reason}`).then(r => {
+      //   this.instructions = r.data.data.data;
+      //   console.log(this.instructions);
+      //   this.instructions.forEach(i => i.link = `${this.VITE_APP_URL}${i.link}`);
+      //   console.log(this.instructions);
+      // }).catch(e => {
+      //   this.toast(e.response.data.message, 'error');
+      // });
+      this.instructions = [
+        `${this.VITE_APP_URL}/storage/Настройка стационарного телефона.pdf`,
+        // `${this.VITE_APP_URL}/storage/Настройка стационарного телефона1.pdf`,
+        // `${this.VITE_APP_URL}/storage/Настройка стационарного телефона2.pdf`,
+        // `${this.VITE_APP_URL}/storage/Настройка стационарного телефона3.pdf`,
+        // `${this.VITE_APP_URL}/storage/Настройка стационарного телефона4.pdf`,
+        // `${this.VITE_APP_URL}/storage/Настройка стационарного телефона5.pdf`,
+      ];
+    },
+    reformulationRequesting(message) {
+      this.AddMessage(FormatLinks(message), true);
+      setTimeout(() => this.AddMessage('Не удаётся определить проблему. Попробуйте указать иную формулировку.'), 100);
     },
     GoToAnyDeskAdding() {
       if (this.waiting) return
@@ -117,6 +192,7 @@ export default {
         this.AddMessage(FormatLinks(message), true);
       }
       this.AddMessage('Укажите адрес AnyDesk, чтобы в перспективе ускорить решение проблемы')
+      console.table(this.checkedInstructions);
 
       this.HasAnyDeskAddress = true
       this.CreatingMessage = message
@@ -152,41 +228,35 @@ export default {
         el.scrollTop = el.scrollHeight
       }, 1)
     },
+    ShowTheCallIsRequiredModal() {
+      this.$refs.TheCallIsRequired.visible = true;
+    },
   }
 }
 </script>
 
 <template>
   <div id="messages"
-    class="custom-chat-bg flex flex-col gap-1 h-full w-full content-end py-1 px-2 overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch">
-    <template v-for="m in messages" v-bind:key="m">
-      <div v-if="m.current" class="chat-message">
-        <div class="flex items-end justify-end">
-          <div class="flex flex-col space-y-2 text-sm max-w-sm mx-2 order-1 items-end text-right opacity-90">
-            <span
-              class="flex flex-col px-4 py-2 rounded-lg inline-block rounded-br-none bg-indigo-300 whitespace-pre-wrap dark:text-gray-900 dark:bg-indigo-400">
-              <span v-html="m.content"></span>
-              <span class="text-xs font-light tracking-tighter text-gray-500 dark:text-gray-600">
-                {{ m.created_at }}
+    class="custom-chat-bg flex flex-col h-full w-full content-end py-1 px-2 overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch">
+    <TransitionGroup name="list" tag="ul">
+      <div v-for="m in messages" :key="m" class="my-1">
+        <div class="chat-message">
+          <div class="flex items-end" :class="{ 'justify-end': m.current }">
+            <div class="flex flex-col space-y-2 text-sm max-w-sm mx-2 opacity-90"
+              :class="m.current ? 'order-1 items-end text-right' : 'order-2 items-start text-left'">
+              <span class="flex flex-col px-4 py-2 rounded-lg" :class="m.current ? 'rounded-br-none bg-indigo-300 whitespace-pre-wrap dark:text-gray-900 dark:bg-indigo-400' :
+                'rounded-bl-none bg-gray-50 whitespace-pre-wrap dark:text-gray-900 dark:bg-gray-300'">
+                <span v-html="m.content"></span>
+                <span class="text-xs font-light tracking-tighter"
+                  :class="m.current ? 'text-gray-500 dark:text-gray-600' : 'text-gray-400 dark:text-gray-500'">
+                  {{ m.created_at }}
+                </span>
               </span>
-            </span>
+            </div>
           </div>
         </div>
       </div>
-      <div v-else class="chat-message">
-        <div class="flex items-end">
-          <div class="flex flex-col space-y-2 text-sm max-w-sm mx-2 order-2 items-start text-left opacity-90">
-            <span
-              class="flex flex-col px-4 py-2 rounded-lg inline-block rounded-bl-none bg-gray-50 whitespace-pre-wrap dark:text-gray-900 dark:bg-gray-300">
-              <span v-html="m.content"></span>
-              <span class="text-xs font-light tracking-tighter text-gray-400 dark:text-gray-500">
-                {{ m.created_at }}
-              </span>
-            </span>
-          </div>
-        </div>
-      </div>
-    </template>
+    </TransitionGroup>
   </div>
 
   <!-- Message sending block -->
@@ -231,4 +301,9 @@ export default {
       </VueButton>
     </div>
   </div>
+
+  <!-- Modals -->
+  <Teleport to="body">
+    <TheCallIsRequiredModal ref="TheCallIsRequired" />
+  </Teleport>
 </template>

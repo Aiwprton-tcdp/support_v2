@@ -1,14 +1,12 @@
 <script>
 import { inject } from 'vue'
-import { Button as VueButton, Input as VueInput } from 'flowbite-vue'
+import { Input as VueInput } from 'flowbite-vue'
 
 import { StringVal } from '@utils/validation.js'
 
 export default {
   name: 'TemplateMessagesComponent',
-  components: {
-    VueButton, VueInput
-  },
+  components: { VueInput },
   data() {
     return {
       AllMessages: Array(),
@@ -34,6 +32,12 @@ export default {
       this.ax.get('template_messages').then(r => {
         this.AllMessages = r.data.data.data
         this.Messages = this.AllMessages
+
+        const ids = JSON.parse(localStorage.getItem('support_pinned_template_messages'));
+        new Set(Array.from(ids ?? [])).forEach(this.PreparePinned);
+        this.$parent.templateMessages = this.Messages;
+        this.$parent.pinnedTemplateMessages = this.Messages.filter(m => m.pinned);
+        this.$parent.filteredTemplateMessages = this.Messages.filter(m => m.pinned);
       })
     },
     Create() {
@@ -122,6 +126,32 @@ export default {
     Use(message) {
       this.emitter.emit('UseTemplateMessage', message)
     },
+    Pin(id) {
+      const ids = JSON.parse(localStorage.getItem('support_pinned_template_messages'));
+      const data = new Set(Array.from(ids ?? []));
+
+      const map = this.Messages.map(t => t.id);
+      Array.from(ids ?? []).filter(i => !map.includes(i)).forEach(i => data.delete(i));
+
+      const index = this.Messages.findIndex(t => t.id == id);
+      const need_to_pin = data.has(id) && this.Messages[index].pinned;
+
+      if (need_to_pin) {
+        this.PreparePinned(id, !need_to_pin);
+        data.delete(id);
+      } else if (!data.has(id) || !this.Messages[index].pinned) {
+        data.add(id);
+      }
+
+      this.PreparePinned(id, !need_to_pin);
+      localStorage.setItem('support_pinned_template_messages', JSON.stringify(Array.from(data)));
+    },
+    PreparePinned(id, need_to_pin = true) {
+      const index = this.Messages.findIndex(t => t.id == id);
+      if (index < 0) return;
+      this.Messages[index].pinned = need_to_pin;
+      this.Messages = this.Messages.sort((t1, t2) => t2?.pinned ?? false - t1?.pinned ?? false)
+    },
   }
 }
 </script>
@@ -129,7 +159,7 @@ export default {
 <template>
   <div v-if="Messages.length > 0"
     class="max-h-[30vh] max-w-full gap-1 z-1 content-end py-1 px-2 overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch">
-    <template v-for="(m, key) in Messages" v-bind:key="key">
+    <template v-for="m in Messages" :key="m.id">
       <div class="border-lg shadow-md p-1 max-w-full">
         <div v-if="editing && PatchingId == m.id" class="flex gap-1">
           <VueInput @keydown.ctrl.enter.exact="Patch()" v-model="PatchingName" v-focus placeholder="Введите сообщение"
@@ -149,8 +179,18 @@ export default {
           </div>
         </div>
         <div v-else class="flex gap-1">
+          <div @click="Pin(m.id)" :class="m.pinned ? '' : 'opacity-30'"
+            class="inline-flex items-center justify-center cursor-pointer">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"
+              class="w-4 h-4"
+              :class="m.pinned ? 'text-blue-500 hover:text-blue-400' : 'text-gray-400 hover:text-gray-600 dark:text-gray-100 dark:hover:text-gray-300'">
+              <title>{{ m.pinned ? 'Открепить' : 'Закрепить' }}</title>
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+            </svg>
+          </div>
           <p @click="Use(m.content)" class="cursor-pointer hover:text-sky-500 break-all">
-            {{ key + 1 }}. {{ m.content }}
+            {{ m.id + 1 }}. {{ m.content }}
           </p>
           <div @click="editing = true; PatchingId = m.id; PatchingName = m.content" class="cursor-pointer"
             title="Редактировать шаблон">

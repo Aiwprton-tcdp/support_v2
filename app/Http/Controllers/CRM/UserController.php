@@ -14,6 +14,7 @@ class UserController extends Controller
   public function check()
   {
     $token = request('token');
+    // dd($token, request('auth'), request('sid'));
     if (isset($token) && empty(request('auth'))) {
       if (Auth::guest()) {
         return $this->checkByToken($token);
@@ -22,13 +23,13 @@ class UserController extends Controller
       }
     }
 
-    if (empty($token) || $token == 'null') {
-      return response()->json([
-        'status' => false,
-        'data' => null,
-        'message' => 'Token is invalid'
-      ]);
-    }
+    // if (empty($token) || $token == 'null') {
+    //   return response()->json([
+    //     'status' => false,
+    //     'data' => null,
+    //     'message' => 'Token is invalid'
+    //   ]);
+    // }
 
     // dd(request('sid')['DOMAIN']);
     $domain = request('sid')['DOMAIN'];
@@ -70,12 +71,15 @@ class UserController extends Controller
 
     $user = [
       'crm_id' => $data['ID'],
+      'gender' => $data['PERSONAL_GENDER'] == 'F' ? 'ж' : 'м',
       'name' => trim($data['LAST_NAME'] . " " . $data['NAME'] . " " . $data['SECOND_NAME']),
       'avatar' => $data['PERSONAL_PHOTO'] ?? null,
       'email' => $data['EMAIL'],
       'post' => trim($data['WORK_POSITION'] ?? null),
       'departments' => $data['UF_DEPARTMENT'] ?? [],
       'inner_phone' => $data['UF_PHONE_INNER'] ?? 0,
+      'personal_phone' => trim($data['PERSONAL_PHONE']),
+      'work_phone' => trim($data['WORK_PHONE']),
     ];
 
     $auth = User::firstOrNew([

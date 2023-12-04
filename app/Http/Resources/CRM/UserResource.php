@@ -22,6 +22,8 @@ class UserResource extends JsonResource
             'post' => trim(@$this['WORK_POSITION']),
             'departments' => $this['UF_DEPARTMENT'] ?? 0,
             'inner_phone' => $this['UF_PHONE_INNER'] ?? 0,
+            'personal_phone' => trim(@$this['PERSONAL_PHONE']),
+            'work_phone' => trim(@$this['WORK_PHONE']),
         ];
     }
 }

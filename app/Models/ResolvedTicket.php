@@ -19,6 +19,8 @@ class ResolvedTicket extends Model
     'reason_id',
     'weight',
     'mark',
+    'incompetence',
+    'technical_problem',
     'created_at',
   ];
 

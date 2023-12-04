@@ -30,10 +30,10 @@ class MessageController extends Controller
             ->leftJoin('resolved_tickets AS rt', 'rt.crm_id', 'bx_crms.id')
             ->where('tickets.id', $ticket_id)
             ->orWhere('rt.old_ticket_id', $ticket_id)
-            ->first()->app_domain;
+            ->first();
 
         foreach ($data as $d) {
-            $d->attachments_domain = $app_domain;
+            $d->attachments_domain = @$app_domain->app_domain;
         }
 
         return response()->json([
