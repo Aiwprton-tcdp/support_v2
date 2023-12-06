@@ -15,16 +15,22 @@ class InstructionController extends Controller
     public function index()
     {
         $reason_id = intval($this->prepare(request('reason_id')));
-        $reason_name = intval($this->prepare(request('reason_name')));
+        $reason_name = $this->prepare(request('reason_name'));
         $ticket_id = intval($this->prepare(request('ticket_id')));
 
-        $data = \Illuminate\Support\Facades\DB::table('instructions')
-            ->leftJoin('checked_instructions', 'checked_instructions.instruction_id', 'instructions.id')
-            ->join('reasons', 'reasons.id', 'instructions.reason_id')
+        $data = Instruction::join('reasons', 'reasons.id', 'instructions.reason_id')
+            ->when(empty($ticket_id), fn($q) => $q->leftJoin('checked_instructions', 'checked_instructions.instruction_id', 'instructions.id'))
+            ->when(
+                !empty($ticket_id),
+                fn($q) => $q->leftJoin(
+                    'checked_instructions',
+                    fn($q) => $q->on('checked_instructions.instruction_id', 'instructions.id')
+                        ->where('checked_instructions.ticket_id', $ticket_id)
+                )
+            )
             ->when(!empty($reason_id), fn($q) => $q->where('instructions.reason_id', $reason_id))
             ->when(!empty($reason_name), fn($q) => $q->where('reasons.name', $reason_name))
-            ->when(!empty($ticket_id), fn($q) => $q->where('checked_instructions.ticket_id', $ticket_id))
-            ->select('instructions.*')
+            ->selectRaw('instructions.*, checked_instructions.id AS ciid')
             ->get();
 
         return response()->json([

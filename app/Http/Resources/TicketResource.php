@@ -33,6 +33,7 @@ class TicketResource extends JsonResource
             'reason' => $this->reason,
             'user' => $this->user,
             'manager' => $this->manager,
+            'important_reason' => @$this->important_reason,
             // 'last_message_crm_id' => $this->last_message_crm_id,
             'last_message_user_id' => $this->last_message_user_id,
             'last_message_date' => $this->last_message_date,

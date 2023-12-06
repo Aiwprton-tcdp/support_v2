@@ -160,6 +160,103 @@ trait TicketTrait
     return $responsive_id;
   }
 
+  /**
+   * Выбираем по очереди, без учёта количества
+   */
+  public static function selectResponsiveIdByMoronicDistributionType($managers): int
+  {
+    //TODO получить последний тикет из тех, гед ответственный входит в список $managers
+    //TODO (не менять порядок!) придумать логику автономной очерёдности
+    //TODO вернуть следующего по этой очерёдности менеджера
+
+
+    // dd($managers);
+    $user_ids = array_values(array_unique(array_map(fn($e) => $e['user_id'], $managers)));
+    // dd($user_ids);
+
+    $last_resolved_ticket = \App\Models\ResolvedTicket::whereIn('new_manager_id', $user_ids)
+      ->orderByDesc('old_ticket_id')->first();
+    $last_ticket = Ticket::whereIn('new_manager_id', $user_ids)
+      ->orderByDesc('id')->first();
+
+    if (!isset($last_resolved_ticket) || !isset($last_ticket)) {
+      $manager_id_from_last_ticket = $user_ids[0];
+    } elseif ($last_resolved_ticket->old_ticket_id > $last_ticket->id) {
+      $manager_id_from_last_ticket = $last_resolved_ticket->new_manager_id;
+    } else {
+      $manager_id_from_last_ticket = $last_ticket->new_manager_id;
+    }
+
+    $key = array_search($manager_id_from_last_ticket, $user_ids);
+    $actual_manager_id = $user_ids[(count($user_ids) > $key + 1) ? ($key + 1) : 0];
+
+    return $actual_manager_id;
+    // dd($manager_id_from_last_ticket, $actual_manager_id, $key, $user_ids);
+
+    // $last_ticket = Ticket::join('users', 'users.id', 'tickets.new_user_id')
+    //   ->selectRaw('users.email, COUNT(tickets.id) AS count')
+    //   ->union($resolved_tickets)
+    //   ->groupBy('email')
+    //   ->orderBy('email')
+    //   ->get()->toArray();
+    // $data = DB::table('tickets')
+    //   ->join('managers', 'managers.user_id', 'tickets.new_manager_id')
+    //   ->leftJoin(
+    //     'messages',
+    //     fn($q) => $q
+    //       ->on('messages.ticket_id', 'tickets.id')
+    //       ->whereRaw('messages.id IN (SELECT MAX(m2.id) FROM messages as m2 join tickets as t2 on t2.id = m2.ticket_id GROUP BY t2.id)')
+    //   )
+    //   ->where('tickets.active', true)
+    //   ->whereIn('tickets.new_manager_id', $user_ids)
+    //   ->whereNotIn('messages.new_user_id', $user_ids)
+    //   ->select(
+    //     'tickets.id',
+    //     'tickets.weight',
+    //     'tickets.new_manager_id',
+    //     'messages.id',
+    //     'messages.new_user_id AS last_message_user_id'
+    //   )
+    //   ->get()->toArray();
+
+    // if (count($data) == 0) {
+    //   return 0;
+    // } elseif (count($data) < count($user_ids)) {
+    //   foreach ($data as $ticket) {
+    //     $key = array_search($ticket->new_manager_id, $user_ids);
+    //     // var_dump($key === false);
+    //     // if ($key === false) {
+    //     //   return 0;
+    //     // } else {
+    //     //   unset($user_ids[$key]);
+    //     // }
+    //     if ($key === true) {
+    //       unset($user_ids[$key]);
+    //     }
+    //   }
+
+    //   return intval(array_values($user_ids)[0]);
+    // }
+
+    // $sums = array();
+    // foreach ($user_ids as $id) {
+    //   $sums[$id] = 0;
+    // }
+    // foreach ($data as $value) {
+    //   if (array_key_exists($value->new_manager_id, $sums)) {
+    //     $sums[$value->new_manager_id] += $value->weight;
+    //   } else {
+    //     $sums[$value->new_manager_id] = $value->weight;
+    //   }
+    // }
+
+    // $responsive_ids = array_keys($sums, min($sums));
+
+    // $responsive_id = count($responsive_ids) > 0 ? $responsive_ids[0] : $responsive_ids;
+
+    // return $responsive_id;
+  }
+
   public static function SaveAttachment($message_id, $content, $app_domain, $prefix)
   {
     if (env('APP_URL') != $app_domain) {

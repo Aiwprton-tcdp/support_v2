@@ -14,7 +14,8 @@ return new class extends Migration {
             $table->id();
             $table->text('name');
             $table->text('content');
-            $table->foreignId('reason_id')->constrained();
+            $table->unsignedInteger('reason_id')->constrained('reasons')->nullOnDelete();
+            // $table->foreignId('reason_id')->constrained();
             $table->timestamps();
             $table->softDeletes();
         });

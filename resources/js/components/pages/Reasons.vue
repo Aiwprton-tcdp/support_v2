@@ -62,11 +62,11 @@ export default {
     },
     GetGroups() {
       this.ax.get('groups').then(r => {
-        this.groups = r.data.data.data
-        this.groups.map(g => g.value = g.id)
+        this.groups = r.data.data.data;
+        this.groups.map(g => g.value = g.id);
       }).catch(e => {
-        this.toast(e.response.data.message, 'error')
-      })
+        this.toast(e.response.data.message, 'error');
+      });
     },
     Create() {
       const name = this.NewReasonName.trim()
@@ -172,6 +172,9 @@ export default {
     ShowReasonPatchModal(reason) {
       this.$refs.ReasonPatch.visible = true;
       this.$refs.ReasonPatch.reason = reason;
+      this.$refs.ReasonPatch.groups = this.groups;
+      this.$refs.ReasonPatch.getInstructions();
+      this.$refs.ReasonPatch.setPatchingDefaults();
     },
   }
 }

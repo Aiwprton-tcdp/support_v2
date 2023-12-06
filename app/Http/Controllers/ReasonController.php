@@ -42,7 +42,7 @@ class ReasonController extends Controller
                 fn($q) => $q->where('id', $id)->orWhereRaw('LOWER(name) LIKE ?', ["%{$name}%"])
             )
             ->when(
-                isset($is_call_required) && !empty($is_call_required),
+                $is_call_required == 'true',
                 fn($q) => $q->where('call_required', $call_required)
             )
             ->paginate($limit < 1 ? 100 : $limit);

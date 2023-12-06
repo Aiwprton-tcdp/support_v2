@@ -195,17 +195,21 @@ export default {
         if (!r.data.status) {
           this.toast(r.data.message, 'warning');
         }
-        console.log(this.ticket);
+        this.emitter.emit('PatchTicket', r.data.data)
+        // const index = this.$parent.$parent.AllTickets.findIndex(t => t.id == this.ticket.id);
+        // if (index > -1) {
+        //   this.$parent.$parent.AllTickets[index] = this.ticket;
+        // }
       }).catch(e => {
         this.toast(e.response.data.message, 'error');
       });
     },
-    ChangeReason(reason_id) {
+    ChangeReason(data) {
       // if (!window.confirm("Вы уверены, что хотите сменить тему?")) {
       //   return
       // }
 
-      this.ax.patch(`tickets/${this.ticket.id}`, { reason_id }).then(r => {
+      this.ax.patch(`tickets/${this.ticket.id}`, { reason_id: data.id }).then(r => {
         if (!r.data.status) {
           this.toast(r.data.message, 'warning')
         }
@@ -223,6 +227,17 @@ export default {
         if (!r.data.status) {
           this.toast(r.data.message, 'warning');
         }
+        this.emitter.emit('PatchArchivedTicket', r.data.data)
+        // console.log(this.$parent.$parent.$parent);
+        // console.log(this.$parent.$parent.$parent.$parent);
+        // console.log(this.$parent.$parent.$parent.AllTickets);
+        // const index = this.$parent.$parent.$parent.AllTickets.findIndex(t => t.id == this.ticket.id);
+        // console.log(index);
+        // console.log(this.$parent.$parent.$parent.AllTickets[index]);
+        // if (index > -1) {
+        //   this.$parent.$parent.$parent.AllTickets[index] = this.ticket;
+        // }
+        // console.log(this.$parent.$parent.$parent.AllTickets[index]);
       }).catch(e => {
         this.toast(e.response.data.message, 'error');
       });
@@ -239,7 +254,8 @@ export default {
           this.toast(r.data.message, 'warning')
         }
         this.EditReason = false
-        this.emitter.emit('PatchTicket', r.data.data)
+        this.emitter.emit('PatchArchivedTicket', r.data.data)
+        // this.emitter.emit('PatchTicket', r.data.data)
         this.toast(r.data.message, 'success')
       }).catch(e => {
         this.toast(e.response.data.message, 'error')
@@ -386,12 +402,12 @@ export default {
         <p class="text-sm text-gray-400">Внутренний номер: {{ ticket.user.inner_phone }}</p>
       </template>
 
-      <template v-if="ticket.user.personal_phone.length > 0">
+      <template v-if="ticket.user.personal_phone?.length > 0">
         <p class="text-sm text-gray-400">Личный номер: {{ ticket.user.personal_phone.replaceAll(/[A-zА-яЁё]*/gms, '') }}
         </p>
       </template>
 
-      <template v-if="ticket.user.work_phone.length > 0">
+      <template v-if="ticket.user.work_phone?.length > 0">
         <p class="text-sm text-gray-400">Рабочий номер: {{ ticket.user.work_phone.replaceAll(/[A-zА-яЁё]*/gms, '') }}</p>
       </template>
     </div>

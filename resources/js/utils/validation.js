@@ -17,9 +17,9 @@ export const StringVal = (data, min = 3, max = 150) => {
   return { status, message }
 }
 
-export const FormatLinks = data => {
-  const pattern = /(https?:\/\/[А-яA-z0-9 ._-]+\/([A-z0-9 ._-]+\/)+(\?id=\d+)?)/g
-  const replacement = '<a href="$1" target="_blank">$1</a>   '
+export const FormatLinks = (data, hide_links = false) => {
+  const pattern = /(https?:\/\/(?:[A-zА-яЁё0-9 ._-]+\/)+(?:\?id=\d+)?(?:[^.:]+\.[A-z]{1,5})?)/g
+  const replacement = `<a href="$1" target="_blank">${hide_links ? 'Ссылка' : '$1' }</a>   `
   return data.replaceAll(pattern, replacement)
 }
 

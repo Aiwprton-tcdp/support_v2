@@ -108,7 +108,8 @@ export default {
           return config;
         })
       }).catch(e => {
-        this.createToast(e.response.data.message, 'error');
+        console.log(e?.response?.data?.message ?? e.message);
+        // this.createToast(e.response.data.message, 'error');
       });
     },
     goToLogin() {

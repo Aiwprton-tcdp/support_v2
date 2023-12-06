@@ -42,7 +42,9 @@ export default {
     }
   },
   mounted() {
-    this.Get(++this.page)
+    this.Get(++this.page);
+
+    this.emitter.on('PatchArchivedTicket', this.PatchTicket);
   },
   methods: {
     Get(page = 1) {
@@ -68,6 +70,12 @@ export default {
             this.TicketsUnion(r.data.data.data)
           }
         }
+
+        this.AllTickets.forEach(t => {
+          t.incompetence = t.incompetence == 1;
+          t.technical_problem = t.technical_problem == 1;
+        });
+
         this.tickets = this.AllTickets
       }).catch(e => {
         if (e.response.status == 401) {
@@ -119,6 +127,15 @@ export default {
       } else {
         this.CurrentTicket = { ...t }
         this.$router.push({ name: 'archive_ticket', params: { id: t.old_ticket_id } })
+      }
+    },
+    PatchTicket(data) {
+      const index = this.AllTickets.findIndex(({ id }) => id == data.id);
+      if (index > -1) {
+        this.AllTickets[index].reason = data.reason;
+        this.AllTickets[index].reason_id = data.reason_id;
+        this.AllTickets[index].incompetence = data.incompetence;
+        this.AllTickets[index].technical_problem = data.technical_problem;
       }
     },
     Search() {
@@ -212,28 +229,28 @@ export default {
 
     <div v-else id="archive" @scroll="onScroll"
       class="flex flex-col max-h-[calc(100vh-55px)] divide-y overflow-y-auto overscroll-none scrollbar-thumb-blue scrollbar-thumb-rounded scrollbar-track-blue-lighter scrollbar-w-2 scrolling-touch">
-      <TransitionGroup name="list" tag="ul">
-        <div v-for="t in tickets" v-bind:key="t" class="p-1"
-          :class="t.old_ticket_id == CurrentTicket?.old_ticket_id ? 'bg-blue-200 dark:bg-blue-500' : 'bg-white hover:bg-gray-100 dark:bg-gray-600 dark:hover:bg-gray-800'">
-          <div @click.self="GoTo(t)" class="flex flex-row items-center w-full gap-2 cursor-pointer">
-            <a :href="VITE_CRM_URL + 'company/personal/user/' + (UserData.user_id == t.user_id ? t.manager_crm_id : t.user_crm_id) + '/'"
-              target="_blank" class="relative">
-              <Avatar rounded size="sm" alt="avatar" :title="UserData.user_id == t.user_id ? t.manager.name : t.user.name"
-                :img="(UserData.user_id == t.user_id ? t.manager.avatar : t.user.avatar) ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
-              <div v-if="!VITE_CRM_URL.includes(t.bx_domain)" :title="t.bx_name"
-                class="absolute inline-flex items-center justify-center w-full h-4 text-xs font-bold text-white bg-red-500 border-2 border-white rounded-full -bottom-2 dark:border-gray-900">
-                {{ t.bx_acronym }}
-              </div>
-            </a>
-            <div @click="GoTo(t)" class="max-w-[80%] flex flex-col cursor-pointer">
-              <p class="truncate" :title="UserData.user_id == t.user_id ? t.manager.name : t.user.name">
-                {{ UserData.user_id == t.user_id ? t.manager.name : t.user.name }}
-              </p>
-              <p class="truncate" :title="t.reason">{{ t.reason }}</p>
+      <!-- <TransitionGroup name="list" tag="ul"> -->
+      <div v-for="t in tickets" :key="t" class="p-1"
+        :class="t.old_ticket_id == CurrentTicket?.old_ticket_id ? 'bg-blue-200 dark:bg-blue-500' : 'bg-white hover:bg-gray-100 dark:bg-gray-600 dark:hover:bg-gray-800'">
+        <div @click.self="GoTo(t)" class="flex flex-row items-center w-full gap-2 cursor-pointer">
+          <a :href="VITE_CRM_URL + 'company/personal/user/' + (UserData.user_id == t.user_id ? t.manager_crm_id : t.user_crm_id) + '/'"
+            target="_blank" class="relative">
+            <Avatar rounded size="sm" alt="avatar" :title="UserData.user_id == t.user_id ? t.manager.name : t.user.name"
+              :img="(UserData.user_id == t.user_id ? t.manager.avatar : t.user.avatar) ?? 'https://e7.pngegg.com/pngimages/981/645/png-clipart-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-thumbnail.png'" />
+            <div v-if="!VITE_CRM_URL.includes(t.bx_domain)" :title="t.bx_name"
+              class="absolute inline-flex items-center justify-center w-full h-4 text-xs font-bold text-white bg-red-500 border-2 border-white rounded-full -bottom-2 dark:border-gray-900">
+              {{ t.bx_acronym }}
             </div>
+          </a>
+          <div @click="GoTo(t)" class="max-w-[80%] flex flex-col cursor-pointer">
+            <p class="truncate" :title="UserData.user_id == t.user_id ? t.manager.name : t.user.name">
+              {{ UserData.user_id == t.user_id ? t.manager.name : t.user.name }}
+            </p>
+            <p class="truncate" :title="t.reason">{{ t.reason }}</p>
           </div>
         </div>
-      </TransitionGroup>
+      </div>
+      <!-- </TransitionGroup> -->
     </div>
 
     <div class="flex flex-col justify-center h-[calc(100vh-55px)]"

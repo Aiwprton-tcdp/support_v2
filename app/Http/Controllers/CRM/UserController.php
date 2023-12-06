@@ -31,11 +31,10 @@ class UserController extends Controller
     //   ]);
     // }
 
-    // dd(request('sid')['DOMAIN']);
-    $domain = request('sid')['DOMAIN'];
-    if (!isset($domain)) {
+    if (!isset(request('sid')['DOMAIN'])) {
       dd('Ошибка аутентификации: не указан домен');
     }
+    $domain = request('sid')['DOMAIN'];
 
     $bxCrm = \App\Models\BxCrm::firstWhere('domain', $domain);
     // dd($bxCrm);

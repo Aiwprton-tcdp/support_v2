@@ -24,6 +24,7 @@ class StoreTicketRequest extends FormRequest
         return [
             'message' => 'required|string|min:1',
             'anydesk' => 'required|string|min:11|max:13',
+            'checked_instructions.*' => 'required|int|min:1',
         ];
     }
 

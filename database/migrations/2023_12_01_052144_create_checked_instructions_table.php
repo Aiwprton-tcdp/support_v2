@@ -12,8 +12,10 @@ return new class extends Migration {
     {
         Schema::create('checked_instructions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('instruction_id')->constrained();
-            $table->foreignId('ticket_id')->constrained();
+            $table->unsignedInteger('instruction_id')->constrained('instructions')->nullOnDelete();
+            // $table->foreignId('instruction_id')->constrained();
+            $table->unsignedInteger('ticket_id')->constrained('tickets')->nullOnDelete();
+            // $table->foreignId('ticket_id')->constrained();
             $table->timestamps();
         });
     }

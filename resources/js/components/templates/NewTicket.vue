@@ -38,24 +38,34 @@ export default {
     return { toast, emitter }
   },
   mounted() {
-    this.AddMessage('Это предварительный формат диалога!!!')
-    this.AddMessage('Кратко опишите суть проблемы в поле для ввода сообщения')
+    this.AddMessage('Это предварительный формат диалога!!!');
+    this.AddMessage('Кратко опишите суть проблемы в поле для ввода сообщения');
+
+    this.GetReasonsWhenCallIsRequired();
 
     document.addEventListener('click', e => {
       if (e.target.nodeName == 'A') {
-        const url = e.target.href;
-        this.instructions.forEach((i, key) => {
-          if (url == encodeURI(i) && !this.checkedInstructions.includes(key)) {
-            this.checkedInstructions.push(key);
-            console.log('checked: %d', this.checkedInstructions.length);
-            console.table(this.checkedInstructions);
-          }
-        });
+        this.CheckInstructionLinkUsed(e.target.href);
       }
     });
-    this.GetReasonsWhenCallIsRequired();
+    document.addEventListener('auxclick', e => {
+      if (e.button == 1 && e.target.nodeName == 'A') {
+        this.CheckInstructionLinkUsed(e.target.href);
+      }
+    });
   },
   methods: {
+    CheckInstructionLinkUsed(url) {
+      console.log('this.instructions');
+      console.log(this.instructions);
+      this.instructions.forEach(i => {
+        if (encodeURI(i.content).includes(url) && !this.checkedInstructions.includes(i.id)) {
+          this.checkedInstructions.push(i.id);
+          console.log('checked: %d', this.checkedInstructions.length);
+          console.table(this.checkedInstructions, ['id']);
+        }
+      });
+    },
     GetReasonsWhenCallIsRequired() {
       this.ax.get('reasons?call_required=true').then(r => {
         this.reasons = r.data.data.data;
@@ -105,22 +115,19 @@ export default {
 
       const message = this.CreatingMessage.trim();
 
-      this.ax.post('reason/init', {
-        message: message,
-      }).then(r => {
+      this.ax.post('reason/init', { message }).then(r => {
         if (r.data.status == false) {
           this.toast(r.data.message, 'error');
         }
 
         this.reason = r.data.data.name;
-        if (this.reason == 'Неопределённая тема') {
-          this.waiting = false;
-          return this.reformulationRequesting(message);
-        }
+        // if (this.reason == 'Неопределённая тема') {
+        //   this.waiting = false;
+        //   return this.reformulationRequesting(message);
+        // }
 
         if (this.reasons.filter(r => r.name == this.reason).length > 0) {
           return this.ShowTheCallIsRequiredModal();
-          // this.AddMessage('<b>По данной теме можно позвонить менеджеру ТП по внутренней связи на номер <i>112</i></b>');
         }
 
         return this.GoToNext();
@@ -136,43 +143,31 @@ export default {
 
       let SystemMessages = [
         'Перед тем, как завершить создание тикета, необходимо ознакомиться с предложенными ниже инструкциями',
-        // '<b>Также по данной теме можно позвонить менеджеру ТП по внутренней связи на номер <i>112</i></b>',
-        // `<a href="${this.VITE_APP_URL}/storage/Настройка стационарного телефона.pdf" target="_blank"><b>Инструкция</b></a>`,
-        // 'Если инструкции не помогли решить Вашу проблему, продолжите процесс создания тикета',
       ];
 
-      this.getInstructions();
-      this.instructions.forEach((i, key) => {
-        SystemMessages.push(`<a href="${i}" target="_blank">Инструкция ${key + 1}</a>`);
+      this.getInstructions().then(() => {
+        this.instructions.forEach((i, key) => {
+          // SystemMessages.push(`<a href="${i.content}" target="_blank">Инструкция ${key + 1}</a>`);
+          const content = FormatLinks(i.content, true);
+          SystemMessages.push(`<p><b>Инструкция ${key + 1}:</b> ${content}</p>`);
+        });
+        SystemMessages.push('Если инструкции не помогли решить Вашу проблему, продолжите процесс создания тикета');
+
+        this.AddMessage(FormatLinks(this.CreatingMessage.trim()), true);
+        SystemMessages.forEach((m, key) => setTimeout(() => {
+          this.AddMessage(m);
+          this.waiting = key < SystemMessages.length - 1;
+        }, key * 100));
+
+        this.hintsShowed = true;
       });
-      SystemMessages.push('Если инструкции не помогли решить Вашу проблему, продолжите процесс создания тикета');
-
-      this.AddMessage(FormatLinks(this.CreatingMessage.trim()), true);
-      SystemMessages.forEach((m, key) => setTimeout(() => {
-        this.AddMessage(m);
-        this.waiting = key < SystemMessages.length - 1;
-      }, key * 100));
-
-      this.hintsShowed = true;
     },
-    getInstructions() {
-      // console.log(this.reason);
-      // this.ax.get(`instructions?reason_name=${this.reason}`).then(r => {
-      //   this.instructions = r.data.data.data;
-      //   console.log(this.instructions);
-      //   this.instructions.forEach(i => i.link = `${this.VITE_APP_URL}${i.link}`);
-      //   console.log(this.instructions);
-      // }).catch(e => {
-      //   this.toast(e.response.data.message, 'error');
-      // });
-      this.instructions = [
-        `${this.VITE_APP_URL}/storage/Настройка стационарного телефона.pdf`,
-        // `${this.VITE_APP_URL}/storage/Настройка стационарного телефона1.pdf`,
-        // `${this.VITE_APP_URL}/storage/Настройка стационарного телефона2.pdf`,
-        // `${this.VITE_APP_URL}/storage/Настройка стационарного телефона3.pdf`,
-        // `${this.VITE_APP_URL}/storage/Настройка стационарного телефона4.pdf`,
-        // `${this.VITE_APP_URL}/storage/Настройка стационарного телефона5.pdf`,
-      ];
+    async getInstructions() {
+      await this.ax.get(`instructions?reason_name=${this.reason}`).then(r => {
+        this.instructions = r.data.data.data;
+      }).catch(e => {
+        this.toast(e.response.data.message, 'error');
+      });
     },
     reformulationRequesting(message) {
       this.AddMessage(FormatLinks(message), true);
@@ -209,6 +204,7 @@ export default {
       this.ax.post('tickets', {
         message: message,
         anydesk: anydesk,
+        checked_instructions: this.checkedInstructions,
       }).then(r => {
         if (r.data.status == false) {
           this.toast(r.data.message, 'error')
@@ -246,6 +242,9 @@ export default {
               :class="m.current ? 'order-1 items-end text-right' : 'order-2 items-start text-left'">
               <span class="flex flex-col px-4 py-2 rounded-lg" :class="m.current ? 'rounded-br-none bg-indigo-300 whitespace-pre-wrap dark:text-gray-900 dark:bg-indigo-400' :
                 'rounded-bl-none bg-gray-50 whitespace-pre-wrap dark:text-gray-900 dark:bg-gray-300'">
+                <span v-if="!m.current" class="text-xs font-light tracking-tighter"
+                  :class="m.current ? 'text-gray-500 dark:text-gray-600' : 'text-gray-400 dark:text-gray-500'">Система
+                </span>
                 <span v-html="m.content"></span>
                 <span class="text-xs font-light tracking-tighter"
                   :class="m.current ? 'text-gray-500 dark:text-gray-600' : 'text-gray-400 dark:text-gray-500'">

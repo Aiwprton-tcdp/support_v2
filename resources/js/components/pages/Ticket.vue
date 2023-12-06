@@ -20,6 +20,7 @@ import TemplateMessages from '@temps/Ticket/TemplateMessages.vue';
 // const TemplateMessages = defineAsyncComponent(() => import('@temps/Ticket/TemplateMessages.vue'));
 const Detalization = defineAsyncComponent(() => import('@temps/Ticket/Detalization.vue'));
 const SystemChat = defineAsyncComponent(() => import('@temps/Ticket/SystemChat.vue'));
+const InstructionsModal = defineAsyncComponent(() => import('@temps/Ticket/InstructionsModal.vue'));
 
 import 'swiper/css';
 import 'swiper/css/zoom';
@@ -33,7 +34,8 @@ export default {
     VueButton, Avatar, Tabs,
     Tab, Swiper, SwiperSlide,
     MessageAttachments, TemplateMessages,
-    Detalization, SystemChat
+    Detalization, SystemChat,
+    InstructionsModal
   },
   props: {
     id: Number(),
@@ -60,7 +62,7 @@ export default {
       VITE_CRM_MARKETPLACE_ID: String(import.meta.env.VITE_CRM_MARKETPLACE_ID),
       INCOMING_PHONE: String(import.meta.env.VITE_INCOMING_PHONE),
       OUTCOMING_PHONE: String(import.meta.env.VITE_OUTCOMING_PHONE),
-      OUTCOMING_GROUP_ID: String(import.meta.env.VITE_OUTCOMING_GROUP_ID),
+      OUTCOMING_GROUP_ID: Number(import.meta.env.VITE_OUTCOMING_GROUP_ID),
       marking: Boolean(),
       MarkIcons: Array({
         value: 1,
@@ -432,24 +434,24 @@ export default {
         }, 1000);
       }
     },
-    VoximplantQueueUserGet() {
-      console.log('voximplant.queue.user.get');
-      try {
-        BX24.init(() => BX24.callMethod(
-          'voximplant.queue.user.get',
-          { ID: this.OUTCOMING_GROUP_ID },
-          function (r) {
-            console.log(r);
-            console.log(r?.answer?.result, r.answer?.error_description);
-            // if (result.error())
-            //   console.error(result.error());
-            // else
-            //   console.info(result.data());
-          }));
-      } catch (e) {
-        console.log('VoximplantQueueUserGet error');
-      }
-    },
+    // VoximplantQueueUserGet() {
+    //   console.log('voximplant.queue.user.get');
+    //   try {
+    //     BX24.init(() => BX24.callMethod(
+    //       'voximplant.queue.user.get',
+    //       { ID: this.OUTCOMING_GROUP_ID },
+    //       function (r) {
+    //         console.log(r);
+    //         console.log(r?.answer?.result, r.answer?.error_description);
+    //         // if (result.error())
+    //         //   console.error(result.error());
+    //         // else
+    //         //   console.info(result.data());
+    //       }));
+    //   } catch (e) {
+    //     console.log('VoximplantQueueUserGet error');
+    //   }
+    // },
     VoximplantQueueUserSet(id) {
       console.log('voximplant.queue.user.set');
       id = parseInt(id);
@@ -460,10 +462,12 @@ export default {
           USER_IDS: [id],
         }, r => {
           if (!r.answer?.error_description) {
-            const result = r?.answer?.result?.result;
-            console.log(result);
+            // const result = r?.answer?.result?.result;
+            // console.log(result);
             this.isReadyToCall = true;
-            this.mayToCall = result.includes(id);
+            // this.mayToCall = result.includes(id);
+            console.log(r?.answer?.result);
+            this.mayToCall = r?.answer?.result?.result?.includes(id) || r?.answer?.result == true;
           }
         }));
       } catch (error) {
@@ -481,16 +485,21 @@ export default {
           USER_IDS: [id],
         }, r => {
           if (!r.answer?.error_description) {
-            const result = r?.answer?.result?.result;
-            console.log(result);
+            // const result = r?.answer?.result?.result;
+            // console.log(result);
             this.isReadyToCall = false;
-            this.mayToCall = result.includes(id);
+            // this.mayToCall = result.includes(id);
+            this.mayToCall = r?.answer?.result == true;
           }
         }));
       } catch (error) {
         this.isReadyToCall = false;
         console.log(error);
       }
+    },
+    ShowInstructionsModal() {
+      this.$refs.InstructionsInModal.visible = true;
+      this.$refs.InstructionsInModal.get(this.ticket.id, this.ticket.reason_id);
     },
   },
   watch: {
@@ -525,6 +534,9 @@ export default {
                 class="flex flex-col space-y-2 text-sm max-w-sm xl:max-w-md 2xl:max-w-lg mx-2 order-2 items-start text-left opacity-90">
                 <span
                   class="flex flex-col w-full px-4 py-2 rounded-lg rounded-bl-none bg-gray-50 whitespace-pre-wrap dark:text-gray-900 dark:bg-gray-300">
+                  <span class="text-xs font-light tracking-tighter text-gray-400 dark:text-gray-500">
+                    {{ participants[m.user_id]?.name }}
+                  </span>
                   <MessageAttachments v-if="m.images.length > 0 || m.files.length > 0" :images="m.images" :files="m.files"
                     :domain="m.attachments_domain" :message_id="m.id" />
                   <span v-html="m?.content" class="break-words"></span>
@@ -708,37 +720,44 @@ export default {
           </div>
 
           <div class="flex flex-row items-center gap-1 px-3 py-2 bg-gray-50 dark:bg-gray-700">
+            <!-- Instructions button -->
+            <div class="border-none bg-transparent p-2 hover:border-none focus:border-none">
+              <svg @click="ShowInstructionsModal()" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                stroke-width="1.5" stroke="currentColor" class="w-6 h-6 cursor-pointer hover:text-blue-500">
+                <title>Инструкции</title>
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V18a2.25 2.25 0 002.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h13.5M6 7.5h3v3H6v-3z" />
+              </svg>
+            </div>
             <!-- Call button -->
-            <div v-if="ticket.new_user_id == UserData.user_id"
+            <div v-if="ticket.new_user_id == UserData.user_id && ticket.important_reason"
               class="border-none bg-transparent p-2 hover:border-none focus:border-none">
-              <div @click="tryToCall()" class="cursor-pointer hover:text-green-500" title="Позвонить менеджеру ТП">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                  stroke="currentColor" class="w-6 h-6">
-                  <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M20.25 3.75v4.5m0-4.5h-4.5m4.5 0l-6 6m3 12c-8.284 0-15-6.716-15-15V4.5A2.25 2.25 0 014.5 2.25h1.372c.516 0 .966.351 1.091.852l1.106 4.423c.11.44-.054.902-.417 1.173l-1.293.97a1.062 1.062 0 00-.38 1.21 12.035 12.035 0 007.143 7.143c.441.162.928-.004 1.21-.38l.97-1.293a1.125 1.125 0 011.173-.417l4.423 1.106c.5.125.852.575.852 1.091V19.5a2.25 2.25 0 01-2.25 2.25h-2.25z" />
-                </svg>
-              </div>
+              <svg @click="tryToCall()" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                stroke-width="1.5" stroke="currentColor" class="w-6 h-6 cursor-pointer hover:text-green-500">
+                <title>Позвонить менеджеру ТП</title>
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M20.25 3.75v4.5m0-4.5h-4.5m4.5 0l-6 6m3 12c-8.284 0-15-6.716-15-15V4.5A2.25 2.25 0 014.5 2.25h1.372c.516 0 .966.351 1.091.852l1.106 4.423c.11.44-.054.902-.417 1.173l-1.293.97a1.062 1.062 0 00-.38 1.21 12.035 12.035 0 007.143 7.143c.441.162.928-.004 1.21-.38l.97-1.293a1.125 1.125 0 011.173-.417l4.423 1.106c.5.125.852.575.852 1.091V19.5a2.25 2.25 0 01-2.25 2.25h-2.25z" />
+              </svg>
             </div>
             <!-- Template messages button -->
             <div v-if="UserData.role_id == 2" class="border-none bg-transparent p-2 hover:border-none focus:border-none">
-              <div @click="showTempMessages = !showTempMessages" class="cursor-pointer" title="Шаблоны сообщений">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                  stroke="currentColor" class="w-6 h-6">
-                  <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
-                </svg>
-              </div>
+              <svg @click="showTempMessages = !showTempMessages" xmlns="http://www.w3.org/2000/svg" fill="none"
+                viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+                class="w-6 h-6 cursor-pointer hover:!text-green-500">
+                <title>Шаблонные сообщения</title>
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+              </svg>
             </div>
             <!-- Copy ticket link button -->
             <div v-else-if="!UserData.is_admin && UserData.role_id != 2"
               class="border-none bg-transparent p-2 hover:border-none focus:border-none">
-              <div @click="CopyTicketId()" class="cursor-pointer hover:text-sky-500" title="Скопировать ссылку на тикет">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                  stroke="currentColor" class="w-6 h-6">
-                  <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
-                </svg>
-              </div>
+              <svg @click="CopyTicketId()" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                stroke-width="1.5" stroke="currentColor" class="w-6 h-6 cursor-pointer hover:!text-sky-500">
+                <title>Скопировать ссылку на тикет</title>
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+              </svg>
             </div>
 
             <!-- Attachments sending input -->
@@ -838,6 +857,11 @@ export default {
       </div>
     </div>
   </Transition>
+
+  <!-- Modals -->
+  <Teleport to="body">
+    <InstructionsModal ref="InstructionsInModal" />
+  </Teleport>
 </template>
 
 <style>

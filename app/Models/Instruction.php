@@ -26,4 +26,9 @@ class Instruction extends Model
     ];
 
     protected $table = 'instructions';
+    
+    public function checked()
+    {
+        return $this->hasMany(CheckedInstruction::class, 'instruction_id', 'id');
+    }
 }

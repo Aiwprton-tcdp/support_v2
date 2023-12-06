@@ -7,7 +7,7 @@ const routes = [{
   props: route => ({ id: route.query.id }),
   alias: ['/tickets'],
   children: [{
-    path: ':id',
+    path: '?id=:id',
     name: 'ticket',
     props: true,
     component: () => import('@pages/Ticket.vue')
@@ -21,7 +21,7 @@ const routes = [{
   name: 'archive',
   component: () => import('@pages/Archive.vue'),
   children: [{
-    path: ':id',
+    path: '?id=:id',
     name: 'archive_ticket',
     props: true,
     component: () => import('@pages/Ticket.vue')

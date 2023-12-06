@@ -6,6 +6,7 @@ use App\Http\Requests\StoreParticipantRequest;
 use App\Http\Requests\StoreTicketRequest;
 use App\Http\Requests\UpdateTicketRequest;
 use App\Http\Resources\TicketResource;
+use App\Models\CheckedInstruction;
 use App\Models\HiddenChatMessage;
 use App\Models\Message;
 use App\Models\Reason;
@@ -89,6 +90,7 @@ class TicketController extends Controller
         'tickets.*',
         'tickets.id AS tid',
         'reasons.name AS reason',
+        'reasons.call_required AS important_reason',
         'messages.new_user_id AS last_message_user_id',
         'messages.created_at AS last_message_date',
         'hidden_chat_messages.created_at AS last_system_message_date',
@@ -143,6 +145,7 @@ class TicketController extends Controller
           'tickets.*',
           'tickets.id AS tid',
           'reasons.name AS reason',
+          'reasons.call_required AS important_reason',
           'messages.new_user_id AS last_message_user_id',
           'messages.created_at AS last_message_date',
           'hidden_chat_messages.created_at AS last_system_message_date',
@@ -249,7 +252,8 @@ class TicketController extends Controller
 
     $current_manager = [];
     if (count($managers) > 1) {
-      $id = TicketTrait::SelectResponsiveId($managers);
+      // $id = TicketTrait::SelectResponsiveId($managers);
+      $id = TicketTrait::selectResponsiveIdByMoronicDistributionType($managers);
       // dd($id, $managers);
       if ($id > 0) {
         $current_manager = array_values(array_filter($managers, fn($m) => $m['user_id'] == $id))[0];
@@ -302,6 +306,13 @@ class TicketController extends Controller
       'new_user_id' => $data['new_user_id'],
       'ticket_id' => $ticket->id,
     ]);
+    if (isset($data['checked_instructions'])) {
+      $instr = array_map(fn($i) => [
+        'instruction_id' => $i,
+        'ticket_id' => $ticket->id,
+      ], $data['checked_instructions']);
+      CheckedInstruction::insert($instr);
+    }
 
     $ticket->reason = $reason->name;
     $ticket->user = UserTrait::tryToDefineUserEverywhere($user_crm_id, User::find($data['new_user_id'])->email);
@@ -316,6 +327,7 @@ class TicketController extends Controller
     $ticket->bx_name = $bx_crm_data->name;
     $ticket->bx_acronym = $bx_crm_data->acronym;
     $ticket->bx_domain = $bx_crm_data->domain;
+    $ticket->important_reason = $reason->call_required;
 
     $resource = TicketResource::make($ticket);
     TicketTrait::SendMessageToWebsocket("{$new_manager_email}.ticket", [
@@ -352,6 +364,7 @@ class TicketController extends Controller
         'tickets.*',
         'tickets.id AS tid',
         'reasons.name AS reason',
+        'reasons.call_required AS important_reason',
         'bxc.name AS bx_name',
         'bxc.acronym AS bx_acronym',
         'bxc.domain AS bx_domain',
@@ -393,7 +406,11 @@ class TicketController extends Controller
     $validated = $request->validated();
     $ticket = Ticket::join('reasons', 'reasons.id', 'tickets.reason_id')
       ->where('tickets.id', $id)
-      ->select('tickets.*', 'reasons.name AS reason')
+      ->select(
+        'tickets.*',
+        'reasons.name AS reason',
+        'reasons.call_required AS important_reason',
+      )
       ->first();
     //   dd($ticket);
     // $bx_user_id = DB::table('bx_crms')
@@ -509,7 +526,11 @@ class TicketController extends Controller
 
     $ticket = Ticket::join('reasons', 'reasons.id', 'tickets.reason_id')
       ->where('tickets.id', $id)
-      ->select('tickets.*', 'reasons.name AS reason')
+      ->select(
+        'tickets.*',
+        'reasons.name AS reason',
+        'reasons.call_required AS important_reason',
+      )
       ->first();
     $ticket->user = $user;
     $ticket->manager = $manager;
